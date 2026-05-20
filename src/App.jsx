@@ -1659,12 +1659,20 @@ function ModulesStep({ modulart, project, gewerbConfig, selections, setSelection
               <>
                 <div className="space-y-2.5 pb-5 mb-5 border-b border-[#1C1C1A]/10 max-h-48 overflow-auto scrollbar-none">
                   {totals.lineItems.map(it => (
-                    <div key={it.kuerzel} className="flex justify-between gap-4 text-sm font-body">
-                      <span className="text-[#1C1C1A] flex-1 leading-tight">
+                    <div key={it.kuerzel} className="flex items-start justify-between gap-3 text-sm font-body group">
+                      <span className="text-[#1C1C1A] flex-1 leading-tight min-w-0">
                         <span className="num">{it.count}×</span> <span className="text-[#6B6961]">{it.kuerzel}</span>
                         {it.mode === 'einnahmen' && it.einnahmen > 0 && <span className="text-[10px] text-[#A88B5A] ml-1 tracking-wider uppercase">verm.</span>}
                       </span>
-                      <span className="num text-[#1C1C1A] shrink-0">{fmtEUR(it.count * it.brutto)}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="num text-[#1C1C1A]">{fmtEUR(it.count * it.brutto)}</span>
+                        <button
+                          onClick={() => setSelections(prev => { const n = {...prev}; delete n[it.kuerzel]; return n; })}
+                          className="opacity-40 hover:opacity-100 hover:text-[#B0452C] transition-all p-0.5"
+                          title="Modul aus Auswahl entfernen">
+                          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2291,7 +2299,7 @@ function SuccessStep({ lead, onRestart }) {
 
 function AdminView({ leads, refreshLeads }) {
   async function clearAll() {
-    try { localStorage.removeItem('leads-list'); refreshLeads(); }
+    try { localStorage.removeItem("leads-list"); refreshLeads(); }
     catch (e) { console.error(e); }
   }
   return (
@@ -2406,9 +2414,25 @@ export default function App() {
   }), [selections, modes, project, effectiveGewerbConfig, ekPrivat, ekGewerb, financing, vermietungDurchCoMod]);
 
   function handleTypeSelect(type) {
+    // Bei Typ-Wechsel kompletter Reset der Modul-Auswahl, damit private/gewerbliche Pfade nicht vermischen
+    setSelections({}); setModes({}); setAddUsageState('g');
+    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false);
     setCustomerType(type);
-    if (type === 'privat') setStep(0.3);
-    else { setProject(null); setPrivatMode(null); setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null); setStep(0.5); }
+    if (type === 'privat') {
+      setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
+      setStep(0.3);
+    } else {
+      setProject(null); setPrivatMode(null); setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
+      setStep(0.5);
+    }
+  }
+  // Beim Zurückgehen zum Welcome-Screen: alle Auswahlen zurücksetzen, damit der nächste Pfad sauber startet
+  function goToWelcome() {
+    setSelections({}); setModes({}); setAddUsageState('g');
+    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false);
+    setProject(null); setPrivatMode(null); setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
+    setCustomerType(null);
+    setStep(0);
   }
   function handlePrivatMode(mode) {
     setPrivatMode(mode);
@@ -2463,14 +2487,14 @@ export default function App() {
 
       {view === 'admin' ? <AdminView leads={leads} refreshLeads={refreshLeads} />
         : step === 0 ? <WelcomeStep onSelect={handleTypeSelect} />
-        : step === 0.3 ? <PrivatModeStep onSelectMode={handlePrivatMode} onBack={() => setStep(0)} />
+        : step === 0.3 ? <PrivatModeStep onSelectMode={handlePrivatMode} onBack={goToWelcome} />
         : step === 0.4 ? <ProjectPickerStep selectedProject={project} onSelect={handleProjectSelect} onBack={() => setStep(0.3)} />
         : step === 0.45 ? <ModulartStep onSelect={handleModulart} onBack={() => {
             if (customerType === 'privat') {
               if (privatMode === 'projekt') setStep(0.4); else setStep(0.3);
             } else setStep(0.5);
           }} />
-        : step === 0.5 ? <GewerbeConfigStep config={gewerbConfig} setConfig={setGewerbConfig} onContinue={handleGewerbContinue} onBack={() => setStep(0)} />
+        : step === 0.5 ? <GewerbeConfigStep config={gewerbConfig} setConfig={setGewerbConfig} onContinue={handleGewerbContinue} onBack={goToWelcome} />
         : step === 1 ? <ModulesStep modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} />
         : step === 2 ? <FinancingStep totals={totals} project={project} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} onNext={() => setStep(3)} onBack={() => setStep(1)} />
         : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} />
@@ -2479,7 +2503,7 @@ export default function App() {
 
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
         <div className="max-w-7xl mx-auto px-8 py-8 flex items-center justify-between font-body text-xs text-[#6B6961] flex-wrap gap-4">
-          <p>CoMod Konfigurator — Prototyp v0.9.11</p>
+          <p>CoMod Konfigurator — Prototyp v0.9.12</p>
           <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
         </div>
       </footer>
