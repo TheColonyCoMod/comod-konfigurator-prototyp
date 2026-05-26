@@ -31,6 +31,9 @@ const PRODUCTS_PRIVAT_RAW = [
   { kuerzel: 'CoMod Add 12',            family: 'add',  groesse: 12, beschr: 'Leer, klein (12 m²)',                                 cat: 'ergaenzung', nuf: 12, bgf: 14, herst: 29000,  marge: 0.075 },
 ];
 
+// ⚠️ Einnahmen-Werte sind Indikationen — bitte vor Live-Gang mit Marc & Vanisson final abstimmen
+//    Annahme: Monatsmieten brutto. CoWork-Werte basieren auf Vollauslastung mit ~25 €/m² Markt-Niveau.
+//    Community-Module: 0 € weil Einnahmen über umliegende Bewohner umgelegt werden (Quartiers-Modell).
 const PRODUCTS_GEWERB_RAW = [
   { kuerzel: 'CoMod Live B (LK,D,M)',   family: 'liveb', kueche: 'L-Küche',    moebliert: true,  beschr: 'L-Küche, Duschbad, möbliert',          cat: 'wohnen',     nuf: 32, bgf: 36, herst: 149000, marge: 0.15,  einnahmen: 1800, fee: 0.15 },
   { kuerzel: 'CoMod Live B (D,M)',      family: 'liveb', kueche: 'Ohne Küche', moebliert: true,  beschr: 'Duschbad, möbliert',                   cat: 'wohnen',     nuf: 32, bgf: 36, herst: 144000, marge: 0.15,  einnahmen: 1700, fee: 0.15 },
@@ -39,14 +42,14 @@ const PRODUCTS_GEWERB_RAW = [
   { kuerzel: 'CoMod Stay (LK,D,M)',     family: 'stay',  kueche: 'L-Küche', beschr: 'L-Küche, Duschbad, möbliert',                               cat: 'aufenthalt', nuf: 24, bgf: 28, herst: 129000, marge: 0.15,  einnahmen: 1900, fee: 0.15 },
   { kuerzel: 'CoMod Stay (PK,D,M)',     family: 'stay',  kueche: 'Pantry', beschr: 'Pantry-Küche, Duschbad, möbliert',                            cat: 'aufenthalt', nuf: 24, bgf: 28, herst: 124000, marge: 0.15,  einnahmen: 1800, fee: 0.15 },
   { kuerzel: 'CoMod B 48 (LK,D,1Z)',    family: 'bcombi', groesse: 48, beschr: 'Kombi 48 m², L-Küche, 1 Zimmer',                                  cat: 'wohnen',     nuf: 48, bgf: 52, herst: 189000, marge: 0.15,  einnahmen: 2400, fee: 0.15 },
-  { kuerzel: 'CoMod B 64 (LK,D,2Z)',    family: 'bcombi', groesse: 64, beschr: 'Kombi 64 m², L-Küche, 2 Zimmer',                                  cat: 'wohnen',     nuf: 48, bgf: 52, herst: 189000, marge: 0.15,  einnahmen: 2400, fee: 0.15 },
+  { kuerzel: 'CoMod B 64 (LK,D,2Z)',    family: 'bcombi', groesse: 64, beschr: 'Kombi 64 m², L-Küche, 2 Zimmer',                                  cat: 'wohnen',     nuf: 64, bgf: 68, herst: 219000, marge: 0.15,  einnahmen: 3000, fee: 0.15 },
   { kuerzel: 'CoMod Double B (D,M)',    family: 'double', beschr: '2-in-1, 2 Duschbäder, möbliert',                                                cat: 'aufenthalt', nuf: 36, bgf: 40, herst: 119000, marge: 0.15,  einnahmen: 2200, fee: 0.15 },
   { kuerzel: 'CoMod Gym B',             family: 'gym',     beschr: 'Mit Duschen, Umkleiden',                                                      cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 109000, marge: 0.175, einnahmen: 1400, fee: 0.10 },
-  { kuerzel: 'CoMod Music B',           family: 'music',   beschr: 'Schalloptimiert',                                                             cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 42000,  marge: 0.10,  einnahmen: 600,  fee: 0.10 },
+  { kuerzel: 'CoMod Music B',           family: 'music',   beschr: 'Schalloptimiert',                                                             cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 42000,  marge: 0.10,  einnahmen: 800,  fee: 0.10 },
   { kuerzel: 'CoMod Wellness B',        family: 'wellness',beschr: 'Sauna, Eisbad, Liegen',                                                       cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 99000,  marge: 0.175, einnahmen: 1200, fee: 0.10 },
-  { kuerzel: 'CoMod CoWork B 48',       family: 'cowork',  groesse: 48, beschr: 'Co-Working 48 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 48, bgf: 52, herst: 89000,  marge: 0.125, einnahmen: 250,  fee: 0.05 },
-  { kuerzel: 'CoMod CoWork B 64',       family: 'cowork',  groesse: 64, beschr: 'Co-Working 64 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 64, bgf: 68, herst: 99000,  marge: 0.125, einnahmen: 300,  fee: 0.05 },
-  { kuerzel: 'CoMod CoWork B 96',       family: 'cowork',  groesse: 96, beschr: 'Co-Working 96 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 96, bgf: 100,herst: 109000, marge: 0.125, einnahmen: 350,  fee: 0.05 },
+  { kuerzel: 'CoMod CoWork B 48',       family: 'cowork',  groesse: 48, beschr: 'Co-Working 48 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 48, bgf: 52, herst: 89000,  marge: 0.125, einnahmen: 1200, fee: 0.05 },
+  { kuerzel: 'CoMod CoWork B 64',       family: 'cowork',  groesse: 64, beschr: 'Co-Working 64 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 64, bgf: 68, herst: 99000,  marge: 0.125, einnahmen: 1600, fee: 0.05 },
+  { kuerzel: 'CoMod CoWork B 96',       family: 'cowork',  groesse: 96, beschr: 'Co-Working 96 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 96, bgf: 100,herst: 109000, marge: 0.125, einnahmen: 2400, fee: 0.05 },
   { kuerzel: 'CoMod Community B 64',    family: 'community', groesse: 64, beschr: 'Versammlung 64 m², mit WC',                                    cat: 'arbeit',     nuf: 64, bgf: 68, herst: 89000,  marge: 0.10,  einnahmen: 0,    fee: 0    },
   { kuerzel: 'CoMod Community B 96',    family: 'community', groesse: 96, beschr: 'Versammlung 96 m², mit WC',                                    cat: 'arbeit',     nuf: 96, bgf: 100,herst: 99000,  marge: 0.10,  einnahmen: 0,    fee: 0    },
   { kuerzel: 'CoMod Add B 32',          family: 'addb',    groesse: 32, beschr: 'Leer, groß (32 m²)',                                              cat: 'ergaenzung', nuf: 32, bgf: 36, herst: 39000,  marge: 0.075, einnahmen: 0,    fee: 0    },
@@ -104,6 +107,7 @@ const BEBAUUNGSGRAD = 0.80; // 80% der Fläche sind effektiv bebaubar (Rest = We
 // Pauschalkosten je Modul (Platzhalter, später Admin-pflegbar)
 const KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL = 3500; // OG + DG benötigen Aufgänge
 const KOSTEN_TERRASSE_PRO_MODUL = 2500;           // EG bekommt Terrasse
+const KOSTEN_PV_PRO_MODUL = 12000;                // PV-Anlage inkl. Speicher & Wechselrichter pro oberstem Modul (Vollausstattung 100 %)
 
 function withPrices(p) {
   const grundpreis = p.herst * p.marge;
@@ -111,6 +115,18 @@ function withPrices(p) {
   const netto = p.herst + grundpreis + provision;
   const brutto = netto * (1 + UST);
   return { ...p, netto, brutto };
+}
+
+// Rabatt wirkt NUR auf Herstellungskosten — Marge und Provision bleiben vollständig erhalten.
+// Das schützt einerseits die Provision unserer Vertriebspartner und sichert andererseits
+// unsere kalkulatorische Marge auch bei großen Projekten ab.
+function calcRabattiertePreise(product, rabattPct) {
+  const herstRabattiert = product.herst * (1 - rabattPct);
+  const grundpreis = herstRabattiert * product.marge;
+  const provision = product.herst * PROV; // bleibt auf vollem Herstellpreis
+  const netto = herstRabattiert + grundpreis + provision;
+  const brutto = netto * (1 + UST);
+  return { netto, brutto, rabattEUR: product.netto - netto };
 }
 
 const PRODUCTS = {
@@ -245,7 +261,7 @@ function validateGeschossVerteilung(verteilung, zielwert) {
   }
   return { valid: true, error: null };
 }
-function calcEinmaligeProjektkosten({ modulAnzahl, grundstueckGroesse, geschosse, activeOptionen, hasGrundstueck, useEstimates, totalBGF, geschossVerteilung }) {
+function calcEinmaligeProjektkosten({ modulAnzahl, grundstueckGroesse, geschosse, activeOptionen, hasGrundstueck, useEstimates, totalBGF, geschossVerteilung, pvAnteil }) {
   const staffel = getProjektkostenStaffel(modulAnzahl);
   const gAnzahl = geschosse || 2;
   const belegteFlaeche = (totalBGF || 0) > 0 ? Math.ceil(totalBGF / gAnzahl) : Math.ceil((modulAnzahl * 36) / gAnzahl);
@@ -276,6 +292,21 @@ function calcEinmaligeProjektkosten({ modulAnzahl, grundstueckGroesse, geschosse
         netto, brutto: netto * (1 + UST), typ: 'pflicht',
         detail: `${egCount} EG-Module × ${fmtEUR(KOSTEN_TERRASSE_PRO_MODUL)}`
       });
+    }
+    // PV-Anlage auf oberstem Geschoss
+    if ((pvAnteil || 0) > 0) {
+      // Oberstes Geschoss = letztes Element der Verteilung
+      const oberstesGeschoss = geschossVerteilung[geschossVerteilung.length - 1] || 0;
+      const pvModule = Math.round(oberstesGeschoss * pvAnteil);
+      if (pvModule > 0) {
+        const netto = pvModule * KOSTEN_PV_PRO_MODUL;
+        const pctLabel = pvAnteil === 1 ? '100 %' : pvAnteil === 0.5 ? '50 %' : `${Math.round(pvAnteil * 100)} %`;
+        posten.push({
+          id: 'pv', label: `PV-Anlage (${pctLabel} Dachfläche)`,
+          netto, brutto: netto * (1 + UST), typ: 'option',
+          detail: `${pvModule} oberste Module × ${fmtEUR(KOSTEN_PV_PRO_MODUL)} (inkl. Speicher & Wechselrichter)`
+        });
+      }
     }
   }
 
@@ -369,7 +400,12 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const rabattBasis = (gewerbConfig && gewerbConfig.zielModulAnzahl > 0) ? gewerbConfig.zielModulAnzahl : countTotal;
   const rabattPct = getRabatt(rabattBasis) + (project ? project.projektrabatt : 0);
   const nextStaffel = getNextRabattSchwelle(rabattBasis);
-  const mindestflaeche = gewerbConfig ? calcMindestflaeche({ totalBGF: gesamtBGF, geschosse: gewerbConfig.geschosse || 2 }) : null;
+  // Mindestfläche-Berechnung:
+  // - Gewerbekunden: mit gewählter Geschosszahl
+  // - Privatkunden ohne Projekt (eigenes Grundstück): default 1 Geschoss (häufigster Fall: Tiny-House-Ansatz)
+  const mindestflaeche = gewerbConfig
+    ? calcMindestflaeche({ totalBGF: gesamtBGF, geschosse: gewerbConfig.geschosse || 2 })
+    : (!project && gesamtBGF > 0 ? calcMindestflaeche({ totalBGF: gesamtBGF, geschosse: 1 }) : null);
 
   let einmaligGesamtBrutto = 0;
   let einmaligDetail = null;
@@ -377,7 +413,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     einmaligGesamtBrutto = countTotal * (project.umlageProModulEinmalig || 0);
   } else if (gewerbConfig) {
     einmaligDetail = calcEinmaligeProjektkosten({
-      modulAnzahl: countTotal,
+      modulAnzahl: gewerbConfig.zielModulAnzahl || countTotal,
       grundstueckGroesse: gewerbConfig.flaecheStatus === 'ja' ? gewerbConfig.grundstueckGroesse : 0,
       geschosse: gewerbConfig.geschosse || 2,
       activeOptionen: gewerbConfig.activeOptionen || {},
@@ -385,13 +421,21 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
       useEstimates: gewerbConfig.flaecheStatus === 'ja' && !gewerbConfig.detailKosten,
       totalBGF: gesamtBGF,
       geschossVerteilung: gewerbConfig.geschossVerteilung || [],
+      pvAnteil: gewerbConfig.pvAnteil || 0,
     });
     einmaligGesamtBrutto = einmaligDetail.summeBrutto;
   }
   const einmaligProModul = countTotal > 0 ? einmaligGesamtBrutto / countTotal : 0;
 
-  const effPrivat = bruttoPrivat * (1 - rabattPct) + countPrivat * einmaligProModul;
-  const effGewerbNetto = nettoGewerb * (1 - rabattPct) + countGewerb * (einmaligProModul / (1 + UST));
+  // Rabatt wirkt nur auf Herstellungskosten (siehe calcRabattiertePreise)
+  const rabattPreiseSum = (items) => items.reduce((acc, x) => {
+    const r = calcRabattiertePreise(x, rabattPct);
+    return { netto: acc.netto + x.count * r.netto, brutto: acc.brutto + x.count * r.brutto };
+  }, { netto: 0, brutto: 0 });
+  const privatSum = rabattPreiseSum(privatItems);
+  const gewerbSum = rabattPreiseSum(gewerbItems);
+  const effPrivat = privatSum.brutto + countPrivat * einmaligProModul;
+  const effGewerbNetto = gewerbSum.netto + countGewerb * (einmaligProModul / (1 + UST));
   const effGewerbBrutto = effGewerbNetto * (1 + UST);
 
   const pachtSource = project ? { hasPacht: (project.pachtJahr || 0) > 0, pachtJahr: project.pachtJahr || 0, pachtGewerblich: project.pachtGewerblich, zielModulAnzahl: project.zielModulAnzahl || 0 }
@@ -415,10 +459,13 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     : 0;
   const plattformRateEff = Math.max(0, plattformRate - steuerentlastung);
 
-  const finanzierungMonat = kfwRate + glsRate + plattformRateEff;
+  const finanzierungMonat = kfwRate + glsRate + plattformRate;
   const monatlichGesamt = finanzierungMonat + nebenkostenMonatGesamt;
 
   const incomeItems = lineItems.filter(x => x.mode === 'einnahmen' && (x.einnahmen || 0) > 0);
+  // Gewerbliche Module in Eigennutzung — Basis für "Belastung pro Mitarbeiter"-Logik
+  const eigennutzungGewerbItems = lineItems.filter(x => x.usage === 'g' && x.mode === 'eigennutzung');
+  const eigennutzungGewerbCount = eigennutzungGewerbItems.reduce((s, x) => s + x.count, 0);
   const monthlyIncomeBrutto = incomeItems.reduce((s, x) => s + x.count * x.einnahmen, 0);
   const feeAbzug = vermietungDurchCoMod ? incomeItems.reduce((s, x) => s + x.count * x.einnahmen * x.fee, 0) : 0;
   const monthlyIncomeNetto = monthlyIncomeBrutto - feeAbzug;
@@ -432,6 +479,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
 
   return {
     lineItems, privatItems, gewerbItems, incomeItems,
+    eigennutzungGewerbCount,
     countPrivat, countGewerb, countTotal, einheitenPrivat, einheitenGewerb, einheitenTotal, gesamtNUF, gesamtBGF, nufPrivat, nufGewerb,
     bruttoPrivat, nettoGewerb, rabattPct, nextStaffel,
     effPrivat, effGewerbNetto, effGewerbBrutto,
@@ -514,7 +562,7 @@ function FieldLabel({ children, required, hint }) {
 }
 
 function StepIndicator({ currentStep, onJump }) {
-  const steps = ['Auswahl', 'Module', 'Finanzierung', 'Anfrage'];
+  const steps = ['Auswahl', 'Module', 'Finanzierung', 'Unverb. Angebot'];
   return (
     <div className="flex items-center gap-3 font-body text-xs tracking-wider uppercase">
       {steps.map((label, i) => (
@@ -608,7 +656,7 @@ function WelcomeStep({ onSelect }) {
       </div>
       <div className="mt-16 pt-8 border-t border-[#1C1C1A]/10 flex items-center gap-3 text-sm font-body text-[#6B6961]">
         <Sparkles className="w-4 h-4 text-[#A88B5A]" strokeWidth={1.5} />
-        <span>Test-Modus aktiv — keine echten Daten werden übertragen.</span>
+        <span>Unverbindliche Modellrechnung zur ersten Orientierung — alle Zahlen sind Indikationen, keine zugesicherten Werte.</span>
       </div>
     </div>
   );
@@ -1059,6 +1107,36 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                     </div>
                   )}
                 </div>
+
+                {/* PV-Anlage-Auswahl */}
+                {dachflaeche > 0 && (() => {
+                  const oberstesGeschoss = verteilung[verteilung.length - 1] || 0;
+                  const pv50 = Math.round(oberstesGeschoss * 0.5);
+                  const pv100 = oberstesGeschoss;
+                  return (
+                    <div className="mt-4 pt-4 border-t border-[#1C1C1A]/8">
+                      <FieldLabel required={false} hint="Inkl. Speicher & Wechselrichter">PV-Anlage auf Dachfläche</FieldLabel>
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        <button onClick={() => setConfig(c => ({...c, pvAnteil: 0}))}
+                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0 ? 'border-[#3D5446] bg-[#3D5446]/10 ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                          <p className="font-body text-sm text-[#1C1C1A]">Keine PV</p>
+                          <p className="font-body text-[10px] text-[#6B6961] mt-0.5">—</p>
+                        </button>
+                        <button onClick={() => setConfig(c => ({...c, pvAnteil: 0.5}))}
+                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0.5 ? 'border-[#3D5446] bg-[#3D5446]/10 ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                          <p className="font-body text-sm text-[#1C1C1A]">50 % Dach</p>
+                          <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pv50} Module · {fmtEUR(pv50 * KOSTEN_PV_PRO_MODUL)}</p>
+                        </button>
+                        <button onClick={() => setConfig(c => ({...c, pvAnteil: 1}))}
+                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 1 ? 'border-[#3D5446] bg-[#3D5446]/10 ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                          <p className="font-body text-sm text-[#1C1C1A]">100 % Dach</p>
+                          <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pv100} Module · {fmtEUR(pv100 * KOSTEN_PV_PRO_MODUL)}</p>
+                        </button>
+                      </div>
+                      <p className="font-body text-[11px] text-[#6B6961] mt-2">PV-Anlage inkl. Speicher und Wechselrichter, je Modul {fmtEUR(KOSTEN_PV_PRO_MODUL)} netto. Berechnung auf Anzahl der Module im obersten Geschoss.</p>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -1476,7 +1554,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
           <div className="mt-3 px-3 py-2 bg-[#A88B5A]/10 border border-[#A88B5A]/25 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               <TrendingUp className="w-3.5 h-3.5 text-[#A88B5A]" strokeWidth={2} />
-              <span className="font-body text-xs text-[#1C1C1A]">Erwartete Miete / Monat</span>
+              <span className="font-body text-xs text-[#1C1C1A]">Mietindikation / Monat</span>
             </div>
             <span className="font-display text-sm num text-[#1C1C1A]">{fmtEUR(product.einnahmen)}</span>
           </div>
@@ -1501,7 +1579,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
   );
 }
 
-function ModulesStep({ modulart, project, gewerbConfig, selections, setSelections, modes, setModes, totals, onNext, onBack, addUsageState, setAddUsageState }) {
+function ModulesStep({ customerType, modulart, project, gewerbConfig, selections, setSelections, modes, setModes, totals, onNext, onBack, addUsageState, setAddUsageState }) {
   const [variantState, setVariantState] = useState({});
 
   // Welche Familien sollen gezeigt werden?
@@ -1554,7 +1632,13 @@ function ModulesStep({ modulart, project, gewerbConfig, selections, setSelection
   const showAddInCat = showAddCombined && (catFilter === 'alle' || catFilter === 'ergaenzung');
 
   const hasProjectOrConfig = !!(project || gewerbConfig);
-  const showMindestflaeche = gewerbConfig && gewerbConfig.flaecheStatus !== 'ja' && totals.countTotal > 0;
+  // Mindestflächenbedarf anzeigen wenn:
+  // - Gewerbekunde ohne eigene Fläche (suche selbst / sucht für mich)
+  // - Privatkunde mit eigenem Grundstück (kein Projekt-Beitritt)
+  const showMindestflaeche = totals.countTotal > 0 && (
+    (gewerbConfig && gewerbConfig.flaecheStatus !== 'ja') ||
+    (!project && !gewerbConfig && customerType === 'privat')
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-8 py-12">
@@ -1649,7 +1733,7 @@ function ModulesStep({ modulart, project, gewerbConfig, selections, setSelection
 
         <aside className="lg:w-96 lg:shrink-0">
           <div className="lg:sticky lg:top-24 bg-white border border-[#1C1C1A]/10 p-7">
-            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Dein Angebot</p>
+            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Dein unverbindliches Angebot</p>
             <h3 className="font-display text-2xl mb-6">Übersicht</h3>
             {totals.countTotal === 0 ? (
               <p className="font-body text-sm text-[#6B6961] py-8 text-center border-y border-[#1C1C1A]/10">
@@ -1764,7 +1848,7 @@ function ModulesStep({ modulart, project, gewerbConfig, selections, setSelection
                           Dein Zielwert: <span className="num font-medium">{zielwert}</span> Module · Aktuelle Auswahl: <span className="num font-medium">{ist}</span> Einheiten.
                         </p>
                         <p className="font-body text-xs text-[#6B6961] mt-1.5 leading-relaxed">
-                          Du kannst noch Module hinzufügen — oder wir kalkulieren das Angebot mit Deiner aktuellen Auswahl.
+                          Du kannst noch Module hinzufügen — oder wir kalkulieren das unverbindliche Angebot mit Deiner aktuellen Auswahl.
                         </p>
                       </div>
                     );
@@ -1945,10 +2029,9 @@ function GewerblichFinanzPanel({ totals, financing, setFinancing, ekGewerb, setE
         <Slider label="Zinssatz" value={financing.plattform.zins} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, zins: v}}))} min={0.03} max={0.10} step={0.0025} format={fmtPct} hint="Bonitätsabhängig, 3–10 % möglich (Default 5,5 %)" />
         <Slider label="Laufzeit" value={financing.plattform.laufzeit} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, laufzeit: v}}))} min={5} max={10} step={1} format={v => `${v} Jahre`} hint="Max. 10 Jahre — nur Verkürzung möglich" />
         <Slider label="Restwert am Laufzeitende" value={financing.plattform.restwertPct} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, restwertPct: v}}))} min={0} max={0.5} step={0.05} format={fmtPct} />
-        <Slider label="Unternehmenssteuer (Annahme)" value={financing.plattform.steuer} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, steuer: v}}))} min={0.15} max={0.40} step={0.01} format={fmtPct} />
         <div className="pt-4 border-t border-[#1C1C1A]/10">
           <div className="flex justify-between items-baseline mb-2 gap-2">
-            <FieldLabel required={false} hint="Anteil 0–50 % des Netto-Auftragswerts">Eigenkapital / IAB</FieldLabel>
+            <FieldLabel required={false} hint="Anteil 0–50 % des Netto-Auftragswerts">Eigenkapital</FieldLabel>
           </div>
           <div className="flex items-baseline justify-between mb-2">
             <span className="font-display text-base num text-[#A88B5A]">{fmtEUR(ekGewerb)}</span>
@@ -1970,9 +2053,91 @@ function GewerblichFinanzPanel({ totals, financing, setFinancing, ekGewerb, setE
       </div>
       <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 space-y-1.5 font-body text-sm">
         <div className="flex justify-between"><span className="text-[#6B6961]">Finanzierungs-Basis</span><span className="num">{fmtEUR(totals.plattformBasis)}</span></div>
-        <div className="flex justify-between"><span className="text-[#6B6961]">Rohrate (vor Steuer)</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
-        <div className="flex justify-between text-[#3D5446]"><span>− Steuerentlastung (AfA + Zinsen × Steuersatz)</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
-        <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Plattform-Monatsrate (n. Steuer)</span><span className="num text-[#A88B5A]">{fmtEUR(totals.plattformRateEff)}</span></div>
+        <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Plattform-Monatsrate</span><span className="num text-[#A88B5A]">{fmtEUR(totals.plattformRate)}</span></div>
+      </div>
+    </div>
+  );
+}
+
+function SteuerOptionenPanel({ totals, financing, setFinancing }) {
+  const [aktiv, setAktiv] = useState(false);
+  if (totals.countGewerb === 0) return null;
+  return (
+    <div className="bg-[#F8F5F0] border border-dashed border-[#1C1C1A]/20 p-7">
+      <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
+        <h3 className="font-display text-2xl flex items-center gap-2"><Receipt className="w-5 h-5 text-[#6B6961]" strokeWidth={1.5} />Mögliche Steuervorteile (B2B)</h3>
+        <span className="font-body text-xs tracking-wider uppercase text-[#6B6961] bg-white px-2 py-1 border border-[#1C1C1A]/15">Optional</span>
+      </div>
+      <p className="font-body text-sm text-[#6B6961] mb-5 leading-relaxed">
+        Als gewerblicher Käufer kannst Du u. U. Sonder-AfA, Investitionsabzugsbetrag (IAB) oder andere steuerliche Gestaltungen nutzen, um Deine effektive Belastung zu senken. Ob und in welcher Höhe das gilt, hängt von Deinem Unternehmen, Deiner Bilanzsituation und Deinen Investitionsabsichten ab.
+      </p>
+      <div className="bg-white border border-[#B0452C]/30 p-3 mb-5 flex gap-2 items-start">
+        <Info className="w-4 h-4 text-[#B0452C] shrink-0 mt-0.5" strokeWidth={1.5} />
+        <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
+          <span className="font-medium">Keine Steuerberatung.</span> Die folgende Modellrechnung zeigt eine Indikation auf Basis allgemeiner Annahmen. Bitte sprich vor einer Entscheidung unbedingt mit Deinem Steuerberater.
+        </p>
+      </div>
+
+      <button onClick={() => setAktiv(!aktiv)}
+        className={`w-full px-4 py-3 font-body text-sm border transition-colors ${aktiv ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#1C1C1A] hover:border-[#3D5446]'}`}>
+        {aktiv ? 'Steuervorteile-Modellrechnung aktiv' : 'Modellrechnung mit Steuervorteilen anzeigen'}
+      </button>
+
+      {aktiv && (
+        <div className="mt-5 space-y-5">
+          <Slider label="Unternehmenssteuer (Annahme)" value={financing.plattform.steuer} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, steuer: v}}))} min={0.15} max={0.40} step={0.01} format={fmtPct} hint="GewSt + KSt + Soli für GmbH meist 28–32 %" />
+          <div className="pt-4 border-t border-[#1C1C1A]/10 space-y-1.5 font-body text-sm">
+            <div className="flex justify-between"><span className="text-[#6B6961]">Plattform-Rate (vor Steuer)</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
+            <div className="flex justify-between text-[#3D5446]"><span>− Steuerentlastung (AfA + Zinsen × {fmtPct(financing.plattform.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
+            <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Mögliche Rate nach Steuer</span><span className="num text-[#3D5446]">{fmtEUR(totals.plattformRateEff)}</span></div>
+          </div>
+          <p className="font-body text-xs text-[#6B6961] italic">Diese Rate ist ein Modellwert. Bitte mit Steuerberater abstimmen.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MitarbeiterPanel({ totals, mitarbeiterAnzahl, setMitarbeiterAnzahl }) {
+  // Nur sichtbar wenn es gewerbliche Module in Eigennutzung gibt
+  if (!totals.eigennutzungGewerbCount || totals.eigennutzungGewerbCount === 0) return null;
+
+  const defaultAnzahl = totals.eigennutzungGewerbCount;
+  const effectiveAnzahl = mitarbeiterAnzahl > 0 ? mitarbeiterAnzahl : defaultAnzahl;
+  // Max: 4× Modulanzahl (bei großen Gruppen-Modulen wie Community)
+  const maxAnzahl = Math.max(defaultAnzahl * 4, 100);
+  const belastungProMitarbeiter = effectiveAnzahl > 0 ? totals.monatlichGesamt / effectiveAnzahl : 0;
+
+  return (
+    <div className="bg-white border border-[#3D5446]/30 p-7">
+      <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
+        <h3 className="font-display text-2xl flex items-center gap-2"><Users className="w-5 h-5 text-[#3D5446]" strokeWidth={1.5} />Belastung pro Mitarbeiter</h3>
+        <span className="font-body text-xs tracking-wider uppercase text-[#3D5446] bg-[#3D5446]/10 px-2 py-1">Verkaufsargument</span>
+      </div>
+      <p className="font-body text-sm text-[#6B6961] mb-6">
+        Für Mitarbeiter-Wohnen, Praxen, Studios etc. — verteile die monatliche Belastung auf die geplante Anzahl von Mitarbeitern oder Nutzern, die das Setup wirklich nutzen werden.
+      </p>
+      <div className="mb-5">
+        <div className="flex justify-between items-baseline mb-2">
+          <label className="font-body text-sm text-[#1C1C1A]">Anzahl Mitarbeiter / Nutzer</label>
+          <span className="font-display text-base num text-[#3D5446]">{effectiveAnzahl}</span>
+        </div>
+        <input type="range" min={1} max={maxAnzahl} step={1}
+          value={effectiveAnzahl}
+          onChange={e => setMitarbeiterAnzahl(parseInt(e.target.value, 10))}
+          className="w-full" />
+        <div className="flex justify-between font-body text-xs text-[#6B6961] mt-1.5">
+          <span>1</span>
+          <span>{maxAnzahl}</span>
+        </div>
+        <p className="font-body text-xs text-[#6B6961] mt-2">Vorbelegung: {defaultAnzahl} (Anzahl gewerblicher Module in Eigennutzung). Anpassbar falls mehrere Mitarbeiter pro Modul untergebracht werden sollen oder das Quartier auch andere Nutzer mitversorgt.</p>
+      </div>
+      <div className="pt-5 border-t border-[#1C1C1A]/10">
+        <div className="flex justify-between items-baseline">
+          <p className="font-body text-sm text-[#6B6961]">Belastung pro Mitarbeiter / Monat</p>
+          <p className="font-display text-2xl num text-[#3D5446]">{fmtEUR(belastungProMitarbeiter)}</p>
+        </div>
+        <p className="font-body text-xs text-[#6B6961] mt-2 italic">Gesamtbelastung {fmtEUR(totals.monatlichGesamt)} ÷ {effectiveAnzahl} Mitarbeiter</p>
       </div>
     </div>
   );
@@ -1990,7 +2155,7 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
         <h3 className="font-display text-2xl flex items-center gap-2"><Repeat className="w-5 h-5 text-[#A88B5A]" strokeWidth={1.5} />Laufende Neben- und Verbrauchskosten</h3>
         <span className="font-body text-xs tracking-wider uppercase text-[#A88B5A] bg-[#A88B5A]/10 px-2 py-1">Richtwerte</span>
       </div>
-      <p className="font-body text-sm text-[#6B6961] mb-6">Richtwerte zur Orientierung — übliche laufende Kosten für CoMod-Module. Die tatsächlichen Beträge variieren je nach Standort und Verbrauch.</p>
+      <p className="font-body text-sm text-[#6B6961] mb-6">Geschätzte Richtwerte zur ersten Orientierung — die tatsächlichen Beträge können je nach Standort, Projektgröße, Verbrauchsverhalten und Versorgern abweichen. Konkrete Werte ermitteln wir gemeinsam mit Dir.</p>
       <div className="space-y-2.5 text-sm font-body">
         {/* Pacht — bei Misch-Setup getrennte Zeilen für privat (brutto) und gewerblich (netto) */}
         {pachtSource.pachtJahr > 0 ? (
@@ -2060,7 +2225,7 @@ function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod
         <h3 className="font-display text-2xl flex items-center gap-2"><TrendingUp className="w-5 h-5 text-[#A88B5A]" strokeWidth={1.5} />Einnahmen-Prognose</h3>
         <span className="font-body text-xs tracking-wider uppercase text-[#A88B5A] bg-[#A88B5A]/15 px-2 py-1">Vermietung</span>
       </div>
-      <p className="font-body text-sm text-[#6B6961] mb-5">Erwartete Mieten — von uns kalkulierte Marktindikationen für die vermieteten Module.</p>
+      <p className="font-body text-sm text-[#6B6961] mb-5">Unverbindliche Mietindikation auf Basis aktueller Marktbeobachtungen — die tatsächlich erzielbaren Mieten hängen von Standort, Lage, Nachfrage und Vermarktung ab und können erheblich abweichen.</p>
       <div className="mb-5 p-3 bg-white border border-[#1C1C1A]/10">
         <FieldLabel required={false}>Wer übernimmt die Vermietung?</FieldLabel>
         <div className="flex gap-2">
@@ -2090,7 +2255,7 @@ function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod
   );
 }
 
-function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing, ekPrivat, setEkPrivat, ekGewerb, setEkGewerb, vermietungDurchCoMod, setVermietungDurchCoMod, onNext, onBack }) {
+function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing, ekPrivat, setEkPrivat, ekGewerb, setEkGewerb, vermietungDurchCoMod, setVermietungDurchCoMod, mitarbeiterAnzahl, setMitarbeiterAnzahl, onNext, onBack }) {
   const hasPrivat = totals.countPrivat > 0;
   const hasGewerb = totals.countGewerb > 0;
   const hasBoth = hasPrivat && hasGewerb;
@@ -2121,8 +2286,10 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
         <div className="flex-1 min-w-0 space-y-8">
           {hasPrivat && <PrivatFinanzPanel totals={totals} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} />}
           {hasGewerb && <GewerblichFinanzPanel totals={totals} financing={financing} setFinancing={setFinancing} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} />}
+          {hasGewerb && <SteuerOptionenPanel totals={totals} financing={financing} setFinancing={setFinancing} />}
           <NebenkostenBreakdown totals={totals} project={project} gewerbConfig={gewerbConfig} />
           <IncomeBreakdown totals={totals} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} />
+          <MitarbeiterPanel totals={totals} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} />
         </div>
 
         <aside className="lg:w-96 lg:shrink-0">
@@ -2139,7 +2306,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
                   <div className="flex justify-between"><dt className="opacity-70">KfW-Rate</dt><dd className="num">{fmtEUR(totals.kfwRate)}</dd></div>
                   <div className="flex justify-between"><dt className="opacity-70">GLS-Rate</dt><dd className="num">{fmtEUR(totals.glsRate)}</dd></div>
                 </>}
-                {hasGewerb && <div className="flex justify-between"><dt className="opacity-70">Plattform (n. Steuer)</dt><dd className="num">{fmtEUR(totals.plattformRateEff)}</dd></div>}
+                {hasGewerb && <div className="flex justify-between"><dt className="opacity-70">Plattform</dt><dd className="num">{fmtEUR(totals.plattformRate)}</dd></div>}
                 <div className="flex justify-between pt-1 border-t border-[#F8F5F0]/10"><dt>Summe</dt><dd className="num">{fmtEUR(totals.finanzierungMonat)}</dd></div>
               </dl>
             </div>
@@ -2171,14 +2338,14 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
                     {totals.cashflowPositive ? '+' : ''}{fmtEUR(Math.abs(totals.cashflowNetto))}
                   </p>
                   {totals.cashflowPositive
-                    ? <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" strokeWidth={2.5} /> Cashflow-positiv</p>
+                    ? <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" strokeWidth={2.5} /> rechnerisch positiv</p>
                     : <p className="font-body text-xs opacity-50 mt-1.5">Belastung nach Abzug der Mieteinnahmen</p>}
                 </div>
               </>
             )}
             {!totals.hasIncome && <div className="mb-7" />}
 
-            <Button variant="inverse" onClick={onNext} className="w-full">Weiter zur Anfrage <ChevronRight className="w-4 h-4" /></Button>
+            <Button variant="inverse" onClick={onNext} className="w-full">Unverbindliches Angebot anfragen <ChevronRight className="w-4 h-4" /></Button>
           </div>
         </aside>
       </div>
@@ -2216,7 +2383,7 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
         <div>
           <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Letzter Schritt</p>
           <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">Wir <em>melden uns</em><span className="opacity-40"> …</span></h1>
-          <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">Hinterlasse uns Deine Kontaktdaten — wir senden Dir ein detailliertes Angebot und melden uns persönlich.</p>
+          <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">Hinterlasse uns Deine Kontaktdaten — wir senden Dir Dein detailliertes, unverbindliches Angebot und melden uns persönlich.</p>
           <div className="bg-[#3D5446]/5 border border-[#3D5446]/20 px-4 py-3 mb-6 flex items-center gap-2.5">
             <span className="text-[#B0452C] font-medium text-base">*</span>
             <p className="font-body text-xs text-[#6B6961]">Pflichtangaben für die Kontaktaufnahme.</p>
@@ -2228,9 +2395,25 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
             </div>
             <Field label="E-Mail" required type="email" value={contact.email || ''} onChange={v => setContact(c => ({...c, email: v}))} />
             <Field label="Telefon" value={contact.telefon || ''} onChange={v => setContact(c => ({...c, telefon: v}))} />
+            <div className="pt-2 mt-2 border-t border-[#1C1C1A]/8">
+              <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-3">Anschrift</p>
+              <div className="grid grid-cols-[1fr_auto] gap-3">
+                <Field label="Straße" value={contact.strasse || ''} onChange={v => setContact(c => ({...c, strasse: v}))} />
+                <div className="w-24"><Field label="Nr." value={contact.hausnr || ''} onChange={v => setContact(c => ({...c, hausnr: v}))} /></div>
+              </div>
+              <div className="grid grid-cols-[auto_1fr] gap-3 mt-3">
+                <div className="w-24"><Field label="PLZ" value={contact.plz || ''} onChange={v => setContact(c => ({...c, plz: v}))} /></div>
+                <Field label="Ort" value={contact.ort || ''} onChange={v => setContact(c => ({...c, ort: v}))} />
+              </div>
+            </div>
             <Field label="Anmerkung" textarea value={contact.notiz || ''} onChange={v => setContact(c => ({...c, notiz: v}))} placeholder="z. B. Wunschtermin, Standortdetails, Fragen …" />
-            <Button onClick={onSubmit} disabled={!isValid} className="w-full mt-4"><Mail className="w-4 h-4" /> Anfrage senden</Button>
+            <Button onClick={onSubmit} disabled={!isValid} className="w-full mt-4"><Mail className="w-4 h-4" /> Unverbindliches Angebot anfragen</Button>
             <p className="font-body text-xs text-[#6B6961]">Mit dem Senden willigst Du ein, dass wir Dich kontaktieren dürfen. Keine Weitergabe an Dritte.</p>
+            <div className="mt-3 pt-3 border-t border-[#1C1C1A]/10">
+              <p className="font-body text-[11px] text-[#6B6961] leading-relaxed">
+                <span className="font-medium">Hinweis:</span> Diese Konfiguration ist eine unverbindliche Modellrechnung zur ersten Orientierung. Alle Preise, Mieten, Nebenkosten, Förderbeträge, Zinssätze und Steuervorteile sind Indikationen auf Basis aktueller Marktdaten und allgemeiner Annahmen. Sie stellen keine Zusicherung dar. Die tatsächlichen Werte können je nach Standort, Bonität, Bauausführung, Verbrauchsverhalten und gesetzlichen Rahmenbedingungen abweichen. Verbindliche Aussagen erhältst Du erst im persönlichen Angebot. Finanzierungs- und Steueraussagen ersetzen nicht die individuelle Beratung durch Bank bzw. Steuerberater.
+              </p>
+            </div>
           </div>
         </div>
         <aside>
@@ -2285,9 +2468,9 @@ function SuccessStep({ lead, onRestart }) {
       <div className="w-16 h-16 rounded-full bg-[#3D5446] flex items-center justify-center mx-auto mb-8">
         <Check className="w-7 h-7 text-[#F8F5F0]" strokeWidth={1.5} />
       </div>
-      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-4">Anfrage eingegangen</p>
+      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-4">Unverbindliche Angebotsanfrage eingegangen</p>
       <h1 className="font-display text-5xl md:text-6xl leading-tight tracking-tight mb-6">Danke, <em>{lead?.contact?.vorname}</em><span className="opacity-40"> …</span></h1>
-      <p className="font-body text-lg text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">Wir haben Deine Anfrage erhalten und melden uns innerhalb von 1–2 Werktagen mit einem detaillierten Angebot.</p>
+      <p className="font-body text-lg text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">Wir haben Deine Anfrage erhalten und melden uns innerhalb von 1–2 Werktagen mit einem detaillierten, unverbindlichen Angebot.</p>
       <div className="bg-white border border-[#1C1C1A]/10 p-6 inline-flex items-center gap-3 font-body text-sm text-[#6B6961] mb-10">
         <Sparkles className="w-4 h-4 text-[#A88B5A]" strokeWidth={1.5} />
         Im Live-System würden jetzt automatisch E-Mail + Pipedrive-Eintrag erstellt.
@@ -2299,7 +2482,7 @@ function SuccessStep({ lead, onRestart }) {
 
 function AdminView({ leads, refreshLeads }) {
   async function clearAll() {
-    try { localStorage.removeItem("leads-list"); refreshLeads(); }
+    try { localStorage.removeItem('leads-list'); refreshLeads(); }
     catch (e) { console.error(e); }
   }
   return (
@@ -2335,23 +2518,23 @@ function AdminView({ leads, refreshLeads }) {
                   <p className="text-xs text-[#6B6961] mt-2">{new Date(lead.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
                 <div className="text-xs text-[#6B6961] leading-relaxed">
-                  {lead.lineItems?.map(it => (
+                  {(lead.module?.items || lead.lineItems)?.map(it => (
                     <div key={it.kuerzel}><span className="num text-[#1C1C1A]">{it.count}×</span> {it.kuerzel}{it.mode === 'einnahmen' && <span className="text-[10px] text-[#A88B5A] ml-1">v</span>}</div>
                   ))}
                 </div>
                 <div>
                   <span className="inline-block px-2 py-0.5 text-xs tracking-wider uppercase bg-[#F8F5F0] border border-[#1C1C1A]/10">
-                    {lead.customerType === 'privat' ? 'Privat' : 'Gewerbe'}
+                    {(lead.pfad?.customerType || lead.customerType) === 'privat' ? 'Privat' : 'Gewerbe'}
                   </span>
-                  {lead.project && <p className="text-xs text-[#A88B5A] mt-1.5">{lead.project.name}</p>}
+                  {(lead.pfad?.project || lead.project) && <p className="text-xs text-[#A88B5A] mt-1.5">{(lead.pfad?.project || lead.project).name}</p>}
                 </div>
-                <div className="text-right num">{lead.countTotal}</div>
-                <div className="text-right num">{fmtEUR(lead.bruttoGesamt)}</div>
-                <div className="text-right num font-display">{fmtEUR(lead.monatlichGesamt)}</div>
+                <div className="text-right num">{lead.module?.countTotal ?? lead.countTotal}</div>
+                <div className="text-right num">{fmtEUR(lead.finanzen?.bruttoGesamt ?? lead.bruttoGesamt)}</div>
+                <div className="text-right num font-display">{fmtEUR(lead.finanzen?.monatlichGesamt ?? lead.monatlichGesamt)}</div>
                 <div className="text-right num">
-                  {lead.monthlyIncomeNetto > 0 ? (
-                    <><span className="text-[#A88B5A]">{fmtEUR(lead.monthlyIncomeNetto)}</span>
-                      {lead.cashflowPositive && <p className="text-[10px] text-[#3D5446] uppercase tracking-wider mt-0.5">+CF</p>}</>
+                  {((lead.finanzen?.monthlyIncomeNetto ?? lead.monthlyIncomeNetto) > 0) ? (
+                    <><span className="text-[#A88B5A]">{fmtEUR(lead.finanzen?.monthlyIncomeNetto ?? lead.monthlyIncomeNetto)}</span>
+                      {(lead.finanzen?.cashflowPositive ?? lead.cashflowPositive) && <p className="text-[10px] text-[#3D5446] uppercase tracking-wider mt-0.5">+CF</p>}</>
                   ) : <span className="text-[#6B6961]">—</span>}
                 </div>
               </div>
@@ -2368,12 +2551,13 @@ function AdminView({ leads, refreshLeads }) {
    ============================================================================ */
 
 const EMPTY_GEWERB_CONFIG = {
-  flaecheStatus: null, // 'ja' | 'suche_selbst' | 'sucht_fuer_mich'
+  flaecheStatus: null,
   grundstueckGroesse: 0,
-  gewuenschteModulAnzahl: 0, // bei 'suche_selbst' / 'sucht_fuer_mich'
+  gewuenschteModulAnzahl: 0,
   geschosse: 0,
-  zielModulAnzahl: 0, // Default = berechnete max-Anzahl, vom Kunden anpassbar
-  geschossVerteilung: [], // [EG, OG, DG] — Verteilung der Zielmodule
+  zielModulAnzahl: 0,
+  geschossVerteilung: [],
+  pvAnteil: 0, // 0 = keine PV, 0.5 = 50%, 1 = 100% der Dachfläche
   detailKosten: null,
   hasPacht: null, pachtJahr: 0, pachtGewerblich: null,
   activeOptionen: { abriss: false, erschl: false, wege: false, gruen: false },
@@ -2382,6 +2566,9 @@ const EMPTY_GEWERB_CONFIG = {
 export default function App() {
   const [view, setView] = useState('customer');
   const [step, setStep] = useState(0);
+
+  // Scroll-to-Top bei jedem Schrittwechsel — sonst landet der User unten in der Sidebar
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [step]);
   const [customerType, setCustomerType] = useState(null);
   const [privatMode, setPrivatMode] = useState(null);
   const [project, setProject] = useState(null);
@@ -2391,6 +2578,7 @@ export default function App() {
   const [modes, setModes] = useState({});
   const [addUsageState, setAddUsageState] = useState('g');
   const [vermietungDurchCoMod, setVermietungDurchCoMod] = useState(false);
+  const [mitarbeiterAnzahl, setMitarbeiterAnzahl] = useState(0); // 0 = nicht gesetzt → Anzahl Module als Default
   const [financing, setFinancing] = useState(FIN_DEFAULTS);
   const [ekPrivat, setEkPrivat] = useState(0);
   const [ekGewerb, setEkGewerb] = useState(0);
@@ -2416,7 +2604,7 @@ export default function App() {
   function handleTypeSelect(type) {
     // Bei Typ-Wechsel kompletter Reset der Modul-Auswahl, damit private/gewerbliche Pfade nicht vermischen
     setSelections({}); setModes({}); setAddUsageState('g');
-    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false);
+    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0);
     setCustomerType(type);
     if (type === 'privat') {
       setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
@@ -2429,7 +2617,7 @@ export default function App() {
   // Beim Zurückgehen zum Welcome-Screen: alle Auswahlen zurücksetzen, damit der nächste Pfad sauber startet
   function goToWelcome() {
     setSelections({}); setModes({}); setAddUsageState('g');
-    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false);
+    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0);
     setProject(null); setPrivatMode(null); setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setCustomerType(null);
     setStep(0);
@@ -2443,21 +2631,85 @@ export default function App() {
   function handleGewerbContinue() { setModulart('business'); setStep(1); }
 
   async function handleSubmit() {
+    // Strukturierter Lead-Snapshot — Schema-Version für späteres Backend-Mapping
     const lead = {
+      // META
+      schemaVersion: '1.0',
+      prototypVersion: '0.9.13',
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
-      contact, customerType,
-      privatMode, modulart,
-      project: project ? { id: project.id, name: project.name } : null,
-      gewerbConfig: effectiveGewerbConfig,
-      lineItems: totals.lineItems.map(it => ({ kuerzel: it.kuerzel, count: it.count, brutto: it.brutto, netto: it.netto, usage: it.usage, mode: it.mode, einnahmen: it.einnahmen, fee: it.fee })),
-      countTotal: totals.countTotal, countPrivat: totals.countPrivat, countGewerb: totals.countGewerb,
-      gesamtNUF: totals.gesamtNUF, gesamtBGF: totals.gesamtBGF, mindestflaeche: totals.mindestflaeche,
-      bruttoGesamt: totals.bruttoGesamt, einmaligGesamtBrutto: totals.einmaligGesamtBrutto,
-      finanzierungMonat: totals.finanzierungMonat, nebenkostenMonatGesamt: totals.nebenkostenMonatGesamt,
-      monatlichGesamt: totals.monatlichGesamt,
-      monthlyIncomeNetto: totals.monthlyIncomeNetto, cashflowNetto: totals.cashflowNetto, cashflowPositive: totals.cashflowPositive,
-      vermietungDurchCoMod, anzahlung: totals.anzahlung, rabattPct: totals.rabattPct,
+
+      // KONTAKT
+      contact: {
+        vorname: contact.vorname || '',
+        nachname: contact.nachname || '',
+        email: contact.email || '',
+        telefon: contact.telefon || '',
+        strasse: contact.strasse || '',
+        hausnr: contact.hausnr || '',
+        plz: contact.plz || '',
+        ort: contact.ort || '',
+        notiz: contact.notiz || '',
+      },
+
+      // KONFIGURATION
+      pfad: {
+        customerType, // 'privat' | 'gewerblich'
+        privatMode,   // 'eigen' | 'projekt'
+        modulart,     // 'privat' | 'business' | 'beides'
+        project: project ? { id: project.id, name: project.name } : null,
+        gewerbConfig: effectiveGewerbConfig, // enthält flaecheStatus, geschosse, zielModulAnzahl, geschossVerteilung, pvAnteil, pacht
+      },
+
+      // MODULE & FLÄCHEN
+      module: {
+        items: totals.lineItems.map(it => ({
+          kuerzel: it.kuerzel,
+          family: it.family,
+          count: it.count,
+          modulEinheiten: calcModulEinheiten(it),
+          mode: it.mode,
+          usage: it.usage,
+          einnahmen: it.einnahmen,
+          fee: it.fee,
+          herst: it.herst,
+          netto: it.netto,
+          brutto: it.brutto,
+        })),
+        countTotal: totals.countTotal,
+        countPrivat: totals.countPrivat,
+        countGewerb: totals.countGewerb,
+        einheitenTotal: totals.einheitenTotal,
+        gesamtNUF: totals.gesamtNUF,
+        gesamtBGF: totals.gesamtBGF,
+        mindestflaeche: totals.mindestflaeche,
+      },
+
+      // FINANZWERTE
+      finanzen: {
+        rabattPct: totals.rabattPct,
+        bruttoGesamt: totals.bruttoGesamt,
+        effPrivat: totals.effPrivat,
+        effGewerbNetto: totals.effGewerbNetto,
+        einmaligGesamtBrutto: totals.einmaligGesamtBrutto,
+        anzahlung: totals.anzahlung,
+        kfwRate: totals.kfwRate,
+        glsRate: totals.glsRate,
+        plattformRate: totals.plattformRate,
+        steuerentlastung: totals.steuerentlastung, // optionaler Indikationswert
+        finanzierungMonat: totals.finanzierungMonat,
+        nebenkostenMonatGesamt: totals.nebenkostenMonatGesamt,
+        monatlichGesamt: totals.monatlichGesamt,
+        monthlyIncomeBrutto: totals.monthlyIncomeBrutto,
+        monthlyIncomeNetto: totals.monthlyIncomeNetto,
+        cashflowNetto: totals.cashflowNetto,
+        cashflowPositive: totals.cashflowPositive,
+        vermietungDurchUns: vermietungDurchCoMod,
+        ekPrivat: ekPrivat,
+        ekGewerb: ekGewerb,
+        financingParams: financing,
+        mitarbeiterAnzahl: mitarbeiterAnzahl > 0 ? mitarbeiterAnzahl : null,
+      },
     };
     try {
       const existing = localStorage.getItem('leads-list');
@@ -2475,7 +2727,7 @@ export default function App() {
     setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setSelections({}); setModes({}); setFinancing(FIN_DEFAULTS);
     setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null);
-    setVermietungDurchCoMod(false); setAddUsageState('g');
+    setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setAddUsageState('g');
   }
   function jumpToStep(s) { if (s < Math.floor(step)) setStep(s); }
   function backFromModules() { setStep(0.45); }
@@ -2495,16 +2747,21 @@ export default function App() {
             } else setStep(0.5);
           }} />
         : step === 0.5 ? <GewerbeConfigStep config={gewerbConfig} setConfig={setGewerbConfig} onContinue={handleGewerbContinue} onBack={goToWelcome} />
-        : step === 1 ? <ModulesStep modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} />
-        : step === 2 ? <FinancingStep totals={totals} project={project} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} onNext={() => setStep(3)} onBack={() => setStep(1)} />
+        : step === 1 ? <ModulesStep customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} />
+        : step === 2 ? <FinancingStep totals={totals} project={project} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} onNext={() => setStep(3)} onBack={() => setStep(1)} />
         : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} />
         : step === 4 ? <SuccessStep lead={lastLead} onRestart={restart} />
         : null}
 
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
-        <div className="max-w-7xl mx-auto px-8 py-8 flex items-center justify-between font-body text-xs text-[#6B6961] flex-wrap gap-4">
-          <p>CoMod Konfigurator — Prototyp v0.9.12</p>
-          <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
+        <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <p>CoMod Konfigurator — Prototyp v0.9.13</p>
+            <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
+          </div>
+          <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
+            Alle dargestellten Preise, Mieten, Förderbeträge, Zinssätze, Steuervorteile und Nebenkosten sind unverbindliche Modellrechnungen auf Basis aktueller Marktdaten und allgemeiner Annahmen. Verbindliche Aussagen erhältst Du erst im persönlichen Angebot.
+          </p>
         </div>
       </footer>
     </div>
