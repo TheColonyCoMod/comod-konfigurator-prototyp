@@ -6,10 +6,9 @@ import { ChevronRight, ChevronLeft, Plus, Minus, Check, Home, Building2, Setting
    ============================================================================ */
 
 const CATEGORIES = {
-  wohnen:     { label: 'Wohnen',                 desc: 'Wohnmodule & Familienkombinationen' },
-  aufenthalt: { label: 'Aufenthalt & Tourismus', desc: 'Ferien, Hotel, Kurzzeit' },
+  wohnen:     { label: 'Mitarbeiterwohnen, Short- & Midstay', desc: 'Wohnmodule, Familien-Kombinationen, Aufenthalt, Tourismus' },
   arbeit:     { label: 'Arbeit & Gemeinschaft',  desc: 'Co-Working, Versammlung, Büro' },
-  erlebnis:   { label: 'Erlebnis',               desc: 'Gym, Wellness, Musik, Pool' },
+  erlebnis:   { label: 'Freizeit & Gesundheit',  desc: 'Gym, Wellness, Musik, Pool' },
   ergaenzung: { label: 'Ergänzungen',            desc: 'Leer-Module zur individuellen Nutzung' },
 };
 
@@ -45,24 +44,22 @@ const PRODUCTS_PRIVAT_RAW = [
 //    Annahme: Monatsmieten brutto. CoWork-Werte basieren auf Vollauslastung mit ~25 €/m² Markt-Niveau.
 //    Community-Module: 0 € weil Einnahmen über umliegende Bewohner umgelegt werden (Quartiers-Modell).
 const PRODUCTS_GEWERB_RAW = [
-  { kuerzel: 'CoMod Live B (LK,D,M)',   family: 'liveb', kueche: 'L-Küche',    moebliert: true,  beschr: 'L-Küche, Duschbad, möbliert',          cat: 'wohnen',     nuf: 32, bgf: 36, herst: 149000, marge: 0.15,  einnahmen: 1800, fee: 0.15 },
-  { kuerzel: 'CoMod Live B (D,M)',      family: 'liveb', kueche: 'Ohne Küche', moebliert: true,  beschr: 'Duschbad, möbliert',                   cat: 'wohnen',     nuf: 32, bgf: 36, herst: 144000, marge: 0.15,  einnahmen: 1700, fee: 0.15 },
-  { kuerzel: 'CoMod Live B (D)',        family: 'liveb', kueche: 'Ohne Küche', moebliert: false, beschr: 'Duschbad',                             cat: 'wohnen',     nuf: 32, bgf: 36, herst: 139000, marge: 0.15,  einnahmen: 1600, fee: 0.15 },
-  { kuerzel: 'CoMod Studio (PK,D,M)',   family: 'studio', beschr: 'Pantry-Küche, Duschbad, möbliert',                                            cat: 'aufenthalt', nuf: 32, bgf: 36, herst: 139000, marge: 0.15,  einnahmen: 2000, fee: 0.15 },
-  { kuerzel: 'CoMod Stay (LK,D,M)',     family: 'stay',  kueche: 'L-Küche', beschr: 'L-Küche, Duschbad, möbliert',                               cat: 'aufenthalt', nuf: 24, bgf: 28, herst: 129000, marge: 0.15,  einnahmen: 1900, fee: 0.15 },
-  { kuerzel: 'CoMod Stay (PK,D,M)',     family: 'stay',  kueche: 'Pantry', beschr: 'Pantry-Küche, Duschbad, möbliert',                            cat: 'aufenthalt', nuf: 24, bgf: 28, herst: 124000, marge: 0.15,  einnahmen: 1800, fee: 0.15 },
-  { kuerzel: 'CoMod B 48 (LK,D,1Z)',    family: 'bcombi', groesse: 48, beschr: 'Kombi 48 m², L-Küche, 1 Zimmer',                                  cat: 'wohnen',     nuf: 48, bgf: 56, herst: 189000, marge: 0.15,  einnahmen: 2400, fee: 0.15 },
-  { kuerzel: 'CoMod B 64 (LK,D,2Z)',    family: 'bcombi', groesse: 64, beschr: 'Kombi 64 m², L-Küche, 2 Zimmer',                                  cat: 'wohnen',     nuf: 64, bgf: 72, herst: 219000, marge: 0.15,  einnahmen: 3000, fee: 0.15 },
-  { kuerzel: 'CoMod Double B (D,M)',    family: 'double', beschr: '2-in-1, 2 Duschbäder, möbliert',                                                cat: 'aufenthalt', nuf: 36, bgf: 40, herst: 119000, marge: 0.15,  einnahmen: 2200, fee: 0.15 },
-  { kuerzel: 'CoMod Gym B',             family: 'gym',     beschr: 'Mit Duschen, Umkleiden',                                                      cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 109000, marge: 0.175, einnahmen: 1400, fee: 0.10 },
-  { kuerzel: 'CoMod Music B',           family: 'music',   beschr: 'Schalloptimiert',                                                             cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 42000,  marge: 0.10,  einnahmen: 800,  fee: 0.10 },
-  { kuerzel: 'CoMod Wellness B',        family: 'wellness',beschr: 'Sauna, Eisbad, Liegen',                                                       cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 99000,  marge: 0.175, einnahmen: 1200, fee: 0.10 },
-  { kuerzel: 'CoMod CoWork B 32',       family: 'cowork',  groesse: 32, beschr: 'Co-Working 32 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 32, bgf: 36, herst: 79000,  marge: 0.125, einnahmen: 800,  fee: 0.05 },
-  { kuerzel: 'CoMod CoWork B 64',       family: 'cowork',  groesse: 64, beschr: 'Co-Working 64 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 64, bgf: 72, herst: 99000,  marge: 0.125, einnahmen: 1600, fee: 0.05 },
-  { kuerzel: 'CoMod CoWork B 96',       family: 'cowork',  groesse: 96, beschr: 'Co-Working 96 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 96, bgf: 108,herst: 109000, marge: 0.125, einnahmen: 2400, fee: 0.05 },
-  { kuerzel: 'CoMod Community B 32',    family: 'community', groesse: 32, beschr: 'Versammlung 32 m², mit WC',                                    cat: 'arbeit',     nuf: 32, bgf: 36, herst: 79000,  marge: 0.10,  einnahmen: 0,    fee: 0    },
-  { kuerzel: 'CoMod Community B 64',    family: 'community', groesse: 64, beschr: 'Versammlung 64 m², mit WC',                                    cat: 'arbeit',     nuf: 64, bgf: 72, herst: 89000,  marge: 0.10,  einnahmen: 0,    fee: 0    },
-  { kuerzel: 'CoMod Community B 96',    family: 'community', groesse: 96, beschr: 'Versammlung 96 m², mit WC',                                    cat: 'arbeit',     nuf: 96, bgf: 108,herst: 99000,  marge: 0.10,  einnahmen: 0,    fee: 0    },
+  { kuerzel: 'CoMod Live B (LK,D,M)',   displayName: 'CoMod Live (LK,D,M)', family: 'liveb', kueche: 'L-Küche',    moebliert: true,  beschr: 'L-Küche, Duschbad, möbliert',          cat: 'wohnen',     nuf: 32, bgf: 36, herst: 149000, marge: 0.15,  einnahmen: 1800, fee: 0.15 },
+  { kuerzel: 'CoMod Live B (D,M)',      displayName: 'CoMod Live (D,M)',    family: 'liveb', kueche: 'Ohne Küche', moebliert: true,  beschr: 'Duschbad, möbliert',                   cat: 'wohnen',     nuf: 32, bgf: 36, herst: 144000, marge: 0.15,  einnahmen: 1700, fee: 0.15 },
+  { kuerzel: 'CoMod Live B (D)',        displayName: 'CoMod Live (D)',      family: 'liveb', kueche: 'Ohne Küche', moebliert: false, beschr: 'Duschbad',                             cat: 'wohnen',     nuf: 32, bgf: 36, herst: 139000, marge: 0.15,  einnahmen: 1600, fee: 0.15 },
+  { kuerzel: 'CoMod Studio (PK,D,M)',   family: 'studio', beschr: 'Pantry-Küche, Duschbad, möbliert',                                            cat: 'wohnen'    , nuf: 32, bgf: 36, herst: 139000, marge: 0.15,  einnahmen: 2000, fee: 0.15 },
+  { kuerzel: 'CoMod Stay (LK,D,M)',     family: 'stay',  kueche: 'L-Küche', beschr: 'L-Küche, Duschbad, möbliert',                               cat: 'wohnen'    , nuf: 24, bgf: 28, herst: 129000, marge: 0.15,  einnahmen: 1900, fee: 0.15 },
+  { kuerzel: 'CoMod Stay (PK,D,M)',     family: 'stay',  kueche: 'Pantry', beschr: 'Pantry-Küche, Duschbad, möbliert',                            cat: 'wohnen'    , nuf: 24, bgf: 28, herst: 124000, marge: 0.15,  einnahmen: 1800, fee: 0.15 },
+  { kuerzel: 'CoMod Double B (D,M)',    displayName: 'CoMod Double (D,M)',  family: 'double', beschr: '2-in-1, 2 Duschbäder, möbliert',                                                cat: 'wohnen'    , nuf: 36, bgf: 40, herst: 119000, marge: 0.15,  einnahmen: 2200, fee: 0.15 },
+  { kuerzel: 'CoMod Gym',             family: 'gym',     beschr: 'Mit Duschen, Umkleiden',                                                      cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 109000, marge: 0.175, einnahmen: 1400, fee: 0.10 },
+  { kuerzel: 'CoMod Music',           family: 'music',   beschr: 'Schalloptimiert',                                                             cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 42000,  marge: 0.10,  einnahmen: 800,  fee: 0.10 },
+  { kuerzel: 'CoMod Wellness',        family: 'wellness',beschr: 'Sauna, Eisbad, Liegen',                                                       cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 99000,  marge: 0.175, einnahmen: 1200, fee: 0.10 },
+  { kuerzel: 'CoMod CoWork 32',       family: 'cowork',  groesse: 32, beschr: 'Co-Working 32 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 32, bgf: 36, herst: 79000,  marge: 0.125, einnahmen: 800,  fee: 0.05 },
+  { kuerzel: 'CoMod CoWork 64',       family: 'cowork',  groesse: 64, beschr: 'Co-Working 64 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 64, bgf: 72, herst: 99000,  marge: 0.125, einnahmen: 1600, fee: 0.05 },
+  { kuerzel: 'CoMod CoWork 96',       family: 'cowork',  groesse: 96, beschr: 'Co-Working 96 m², Küchenzeile, WC',                              cat: 'arbeit',     nuf: 96, bgf: 108,herst: 109000, marge: 0.125, einnahmen: 2400, fee: 0.05 },
+  { kuerzel: 'CoMod Community 32',    family: 'community', groesse: 32, beschr: 'Versammlung 32 m², mit WC',                                    cat: 'arbeit',     nuf: 32, bgf: 36, herst: 79000,  marge: 0.10,  einnahmen: 0,    fee: 0    },
+  { kuerzel: 'CoMod Community 64',    family: 'community', groesse: 64, beschr: 'Versammlung 64 m², mit WC',                                    cat: 'arbeit',     nuf: 64, bgf: 72, herst: 89000,  marge: 0.10,  einnahmen: 0,    fee: 0    },
+  { kuerzel: 'CoMod Community 96',    family: 'community', groesse: 96, beschr: 'Versammlung 96 m², mit WC',                                    cat: 'arbeit',     nuf: 96, bgf: 108,herst: 99000,  marge: 0.10,  einnahmen: 0,    fee: 0    },
   { kuerzel: 'CoMod Add B 32',          family: 'addb',    groesse: 32, beschr: 'Leer, groß (32 m²)',                                              cat: 'ergaenzung', nuf: 32, bgf: 36, herst: 39000,  marge: 0.075, einnahmen: 0,    fee: 0    },
   { kuerzel: 'CoMod Add B 24',          family: 'addb',    groesse: 24, beschr: 'Leer, mittel (24 m²)',                                            cat: 'ergaenzung', nuf: 24, bgf: 28, herst: 35000,  marge: 0.075, einnahmen: 0,    fee: 0    },
   { kuerzel: 'CoMod Add B 12',          family: 'addb',    groesse: 12, beschr: 'Leer, klein (12 m²)',                                             cat: 'ergaenzung', nuf: 12, bgf: 14, herst: 29000,  marge: 0.075, einnahmen: 0,    fee: 0    },
@@ -77,10 +74,9 @@ const FAMILY_LABELS = {
   live:      { label: 'CoMod Live',     desc: 'Wohnmodul, 32 m² NUF' },
   home:      { label: 'CoMod Home',     desc: 'Wohnkombi aus 2-3 Modulen, 48 / 64 / 72 / 96 m² NUF' },
   add:       { label: 'CoMod Add',      desc: 'Ergänzungsmodul leer, 12 / 24 / 32 m²' },
-  liveb:     { label: 'CoMod Live B',   desc: 'Wohnmodul gewerblich, 32 m²' },
+  liveb:     { label: 'CoMod Live',     desc: 'Wohnmodul gewerblich, 32 m²' },
   studio:    { label: 'CoMod Studio',   desc: 'Ferienwohnung, 32 m² NUF, möbliert' },
   stay:      { label: 'CoMod Stay',     desc: 'Hotel/KZW-Modul, 24 m² NUF, möbliert' },
-  bcombi:    { label: 'CoMod B 48/64',  desc: 'Wohnmodul-Kombi gewerblich' },
   double:    { label: 'CoMod Double',   desc: 'Doppelwohnmodul, 36 m² NUF, möbliert' },
   gym:       { label: 'CoMod Gym',      desc: 'Volldigitales Gym mit Duschen' },
   music:     { label: 'CoMod Music',    desc: 'Schalloptimierter Probe-/Musikraum' },
@@ -95,7 +91,7 @@ const FAMILY_LABELS = {
 const ADD_FAMILY_PAIR = { privat: 'add', business: 'addb' };
 
 const FAMILIES_PRIVAT = ['live', 'home', 'add'];
-const FAMILIES_BUSINESS = ['liveb', 'studio', 'stay', 'bcombi', 'double', 'gym', 'music', 'wellness', 'cowork', 'community', 'addb', 'pool'];
+const FAMILIES_BUSINESS = ['liveb', 'studio', 'stay', 'double', 'gym', 'music', 'wellness', 'cowork', 'community', 'addb', 'pool'];
 
 // ⚠️ PLATZHALTER — alle Werte später Admin-pflegbar im Backend
 // Plausibilitäts-Anmerkungen (Stand Oct 2025):
@@ -119,6 +115,30 @@ const BEBAUUNGSGRAD = 0.80; // 80% der Fläche sind effektiv bebaubar (Rest = We
 const KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL = 3500; // OG + DG benötigen Aufgänge
 const KOSTEN_TERRASSE_PRO_MODUL = 2500;           // EG bekommt Terrasse
 const KOSTEN_PV_PRO_MODUL = 12000;                // PV-Anlage inkl. Speicher & Wechselrichter pro oberstem Modul (Vollausstattung 100 %)
+
+// === BAUGENEHMIGUNG NRW ===
+// Berechnung nach NRW-Schema: BRI × Bauwert × Gebührensatz
+// (Richtwert — regional unterschiedlich; im Backend später anpassbar)
+const MODUL_HOEHE = 3.2;          // m — einheitliche Stockwerkshöhe für BRI-Berechnung
+const BAUWERT_PRO_M3 = 400;       // €/m³ — Richtwert NRW
+const GEBUEHR_SATZ = 0.006;       // 0,6 % der Rohbausumme
+const GEBUEHR_MINDEST = 500;      // €
+const GEBUEHR_RUNDUNG = 500;      // aufgerundet auf volle 500 €
+
+// Bruttorauminhalt eines Moduls (BRI = BGF × Höhe)
+function calcBRI(bgf) {
+  return bgf * MODUL_HOEHE;
+}
+
+// Baugenehmigungsgebühr auf Basis der Gesamt-BRI (Projekt-Sichtweise)
+// Aufgerundet auf volle 500 €, Mindestgebühr 500 €
+function calcBaugenehmigung(gesamtBGF) {
+  if (gesamtBGF <= 0) return 0;
+  const bri = gesamtBGF * MODUL_HOEHE;
+  const rohbau = bri * BAUWERT_PRO_M3;
+  const gebRaw = rohbau * GEBUEHR_SATZ;
+  return Math.max(GEBUEHR_MINDEST, Math.ceil(gebRaw / GEBUEHR_RUNDUNG) * GEBUEHR_RUNDUNG);
+}
 
 function withPrices(p) {
   const grundpreis = p.herst * p.marge;
@@ -177,26 +197,30 @@ const ICON_MAP = {
   'CoMod Live B (UK,D,M)':   'comod_live_ukdm.png',
   'CoMod Live B (LK,D,M)':   'comod_live_lkdm.png',
   'CoMod Live B (D,M)':      'comod_live_dm.png',
-  'CoMod Studio B':          'comod_live_pkdm.png', // nutzt Live-Pantry-Layout
+  'CoMod Studio (PK,D,M)':   'comod_studio_pkdm.png',
   'CoMod Stay (LK,D,M)':     'comod_stay_lkdm.png',
   'CoMod Stay (PK,D,M)':     'comod_stay_pkdm.png',
-  'CoMod B 48 (LK,D,1Z)':    'comod_home48_lkd2z.png', // gleiche Geometrie wie Home 48
-  'CoMod B 64 (LK,D,2Z)':    'comod_home64_lkd2z.png',
-  'CoMod Double B':          'comod_double.png',
-  'CoMod Gym B':             'comod_gym.png',
-  'CoMod Music B':           'comod_music.png',
-  'CoMod Wellness B':        'comod_wellness.png',
-  'CoMod CoWork B 32':       'comod_cowork32.png',
-  'CoMod CoWork B 64':       'comod_cowork64.png',
-  'CoMod CoWork B 96':       'comod_cowork96.png',
-  'CoMod Community B 32':    'comod_community32.png',
-  'CoMod Community B 64':    'comod_community64.png',
-  'CoMod Community B 96':    'comod_community96.png',
+  'CoMod Double B (D,M)':    'comod_double.png',
+  'CoMod Gym':             'comod_gym.png',
+  'CoMod Music':           'comod_music.png',
+  'CoMod Wellness':        'comod_wellness.png',
+  'CoMod CoWork 32':       'comod_cowork32.png',
+  'CoMod CoWork 64':       'comod_cowork64.png',
+  'CoMod CoWork 96':       'comod_cowork96.png',
+  'CoMod Community 32':    'comod_community32.png',
+  'CoMod Community 64':    'comod_community64.png',
+  'CoMod Community 96':    'comod_community96.png',
   'Container-Pool':          'comod_pool.png',
 };
 
 function getModulIcon(kuerzel) {
   return ICON_MAP[kuerzel] ? `/icons/${ICON_MAP[kuerzel]}` : null;
+}
+
+// Display-Name: bevorzugt displayName-Property, sonst kuerzel
+// (manche Gewerbe-Module haben "B" im internen Kürzel für Eindeutigkeit, aber sollen ohne "B" angezeigt werden)
+function getDisplayName(product) {
+  return product.displayName || product.kuerzel;
 }
 
 const PRODUCTS = {
@@ -331,7 +355,7 @@ function validateGeschossVerteilung(verteilung, zielwert) {
   }
   return { valid: true, error: null };
 }
-function calcEinmaligeProjektkosten({ modulAnzahl, grundstueckGroesse, geschosse, activeOptionen, hasGrundstueck, useEstimates, totalBGF, geschossVerteilung, pvAnteil }) {
+function calcEinmaligeProjektkosten({ modulAnzahl, grundstueckGroesse, geschosse, activeOptionen, hasGrundstueck, useEstimates, totalBGF, geschossVerteilung, pvAnteil, projektTotalBGF, projektModulAnzahl }) {
   const staffel = getProjektkostenStaffel(modulAnzahl);
   const gAnzahl = geschosse || 2;
   const belegteFlaeche = (totalBGF || 0) > 0 ? Math.ceil(totalBGF / gAnzahl) : Math.ceil((modulAnzahl * 36) / gAnzahl);
@@ -339,9 +363,36 @@ function calcEinmaligeProjektkosten({ modulAnzahl, grundstueckGroesse, geschosse
   const freiflaeche = Math.max(0, tatsaechlicheGrdst - belegteFlaeche);
   const posten = [
     { id: 'arch', label: 'Architektur & Entwurfsplanung', netto: staffel.arch, brutto: staffel.arch * (1 + UST), typ: 'pflicht' },
-    { id: 'eing', label: 'Eingabeplanung & Genehmigung',   netto: staffel.eing, brutto: staffel.eing * (1 + UST), typ: 'pflicht' },
+    { id: 'eing', label: 'Eingabeplanung (Architekt)',   netto: staffel.eing, brutto: staffel.eing * (1 + UST), typ: 'pflicht' },
     { id: 'pm',   label: 'Projektmanagement & Bauleitung',  netto: staffel.pm,   brutto: staffel.pm   * (1 + UST), typ: 'pflicht' },
   ];
+
+  // Baugenehmigungsgebühr (NRW-Richtwert)
+  // - Wenn projektTotalBGF/projektModulAnzahl gesetzt (Projekt-Beitritt): Berechnung auf Projekt-Gesamt, anteilig auf Kunde
+  // - Sonst (Privat eigen / Gewerbe): direkt auf gewählte Module
+  // Steuerlich: Baugenehmigungsgebühren sind Verwaltungsgebühren der Behörde — KEINE Umsatzsteuer
+  if (totalBGF > 0) {
+    if (projektTotalBGF && projektModulAnzahl > 0) {
+      const gesamtGebuehr = calcBaugenehmigung(projektTotalBGF);
+      const anteil = gesamtGebuehr * (modulAnzahl / projektModulAnzahl);
+      // Anteilig wieder auf 500er gerundet aufschlagen, Mindestgebühr greift nicht beim Anteil
+      const anteilGerundet = Math.ceil(anteil / GEBUEHR_RUNDUNG) * GEBUEHR_RUNDUNG;
+      posten.push({
+        id: 'baugenehmigung', label: 'Baugenehmigung (anteilig)',
+        netto: anteilGerundet, brutto: anteilGerundet, typ: 'pflicht',
+        ohneUst: true,
+        detail: `Anteilig ${modulAnzahl} von ${projektModulAnzahl} Modulen am Projekt-BRI`
+      });
+    } else {
+      const gebuehr = calcBaugenehmigung(totalBGF);
+      posten.push({
+        id: 'baugenehmigung', label: 'Baugenehmigung (NRW-Richtwert)',
+        netto: gebuehr, brutto: gebuehr, typ: 'pflicht',
+        ohneUst: true,
+        detail: `${(totalBGF * MODUL_HOEHE).toFixed(1)} m³ BRI × ${BAUWERT_PRO_M3} €/m³ × ${(GEBUEHR_SATZ * 100).toFixed(1)} %`
+      });
+    }
+  }
 
   // Treppen/Laubengänge für OG + DG, Terrassen für EG (basierend auf Geschoss-Verteilung)
   if (geschossVerteilung && geschossVerteilung.length > 0) {
@@ -465,22 +516,45 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const nufGewerb = gewerbItems.reduce((s, x) => s + x.count * x.nuf, 0);
   const bruttoPrivat = privatItems.reduce((s, x) => s + x.count * x.brutto, 0);
   const nettoGewerb = gewerbItems.reduce((s, x) => s + x.count * x.netto, 0);
-  // Rabattbasis: bei Gewerbekunden auf Ziel-Modulanzahl, sonst auf Ist-Auswahl
-  // Bei Projekten könnte man theoretisch auch auf zielModulAnzahl des Projekts gehen, aber das ist die Quartiers-Größe — wir lassen es bei Ist-Auswahl
-  const rabattBasis = (gewerbConfig && gewerbConfig.zielModulAnzahl > 0) ? gewerbConfig.zielModulAnzahl : countTotal;
+  // Rabattbasis:
+  // - Bei Gewerbekunden mit Zielwert: auf Ziel-Modulanzahl
+  // - Bei Privatkunden mit Projektbeitritt: auf Projekt-Zielwert (Kunde profitiert von der Quartiers-Größe)
+  // - Sonst: auf Ist-Auswahl
+  const rabattBasis = (gewerbConfig && gewerbConfig.zielModulAnzahl > 0)
+    ? gewerbConfig.zielModulAnzahl
+    : (project && project.zielModulAnzahl > 0)
+      ? project.zielModulAnzahl
+      : countTotal;
   const rabattPct = getRabatt(rabattBasis) + (project ? project.projektrabatt : 0);
   const nextStaffel = getNextRabattSchwelle(rabattBasis);
   // Mindestfläche-Berechnung:
-  // - Gewerbekunden: mit gewählter Geschosszahl
+  // - Gewerbekunden im Such-Modus (suche_selbst/sucht_fuer_mich): aus gewünschter Modulanzahl, damit der Wert auch ohne Modulauswahl an uns übermittelt wird
+  // - Gewerbekunden mit eigener Fläche: aus tatsächlicher Auswahl
   // - Privatkunden ohne Projekt (eigenes Grundstück): default 1 Geschoss (häufigster Fall: Tiny-House-Ansatz)
-  const mindestflaeche = gewerbConfig
-    ? calcMindestflaeche({ totalBGF: gesamtBGF, geschosse: gewerbConfig.geschosse || 2 })
-    : (!project && gesamtBGF > 0 ? calcMindestflaeche({ totalBGF: gesamtBGF, geschosse: 1 }) : null);
+  let mindestflaeche = null;
+  if (gewerbConfig) {
+    const istSuchModus = gewerbConfig.flaecheStatus === 'suche_selbst' || gewerbConfig.flaecheStatus === 'sucht_fuer_mich';
+    if (istSuchModus && gewerbConfig.gewuenschteModulAnzahl > 0 && gewerbConfig.geschosse > 0) {
+      mindestflaeche = calcMindestflaecheFuerModule({ modulAnzahl: gewerbConfig.gewuenschteModulAnzahl, geschosse: gewerbConfig.geschosse });
+    } else if (gesamtBGF > 0) {
+      mindestflaeche = calcMindestflaeche({ totalBGF: gesamtBGF, geschosse: gewerbConfig.geschosse || 2 });
+    }
+  } else if (!project && gesamtBGF > 0) {
+    mindestflaeche = calcMindestflaeche({ totalBGF: gesamtBGF, geschosse: 1 });
+  }
 
   let einmaligGesamtBrutto = 0;
   let einmaligDetail = null;
+  let baugenehmigungEinzeln = 0; // separate Tracking-Variable für Anzeige in Privat-Pfaden
   if (project) {
-    einmaligGesamtBrutto = countTotal * (project.umlageProModulEinmalig || 0);
+    // Projekt-Beitritt: Umlage pro Modul + anteilige Baugenehmigung auf Projekt-Zielwert
+    const projektZiel = project.zielModulAnzahl || countTotal;
+    // Annahme: Projekt-Standardmodul = 36 m² BGF (Standard-Live/Add)
+    const projektTotalBGF = projektZiel * 36;
+    const gesamtBaugenehmigung = calcBaugenehmigung(projektTotalBGF);
+    const anteil = gesamtBaugenehmigung * (countTotal / projektZiel);
+    baugenehmigungEinzeln = Math.ceil(anteil / GEBUEHR_RUNDUNG) * GEBUEHR_RUNDUNG;
+    einmaligGesamtBrutto = countTotal * (project.umlageProModulEinmalig || 0) + baugenehmigungEinzeln;
   } else if (gewerbConfig) {
     einmaligDetail = calcEinmaligeProjektkosten({
       modulAnzahl: gewerbConfig.zielModulAnzahl || countTotal,
@@ -494,6 +568,14 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
       pvAnteil: gewerbConfig.pvAnteil || 0,
     });
     einmaligGesamtBrutto = einmaligDetail.summeBrutto;
+    // Tracking
+    const bg = einmaligDetail.posten.find(p => p.id === 'baugenehmigung');
+    if (bg) baugenehmigungEinzeln = bg.brutto;
+  } else if (gesamtBGF > 0) {
+    // Privat mit eigenem Grundstück (kein Projekt, kein Gewerbe-Setup):
+    // Mindestens Baugenehmigung anzeigen — andere Pauschalkosten kann der Kunde später ergänzen
+    baugenehmigungEinzeln = calcBaugenehmigung(gesamtBGF);
+    einmaligGesamtBrutto = baugenehmigungEinzeln;
   }
   const einmaligProModul = countTotal > 0 ? einmaligGesamtBrutto / countTotal : 0;
 
@@ -531,7 +613,10 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const plattformRateEff = Math.max(0, plattformRate - steuerentlastung);
 
   const finanzierungMonat = kfwRate + glsRate + plattformRate;
-  const monatlichGesamt = finanzierungMonat + nebenkostenMonatGesamt;
+  // Effektive monatliche Belastung = nur Finanzierung (Nebenkosten/Verbrauch werden SEPARAT ausgewiesen,
+  // sind ohnehin verbrauchsabhängig und sollten dem Kunden klar sein, dass sie on top kommen — Feedback V3)
+  const monatlichGesamt = finanzierungMonat;
+  const monatlichInklNebenkosten = finanzierungMonat + nebenkostenMonatGesamt; // separat berechnet, für Detail-Stellen
 
   const incomeItems = lineItems.filter(x => x.mode === 'einnahmen' && (x.einnahmen || 0) > 0);
   // Gewerbliche Module in Eigennutzung — Basis für "Belastung pro Mitarbeiter"-Logik
@@ -540,7 +625,8 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const monthlyIncomeBrutto = incomeItems.reduce((s, x) => s + x.count * x.einnahmen, 0);
   const feeAbzug = vermietungDurchCoMod ? incomeItems.reduce((s, x) => s + x.count * x.einnahmen * x.fee, 0) : 0;
   const monthlyIncomeNetto = monthlyIncomeBrutto - feeAbzug;
-  const cashflowNetto = monthlyIncomeNetto - monatlichGesamt;
+  // Cashflow: Einnahmen minus Finanzierungs-Rate (ohne Nebenkosten, weil die ja durch Mieter direkt umgelegt werden)
+  const cashflowNetto = monthlyIncomeNetto - finanzierungMonat;
   const cashflowPositive = cashflowNetto >= 0;
 
   const anzahlung = lineItems.reduce((s, x) => {
@@ -556,12 +642,12 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     effPrivat, effGewerbNetto, effGewerbBrutto,
     kfwBasis, kfwRate, glsBasis, glsRate,
     plattformBasis, plattformRate, plattformRateEff, steuerentlastung, restwertEUR,
-    finanzierungMonat, monatlichGesamt, anzahlung,
+    finanzierungMonat, monatlichGesamt, monatlichInklNebenkosten, anzahlung,
     bruttoGesamt: effPrivat + effGewerbBrutto,
     monthlyIncomeBrutto, monthlyIncomeNetto, feeAbzug,
     cashflowNetto, cashflowPositive, hasIncome: incomeItems.length > 0,
     nebenkosten, nebenkostenMonatGesamt,
-    einmaligGesamtBrutto, einmaligProModul, einmaligDetail,
+    einmaligGesamtBrutto, einmaligProModul, einmaligDetail, baugenehmigungEinzeln,
     mindestflaeche,
   };
 }
@@ -799,6 +885,33 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
           </p>
         </div>
       </div>
+
+      {/* Vor- und Nachteile der Projekt-Beteiligung */}
+      <div className="mb-10 grid md:grid-cols-2 gap-4 max-w-3xl">
+        <div className="bg-white border border-[#3D5446]/20 p-5">
+          <p className="font-body text-[11px] uppercase tracking-wider text-[#3D5446] mb-3 flex items-center gap-1.5">
+            <Plus className="w-3.5 h-3.5" strokeWidth={2} /> Vorteile
+          </p>
+          <ul className="space-y-2 font-body text-sm text-[#1C1C1A]/85 leading-relaxed">
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[#3D5446] shrink-0 mt-0.5" strokeWidth={2} /><span>Mengenrabatte aus der Gesamtgröße des Projekts</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[#3D5446] shrink-0 mt-0.5" strokeWidth={2} /><span>Zusätzliche Einnahmenpotenziale aus Gemeinschaftsmodulen (Gym, CoWork, Wellness)</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[#3D5446] shrink-0 mt-0.5" strokeWidth={2} /><span>Nutzung der Gemeinschaftsmodule ohne eigene Investition</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[#3D5446] shrink-0 mt-0.5" strokeWidth={2} /><span>Wir kümmern uns um Grundstück, Genehmigung & Bauleitung</span></li>
+          </ul>
+        </div>
+        <div className="bg-white border border-[#A88B5A]/30 p-5">
+          <p className="font-body text-[11px] uppercase tracking-wider text-[#A88B5A] mb-3 flex items-center gap-1.5">
+            <Info className="w-3.5 h-3.5" strokeWidth={2} /> Zu bedenken
+          </p>
+          <ul className="space-y-2 font-body text-sm text-[#1C1C1A]/85 leading-relaxed">
+            <li className="flex gap-2"><span className="text-[#A88B5A] shrink-0 mt-0.5">·</span><span>Höheres Gesamtinvestment durch Anteil an Gemeinschaftsflächen</span></li>
+            <li className="flex gap-2"><span className="text-[#A88B5A] shrink-0 mt-0.5">·</span><span>Höhere einmalige Projektkosten (Architektur, PM) auf alle Beteiligten umgelegt</span></li>
+            <li className="flex gap-2"><span className="text-[#A88B5A] shrink-0 mt-0.5">·</span><span>Laufende Umlagen für Pacht, Gemeinschaftsflächen und Verwaltung</span></li>
+            <li className="flex gap-2"><span className="text-[#A88B5A] shrink-0 mt-0.5">·</span><span>Standort und Ausführung werden gemeinsam mit allen Beteiligten festgelegt</span></li>
+          </ul>
+        </div>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-5">
         {PROJECTS_TEMPLATES.map(p => (
           <button key={p.id} onClick={() => onSelect(p)}
@@ -1089,14 +1202,29 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
               </div>
             )}
             {mindestflaecheData && config.geschosse > 0 && (
-              <div className="mt-3 bg-[#FBF7EF] border border-[#A88B5A]/30 p-4">
-                <p className="font-body text-xs uppercase tracking-wider text-[#A88B5A] mb-2">Mindestflächenbedarf</p>
-                <div className="font-body text-sm text-[#1C1C1A] space-y-1">
-                  <p>ceil(<span className="num">{config.gewuenschteModulAnzahl}</span> ÷ <span className="num">{config.geschosse}</span>) Module/Geschoss × {ZIEL_MODUL_BGF} m² BGF</p>
-                  <p>= <span className="num font-medium">{fmtNum(mindestflaecheData.gebaeudeflaeche)} m²</span> Gebäudefläche</p>
-                  <p>÷ {Math.round(BEBAUUNGSGRAD * 100)} % Bebauungsgrad = <span className="num font-medium">{fmtNum(mindestflaecheData.mindestGrundstueck)} m²</span> Mindestgrundstück</p>
-                  <p className="text-xs text-[#6B6961] italic pt-1">Die übrigen {Math.round((1 - BEBAUUNGSGRAD) * 100)} % decken Wege, Parkplätze und Grünflächen ab.</p>
+              <div className="mt-3 bg-[#FBF7EF] border border-[#A88B5A]/30 p-5">
+                <p className="font-body text-xs uppercase tracking-wider text-[#A88B5A] mb-3">Mindestflächenbedarf</p>
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-body text-sm text-[#6B6961]">Reine Gebäudefläche</span>
+                    <span className="font-display text-xl num text-[#1C1C1A]">{fmtNum(mindestflaecheData.gebaeudeflaeche)} m²</span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3 pt-3 border-t border-[#A88B5A]/20">
+                    <span className="font-body text-sm text-[#1C1C1A]">
+                      Empfohlene Mindestgröße<br/>
+                      <span className="text-[11px] text-[#6B6961]">inkl. Wege, Parkplätze, Grünflächen</span>
+                    </span>
+                    <span className="font-display text-2xl num text-[#A88B5A]">≥ {fmtNum(Math.ceil(mindestflaecheData.mindestGrundstueck / 100) * 100)} m²</span>
+                  </div>
                 </div>
+                <p className="font-body text-[11px] text-[#6B6961] italic leading-relaxed">
+                  Berechnungsgrundlage: {config.gewuenschteModulAnzahl} Module auf {config.geschosse} {config.geschosse === 1 ? 'Geschoss' : 'Geschossen'} bei {Math.round(BEBAUUNGSGRAD * 100)} % Bebauungsgrad.
+                </p>
+                {config.flaecheStatus === 'sucht_fuer_mich' && (
+                  <p className="font-body text-[11px] text-[#1C1C1A] mt-3 pt-3 border-t border-[#A88B5A]/20 leading-relaxed">
+                    <span className="font-medium">Wir suchen Flächen ≥ {fmtNum(Math.ceil(mindestflaecheData.mindestGrundstueck / 100) * 100)} m² in Deiner Region.</span> Diese Information wird an uns übermittelt.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -1108,16 +1236,31 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
             <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#3D5446] text-[#F8F5F0] flex items-center justify-center text-xs font-body">3</span> Zielwert & Verteilung</h3>
 
             <div>
-              <FieldLabel required hint={`Default = Maximum von ${maxZielwert}`}>Ziel-Modulanzahl</FieldLabel>
-              <div className="flex items-baseline justify-between mb-2">
-                <span className="font-display text-2xl num text-[#3D5446]">{config.zielModulAnzahl}</span>
-                <span className="font-body text-xs text-[#6B6961]">max. {maxZielwert}</span>
-              </div>
-              <input type="range" min={1} max={maxZielwert} step={1}
-                value={config.zielModulAnzahl}
-                onChange={e => setZielwert(parseInt(e.target.value, 10))}
-                className="w-full" />
-              <p className="font-body text-xs text-[#6B6961] mt-2">Du kannst weniger Module einplanen, wenn das Projekt kleiner werden soll.</p>
+              {(config.flaecheStatus === 'suche_selbst' || config.flaecheStatus === 'sucht_fuer_mich') ? (
+                // Such-Modus: Modulanzahl ist fix (= gewünschte Modulanzahl), kein Slider
+                <div>
+                  <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Modulanzahl</p>
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-display text-2xl num text-[#3D5446]">{config.zielModulAnzahl}</span>
+                    <span className="font-body text-xs text-[#6B6961]">aus Deiner Wunsch-Vorgabe</span>
+                  </div>
+                  <p className="font-body text-xs text-[#6B6961] mt-2">Die Modulanzahl ist durch Deine Wunsch-Vorgabe oben festgelegt. Du kannst nur die Verteilung auf die Geschosse anpassen.</p>
+                </div>
+              ) : (
+                // Fläche bekannt: voller Slider
+                <>
+                  <FieldLabel required hint={`Default = Maximum von ${maxZielwert}`}>Ziel-Modulanzahl</FieldLabel>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="font-display text-2xl num text-[#3D5446]">{config.zielModulAnzahl}</span>
+                    <span className="font-body text-xs text-[#6B6961]">max. {maxZielwert}</span>
+                  </div>
+                  <input type="range" min={1} max={maxZielwert} step={1}
+                    value={config.zielModulAnzahl}
+                    onChange={e => setZielwert(parseInt(e.target.value, 10))}
+                    className="w-full" />
+                  <p className="font-body text-xs text-[#6B6961] mt-2">Du kannst weniger Module einplanen, wenn das Projekt kleiner werden soll.</p>
+                </>
+              )}
             </div>
 
             {/* Verteilung auf Geschosse */}
@@ -1488,7 +1631,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
         <div className="flex items-end justify-between gap-4 pt-4 mt-4 border-t border-[#1C1C1A]/8">
           <div className="space-y-1 text-xs font-body">
             <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
-            <p className="text-sm text-[#1C1C1A]">{product.kuerzel}</p>
+            <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
             <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
             {hasProjectOrConfig && <p className="text-[10px] text-[#A88B5A] tracking-wider uppercase">inkl. ant. Projektkosten</p>}
           </div>
@@ -1517,7 +1660,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
             <div className="space-y-1">
               {products.filter(p => (selections[p.kuerzel] || 0) > 0).map(p => (
                 <div key={p.kuerzel} className="flex justify-between gap-2 font-body text-xs">
-                  <span className="text-[#6B6961]">{selections[p.kuerzel]}× <span className="text-[#1C1C1A]">{p.kuerzel}</span></span>
+                  <span className="text-[#6B6961]">{selections[p.kuerzel]}× <span className="text-[#1C1C1A]">{getDisplayName(p)}</span></span>
                   <button onClick={() => setSelections(prev => { const n = {...prev}; delete n[p.kuerzel]; return n; })}
                     className="text-[#6B6961] hover:text-[#B0452C] transition-colors text-[10px]">entfernen</button>
                 </div>
@@ -1579,7 +1722,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
         {(() => {
           const iconPath = getModulIcon(product.kuerzel);
           return iconPath ? (
-            <img src={iconPath} alt={`Grundriss ${product.kuerzel}`} className="max-h-44 w-auto object-contain" loading="lazy" />
+            <img src={iconPath} alt={`Grundriss ${getDisplayName(product)}`} className="max-h-44 w-auto object-contain" loading="lazy" />
           ) : (
             <ModuleIcon nuf={product.nuf} />
           );
@@ -1600,7 +1743,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
         <div className="flex items-end justify-between gap-4 pt-4 mt-4 border-t border-[#1C1C1A]/8">
           <div className="space-y-1 text-xs font-body">
             <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
-            <p className="text-sm text-[#1C1C1A]">{product.kuerzel}</p>
+            <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
             <div className="flex gap-3 text-[#6B6961] text-[11px]">
               <span>{product.nuf} m² NUF</span><span>·</span><span>{product.bgf} m² BGF</span>
               {calcModulEinheiten(product) > 1 && <><span>·</span><span className="text-[#A88B5A]">{calcModulEinheiten(product)} Einheiten</span></>}
@@ -1645,7 +1788,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
             <div className="space-y-1">
               {products.filter(p => (selections[p.kuerzel] || 0) > 0).map(p => (
                 <div key={p.kuerzel} className="flex justify-between gap-2 font-body text-xs">
-                  <span className="text-[#6B6961]">{selections[p.kuerzel]}× <span className="text-[#1C1C1A]">{p.kuerzel}</span></span>
+                  <span className="text-[#6B6961]">{selections[p.kuerzel]}× <span className="text-[#1C1C1A]">{getDisplayName(p)}</span></span>
                   <button onClick={() => setSelections(prev => { const n = {...prev}; delete n[p.kuerzel]; return n; })}
                     className="text-[#6B6961] hover:text-[#B0452C] transition-colors text-[10px]">entfernen</button>
                 </div>
@@ -1745,7 +1888,9 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 <span className="font-medium num">{fmtPct(totals.rabattPct)} Rabatt</span> berücksichtigt
                 {gewerbConfig && gewerbConfig.zielModulAnzahl > 0
                   ? <> — basierend auf Deinem Zielwert von <span className="num">{gewerbConfig.zielModulAnzahl}</span> Modulen.</>
-                  : <> — basierend auf <span className="num">{totals.countTotal}</span> ausgewählten Modulen.</>}
+                  : project && project.zielModulAnzahl > 0
+                    ? <> — Mengen-Rabatt aus dem Gesamt-Projekt ({project.zielModulAnzahl} Module) {project.projektrabatt > 0 && <>+ Projekt-Bonus {fmtPct(project.projektrabatt)}</>}.</>
+                    : <> — basierend auf <span className="num">{totals.countTotal}</span> ausgewählten Modulen.</>}
               </p>
             </div>
           )}
@@ -1849,12 +1994,43 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   </div>
                 )}
 
+                {/* PROJEKT-ECKDATEN (nur bei Projekt-Beitritt) */}
+                {project && (
+                  <div className="mb-4 pb-4 border-b border-[#1C1C1A]/10">
+                    <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#A88B5A] mb-2">Projekt-Beteiligung</p>
+                    <p className="font-display text-base text-[#1C1C1A] leading-tight mb-1">{project.name}</p>
+                    <p className="font-body text-[11px] text-[#6B6961] mb-3">{project.location}</p>
+                    <dl className="space-y-1 text-[11px] font-body text-[#6B6961]">
+                      <div className="flex justify-between"><dt>Projekt-Gesamtmodule</dt><dd className="num text-[#1C1C1A]">{project.zielModulAnzahl}</dd></div>
+                      {project.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(project.grundstueckGroesse)} m²</dd></div>}
+                      <div className="flex justify-between"><dt>Anteil</dt><dd className="num text-[#1C1C1A]">{totals.countTotal} von {project.zielModulAnzahl} ({fmtPct(totals.countTotal / project.zielModulAnzahl)})</dd></div>
+                      {project.projektrabatt > 0 && <div className="flex justify-between text-[#3D5446]"><dt>Projekt-Bonus</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
+                    </dl>
+                  </div>
+                )}
+
+                {/* GEWERBE-KONFIG-ECKDATEN (nur bei Gewerbe mit Konfig) */}
+                {gewerbConfig && (gewerbConfig.geschosse > 0 || gewerbConfig.zielModulAnzahl > 0) && (
+                  <div className="mb-4 pb-4 border-b border-[#1C1C1A]/10">
+                    <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#6B6961] mb-2">Deine Konfiguration</p>
+                    <dl className="space-y-1 text-[11px] font-body text-[#6B6961]">
+                      {gewerbConfig.zielModulAnzahl > 0 && <div className="flex justify-between"><dt>Zielwert Module</dt><dd className="num text-[#1C1C1A]">{gewerbConfig.zielModulAnzahl}</dd></div>}
+                      {gewerbConfig.geschosse > 0 && <div className="flex justify-between"><dt>Geschosse</dt><dd className="num text-[#1C1C1A]">{gewerbConfig.geschosse}</dd></div>}
+                      {gewerbConfig.geschossVerteilung && gewerbConfig.geschossVerteilung.length > 1 && (
+                        <div className="flex justify-between"><dt>Verteilung</dt><dd className="num">{gewerbConfig.geschossVerteilung.join(' / ')}</dd></div>
+                      )}
+                      {gewerbConfig.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(gewerbConfig.grundstueckGroesse)} m²</dd></div>}
+                      {(gewerbConfig.pvAnteil || 0) > 0 && <div className="flex justify-between text-[#A88B5A]"><dt>PV-Anlage</dt><dd className="num">{Math.round(gewerbConfig.pvAnteil * 100)} % Dach</dd></div>}
+                    </dl>
+                  </div>
+                )}
+
                 {/* MODULAUSWAHL — kompakt, Preise dezent */}
                 <div className="space-y-2 pb-4 mb-4 border-b border-[#1C1C1A]/10 max-h-48 overflow-auto scrollbar-none">
                   {totals.lineItems.map(it => (
                     <div key={it.kuerzel} className="flex items-start justify-between gap-2 text-sm font-body group">
                       <span className="text-[#1C1C1A] flex-1 leading-tight min-w-0">
-                        <span className="num">{it.count}×</span> <span className="text-[#6B6961]">{it.kuerzel}</span>
+                        <span className="num">{it.count}×</span> <span className="text-[#6B6961]">{getDisplayName(it)}</span>
                         {it.mode === 'einnahmen' && it.einnahmen > 0 && <span className="text-[10px] text-[#A88B5A] ml-1 tracking-wider uppercase">verm.</span>}
                       </span>
                       <button
@@ -1974,11 +2150,25 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   </div>
                 )}
 
-                {hasProjectOrConfig && totals.einmaligGesamtBrutto > 0 && (
+                {totals.einmaligGesamtBrutto > 0 && (
                   <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10">
                     <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalige Projektkosten</p>
-                    <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">{fmtEUR(totals.einmaligProModul)}/Modul × {totals.countTotal}</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
-                    <p className="font-body text-[10px] text-[#6B6961] mt-1 italic">Pflicht — fallen unabhängig von uns an (Planung, Erschließung, Außenanlagen)</p>
+                    {hasProjectOrConfig ? (
+                      <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">{fmtEUR(totals.einmaligProModul)}/Modul × {totals.countTotal}</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
+                    ) : (
+                      // Privat eigenes Grundstück: nur Baugenehmigung als Pauschale
+                      <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">Baugenehmigung (Richtwert NRW)</dt><dd className="num">{fmtEUR(totals.baugenehmigungEinzeln)}</dd></div>
+                    )}
+                    {totals.baugenehmigungEinzeln > 0 && hasProjectOrConfig && (
+                      <p className="font-body text-[10px] text-[#6B6961] mt-1">
+                        davon Baugenehmigung {fmtEUR(totals.baugenehmigungEinzeln)} (Richtwert NRW)
+                      </p>
+                    )}
+                    <p className="font-body text-[10px] text-[#6B6961] mt-1 italic">
+                      {hasProjectOrConfig
+                        ? 'Pflicht — fallen unabhängig von uns an (Planung, Erschließung, Außenanlagen, Behörde). Weitere Kosten je nach Bauprojekt.'
+                        : 'Behördliche Gebühr — regional unterschiedlich. Weitere Kosten (Planung, Erschließung) hängen vom konkreten Bauprojekt ab.'}
+                    </p>
                   </div>
                 )}
 
@@ -2001,7 +2191,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       <div className="pt-2 mt-2 border-t border-[#1C1C1A]/8 space-y-1">
                         {totals.lineItems.map(it => (
                           <div key={it.kuerzel} className="flex justify-between text-[11px] font-body text-[#6B6961]">
-                            <span>{it.count}× {it.kuerzel}</span>
+                            <span>{it.count}× {getDisplayName(it)}</span>
                             <span className="num">{fmtEUR(it.count * it.brutto)}</span>
                           </div>
                         ))}
@@ -2010,11 +2200,13 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   </div>
                 </details>
 
-                {hasProjectOrConfig && (
-                  <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10">
-                    <p className="font-body text-xs uppercase tracking-wider text-[#A88B5A] mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> Neben- & Verbrauchskosten</p>
-                    <p className="font-display text-lg num text-[#A88B5A]">{fmtEUR(totals.nebenkostenMonatGesamt)}<span className="text-xs font-body text-[#6B6961]"> / Monat</span></p>
-                    <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Richtwerte — abhängig von Standort & Verbrauch</p>
+                {hasProjectOrConfig && totals.nebenkostenMonatGesamt > 0 && (
+                  <div className="pb-3 mb-4 text-[#6B6961]">
+                    <div className="flex justify-between items-baseline">
+                      <span className="font-body text-[11px] uppercase tracking-wider flex items-center gap-1"><Repeat className="w-3 h-3" strokeWidth={1.5}/> Neben- & Verbrauchskosten</span>
+                      <span className="font-body text-sm num">+ {fmtEUR(totals.nebenkostenMonatGesamt)}/Mt.</span>
+                    </div>
+                    <p className="font-body text-[10px] mt-1 italic">Kommen on top — abhängig von Standort, Größe und Verbrauchsverhalten</p>
                   </div>
                 )}
                 <Button onClick={onNext} className="w-full" disabled={totals.countTotal === 0}>
@@ -2371,7 +2563,7 @@ function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod
       <div className="space-y-2.5 mb-5 max-h-48 overflow-auto scrollbar-none">
         {totals.incomeItems.map(it => (
           <div key={it.kuerzel} className="flex justify-between gap-4 text-sm font-body py-2 border-b border-[#1C1C1A]/8 last:border-b-0">
-            <p className="text-[#1C1C1A] leading-tight flex-1"><span className="num">{it.count}×</span> {it.kuerzel}</p>
+            <p className="text-[#1C1C1A] leading-tight flex-1"><span className="num">{it.count}×</span> {getDisplayName(it)}</p>
             <span className="num text-[#1C1C1A] shrink-0 text-right">{fmtEUR(it.count * it.einnahmen)}</span>
           </div>
         ))}
@@ -2564,7 +2756,7 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
             <ul className="space-y-1 mb-5 text-sm font-body max-h-40 overflow-auto scrollbar-none">
               {totals.lineItems.map(it => (
                 <li key={it.kuerzel} className="flex justify-between gap-3">
-                  <span><span className="num">{it.count}×</span> <span className="text-[#6B6961]">{it.kuerzel}</span>
+                  <span><span className="num">{it.count}×</span> <span className="text-[#6B6961]">{getDisplayName(it)}</span>
                     {it.mode === 'einnahmen' && it.einnahmen > 0 && <span className="text-[10px] text-[#A88B5A] ml-1 tracking-wider uppercase">v</span>}
                   </span>
                 </li>
@@ -2651,7 +2843,7 @@ function AdminView({ leads, refreshLeads }) {
                 </div>
                 <div className="text-xs text-[#6B6961] leading-relaxed">
                   {(lead.module?.items || lead.lineItems)?.map(it => (
-                    <div key={it.kuerzel}><span className="num text-[#1C1C1A]">{it.count}×</span> {it.kuerzel}{it.mode === 'einnahmen' && <span className="text-[10px] text-[#A88B5A] ml-1">v</span>}</div>
+                    <div key={it.kuerzel}><span className="num text-[#1C1C1A]">{it.count}×</span> {getDisplayName(it)}{it.mode === 'einnahmen' && <span className="text-[10px] text-[#A88B5A] ml-1">v</span>}</div>
                   ))}
                 </div>
                 <div>
@@ -2889,11 +3081,11 @@ export default function App() {
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <p>CoMod Konfigurator — Prototyp v0.9.14</p>
+            <p>CoMod Konfigurator — Prototyp v0.9.16</p>
             <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
-            Alle dargestellten Preise, Mieten, Förderbeträge, Zinssätze, Steuervorteile und Nebenkosten sind unverbindliche Modellrechnungen auf Basis aktueller Marktdaten und allgemeiner Annahmen. Verbindliche Aussagen erhältst Du erst im persönlichen Angebot.
+            Alle dargestellten Preise, Mieten, Förderbeträge, Zinssätze, Steuervorteile, Nebenkosten und behördliche Gebühren sind unverbindliche Modellrechnungen auf Basis aktueller Marktdaten und allgemeiner Annahmen (Baugenehmigung: Richtwert NRW — kann regional abweichen). Verbindliche Aussagen erhältst Du erst im persönlichen Angebot.
           </p>
         </div>
       </footer>
