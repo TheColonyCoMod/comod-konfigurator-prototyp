@@ -950,20 +950,56 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
       <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">
         Du wirst Teil eines Quartiers — mit klar definierten Eckdaten, geringeren Umlagen und ggf. Einnahmen aus Gemeinschaftsmodulen.
       </p>
-      <div className="mb-10 bg-[#FBF7EF] border border-[#A88B5A]/30 p-4 flex gap-3 items-start max-w-3xl">
-        <Info className="w-5 h-5 text-[#A88B5A] shrink-0 mt-0.5" strokeWidth={1.5} />
-        <div className="space-y-1">
-          <p className="font-body text-sm text-[#1C1C1A]">
-            <span className="font-medium">Alle Umlagen kalkuliert auf die Ziel-Modulanzahl</span> des Projekts.
-          </p>
-          <p className="font-body text-xs text-[#6B6961] leading-relaxed">
-            Wir geben das Projekt erst frei, wenn die Ziel-Modulanzahl erreicht ist. Bei höherer tatsächlicher Auslastung verringern sich Deine Umlagen anteilig — schlechter werden sie nicht.
-          </p>
-        </div>
+
+      <div className="grid md:grid-cols-2 gap-5">
+        {PROJECTS_TEMPLATES.map(p => {
+          const mengenrabatt = getRabatt(p.zielModulAnzahl || 0);
+          const gesamtrabatt = mengenrabatt + (p.projektrabatt || 0);
+          return (
+          <button key={p.id} onClick={() => onSelect(p)}
+            className={`text-left bg-white border p-8 transition-all duration-300 ${selectedProject?.id === p.id ? 'border-[#3D5446] shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]' : 'border-[#1C1C1A]/10 hover:border-[#3D5446]/50'}`}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-display text-2xl mb-1">{p.name}</h3>
+                <p className="font-body text-sm text-[#6B6961]">{p.location}</p>
+              </div>
+              {selectedProject?.id === p.id && <div className="w-6 h-6 rounded-full bg-[#3D5446] flex items-center justify-center"><Check className="w-3.5 h-3.5 text-[#F8F5F0]" /></div>}
+            </div>
+            <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-3">{p.description}</p>
+            <p className="font-body text-xs text-[#A88B5A] leading-relaxed mb-4 italic">{p.description2}</p>
+            <div className="flex gap-4 mb-4 font-body text-xs text-[#6B6961]">
+              <span><span className="num text-[#1C1C1A]">{p.zielModulAnzahl}</span> Module Zielgröße</span>
+              <span className="opacity-50">·</span>
+              <span>max. <span className="num text-[#1C1C1A]">{p.maxModulAnzahl}</span> möglich</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#1C1C1A]/10">
+              <div>
+                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Projektkosten</p>
+                <p className="font-display text-base num">{fmtEUR(p.umlageProModulEinmalig)}</p>
+                <p className="font-body text-[10px] text-[#6B6961]">/Modul einm.</p>
+              </div>
+              <div>
+                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Rabatt gesamt</p>
+                <p className="font-display text-base num text-[#3D5446]">{fmtPct(gesamtrabatt)}</p>
+                <p className="font-body text-[10px] text-[#6B6961]">{fmtPct(mengenrabatt)} Menge + {fmtPct(p.projektrabatt)} Projekt</p>
+              </div>
+              <div>
+                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Pacht-Umlage</p>
+                {p.pachtJahr > 0 ? (
+                  <>
+                    <p className="font-display text-base num">{fmtEUR2(p.pachtJahr / (p.zielModulAnzahl || 1) / ZIEL_MODUL_NUF / 12)}</p>
+                    <p className="font-body text-[10px] text-[#6B6961]">/m²/Mt. netto{p.pachtGewerblich ? ' (+19 % bei privat)' : ''}</p>
+                  </>
+                ) : <p className="font-display text-base num">—</p>}
+              </div>
+            </div>
+          </button>
+          );
+        })}
       </div>
 
-      {/* Vor- und Nachteile der Projekt-Beteiligung */}
-      <div className="mb-10 grid md:grid-cols-2 gap-4 max-w-3xl">
+      {/* Vor- und Nachteile der Projekt-Beteiligung — unterhalb der Projekte */}
+      <div className="mt-10 grid md:grid-cols-2 gap-4">
         <div className="bg-white border border-[#3D5446]/20 p-5">
           <p className="font-body text-[11px] uppercase tracking-wider text-[#3D5446] mb-3 flex items-center gap-1.5">
             <Plus className="w-3.5 h-3.5" strokeWidth={2} /> Vorteile
@@ -988,46 +1024,11 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-5">
-        {PROJECTS_TEMPLATES.map(p => (
-          <button key={p.id} onClick={() => onSelect(p)}
-            className={`text-left bg-white border p-8 transition-all duration-300 ${selectedProject?.id === p.id ? 'border-[#3D5446] shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]' : 'border-[#1C1C1A]/10 hover:border-[#3D5446]/50'}`}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="font-display text-2xl mb-1">{p.name}</h3>
-                <p className="font-body text-sm text-[#6B6961]">{p.location}</p>
-              </div>
-              {selectedProject?.id === p.id && <div className="w-6 h-6 rounded-full bg-[#3D5446] flex items-center justify-center"><Check className="w-3.5 h-3.5 text-[#F8F5F0]" /></div>}
-            </div>
-            <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-3">{p.description}</p>
-            <p className="font-body text-xs text-[#A88B5A] leading-relaxed mb-4 italic">{p.description2}</p>
-            <div className="flex gap-4 mb-4 font-body text-xs text-[#6B6961]">
-              <span><span className="num text-[#1C1C1A]">{p.zielModulAnzahl}</span> Module Zielgröße</span>
-              <span className="opacity-50">·</span>
-              <span>max. <span className="num text-[#1C1C1A]">{p.maxModulAnzahl}</span> möglich</span>
-            </div>
-            <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#1C1C1A]/10">
-              <div>
-                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Projektkosten</p>
-                <p className="font-display text-base num">{fmtEUR(p.umlageProModulEinmalig)}</p>
-                <p className="font-body text-[10px] text-[#6B6961]">/Modul einm.</p>
-              </div>
-              <div>
-                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Rabatt</p>
-                <p className="font-display text-base num text-[#3D5446]">+{fmtPct(p.projektrabatt)}</p>
-              </div>
-              <div>
-                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Pacht-Umlage</p>
-                {p.pachtJahr > 0 ? (
-                  <>
-                    <p className="font-display text-base num">{fmtEUR2(p.pachtJahr / (p.zielModulAnzahl || 1) / ZIEL_MODUL_NUF / 12)}</p>
-                    <p className="font-body text-[10px] text-[#6B6961]">/m²/Mt. netto{p.pachtGewerblich ? ' (+19 % bei privat)' : ''}</p>
-                  </>
-                ) : <p className="font-display text-base num">—</p>}
-              </div>
-            </div>
-          </button>
-        ))}
+      <div className="mt-6 bg-[#FBF7EF] border border-[#A88B5A]/30 p-4 flex gap-3 items-start">
+        <Info className="w-5 h-5 text-[#A88B5A] shrink-0 mt-0.5" strokeWidth={1.5} />
+        <p className="font-body text-xs text-[#6B6961] leading-relaxed">
+          <span className="font-medium text-[#1C1C1A]">Alle Umlagen kalkuliert auf die Ziel-Modulanzahl.</span> Wir geben das Projekt erst frei, wenn die Ziel-Modulanzahl erreicht ist. Bei höherer tatsächlicher Auslastung verringern sich Deine Umlagen anteilig — schlechter werden sie nicht.
+        </p>
       </div>
     </div>
   );
@@ -3250,7 +3251,7 @@ export default function App() {
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <p>CoMod Konfigurator — Prototyp v0.9.18</p>
+            <p>CoMod Konfigurator — Prototyp v0.9.19</p>
             <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
