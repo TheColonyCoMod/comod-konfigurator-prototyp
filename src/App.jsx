@@ -690,9 +690,18 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const monthlyIncomeBrutto = incomeItems.reduce((s, x) => s + x.count * x.einnahmen, 0);
   const feeAbzug = vermietungDurchCoMod ? incomeItems.reduce((s, x) => s + x.count * x.einnahmen * x.fee, 0) : 0;
   const monthlyIncomeNetto = monthlyIncomeBrutto - feeAbzug;
-  // Cashflow: Einnahmen minus Finanzierungs-Rate (ohne Nebenkosten, weil die ja durch Mieter direkt umgelegt werden)
-  const cashflowNetto = monthlyIncomeNetto - finanzierungMonat;
-  const cashflowPositive = cashflowNetto >= 0;
+
+  // === Effektive monatliche Belastung (Feedback V5) ===
+  // = Gesamtbelastung (Finanzierung + laufende Kosten) − IAB-Entlastung (auf Laufzeit umgelegt) − Mieteinnahmen
+  // Die IAB-Steuerersparnis senkt damit sowohl die effektive Gesamtbelastung als auch die Kosten pro MA.
+  const monatlichGesamtNachIab = Math.max(0, monatlichGesamt - iabEntlastungMonat);
+  const effektiveBelastung = monatlichGesamtNachIab - monthlyIncomeNetto; // kann negativ = Überschuss
+  const cashflowNetto = effektiveBelastung <= 0 ? -effektiveBelastung : -effektiveBelastung; // Beibehaltung: negativ = Belastung
+  const cashflowPositive = effektiveBelastung < 0;
+
+  // Belastung pro Mitarbeiter (eigengenutzte Gewerbe-Wohnmodule), nach IAB-Entlastung
+  const belastungProMA = eigennutzungGewerbCount > 0 ? monatlichGesamtNachIab / eigennutzungGewerbCount : 0;
+  const iabEntlastungProMA = eigennutzungGewerbCount > 0 ? iabEntlastungMonat / eigennutzungGewerbCount : 0;
 
   const anzahlung = lineItems.reduce((s, x) => {
     const basis = x.usage === 'p' ? x.brutto : x.netto;
@@ -712,6 +721,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     bruttoGesamt: effPrivat + effGewerbBrutto,
     monthlyIncomeBrutto, monthlyIncomeNetto, feeAbzug,
     cashflowNetto, cashflowPositive, hasIncome: incomeItems.length > 0,
+    monatlichGesamtNachIab, effektiveBelastung, belastungProMA, iabEntlastungProMA,
     nebenkosten, nebenkostenMonatGesamt, laufendeKostenMonat, verbrauchskostenMonat,
     einmaligGesamtBrutto, einmaligProModul, einmaligDetail, baugenehmigungEinzeln,
     mindestflaeche,
@@ -2097,7 +2107,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                           <div className="mt-3 pt-3 border-t border-[#3D5446]/15">
                             <div className="flex justify-between items-baseline">
                               <span className="font-body text-[10px] uppercase tracking-wider text-[#3D5446] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> pro Mitarbeiter</span>
-                              <span className="font-display text-lg num text-[#3D5446]">{fmtEUR(totals.monatlichGesamt / totals.eigennutzungGewerbCount)}</span>
+                              <span className="font-display text-lg num text-[#3D5446]">{fmtEUR(totals.belastungProMA)}</span>
                             </div>
                             <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{totals.monatlichGesamt > 0 ? `${fmtEUR(totals.monatlichGesamt)} ÷ ${totals.eigennutzungGewerbCount} eigengenutzte Module` : ''}</p>
                           </div>
@@ -2602,34 +2612,6 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
   );
 }
 
-function MitarbeiterPanel({ totals }) {
-  // Nur sichtbar wenn es gewerbliche Module in Eigennutzung gibt
-  if (!totals.eigennutzungGewerbCount || totals.eigennutzungGewerbCount === 0) return null;
-
-  // Feedback V4: Anzahl MA = Anzahl eigengenutzter Wohnmodule (automatisch, kein Slider)
-  const anzahl = totals.eigennutzungGewerbCount;
-  const belastungProMitarbeiter = anzahl > 0 ? totals.monatlichGesamt / anzahl : 0;
-
-  return (
-    <div className="bg-white border border-[#3D5446]/30 p-7">
-      <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-        <h3 className="font-display text-2xl flex items-center gap-2"><Users className="w-5 h-5 text-[#3D5446]" strokeWidth={1.5} />Belastung pro Mitarbeiter</h3>
-        <span className="font-body text-xs tracking-wider uppercase text-[#3D5446] bg-[#3D5446]/10 px-2 py-1">Verkaufsargument</span>
-      </div>
-      <p className="font-body text-sm text-[#6B6961] mb-6">
-        Bei Mitarbeiter-Wohnen verteilt sich die monatliche Belastung auf die eigengenutzten Wohnmodule — pro Modul typischerweise ein Mitarbeiter.
-      </p>
-      <div className="pt-2">
-        <div className="flex justify-between items-baseline">
-          <p className="font-body text-sm text-[#6B6961]">Belastung pro Mitarbeiter / Monat</p>
-          <p className="font-display text-3xl num text-[#3D5446]">{fmtEUR(belastungProMitarbeiter)}</p>
-        </div>
-        <p className="font-body text-xs text-[#6B6961] mt-2 italic">Gesamtbelastung {fmtEUR(totals.monatlichGesamt)} ÷ {anzahl} {anzahl === 1 ? 'Modul' : 'Module'} (Eigennutzung)</p>
-      </div>
-    </div>
-  );
-}
-
 function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
   if (!project && !gewerbConfig) return null;
   const p = totals.nebenkosten;
@@ -2776,7 +2758,6 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
           {hasGewerb && <SteuerOptionenPanel totals={totals} financing={financing} setFinancing={setFinancing} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} />}
           <NebenkostenBreakdown totals={totals} project={project} gewerbConfig={gewerbConfig} />
           <IncomeBreakdown totals={totals} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} />
-          <MitarbeiterPanel totals={totals} />
         </div>
 
         <aside className="lg:w-96 lg:shrink-0">
@@ -2806,31 +2787,53 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               </div>
             )}
 
-            <div className={`mb-5 ${totals.hasIncome ? 'pb-5 border-b border-[#F8F5F0]/15' : ''}`}>
+            <div className={`mb-5 ${(totals.hasIncome || totals.iabEntlastungMonat > 0 || totals.eigennutzungGewerbCount > 0) ? 'pb-5 border-b border-[#F8F5F0]/15' : ''}`}>
               <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1">Belastung gesamt</p>
               <p className="font-display text-3xl num">{fmtEUR(totals.monatlichGesamt)}</p>
             </div>
 
-            {totals.hasIncome && (
-              <>
-                <div className="mb-5 pb-5 border-b border-[#F8F5F0]/15">
-                  <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Einnahmen / Monat</p>
-                  <p className="font-display text-3xl num text-[#C9A876]">{fmtEUR(totals.monthlyIncomeNetto)}</p>
-                </div>
-                <div className="mb-7">
-                  <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1">
-                    {totals.cashflowPositive ? 'Überschuss / Monat' : 'Effektive Monatsbelastung'}
-                  </p>
-                  <p className={`font-display text-4xl num ${totals.cashflowPositive ? 'text-[#7FB069]' : ''}`}>
-                    {totals.cashflowPositive ? '+' : ''}{fmtEUR(Math.abs(totals.cashflowNetto))}
-                  </p>
-                  {totals.cashflowPositive
-                    ? <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" strokeWidth={2.5} /> rechnerisch positiv</p>
-                    : <p className="font-body text-xs opacity-50 mt-1.5">Belastung nach Abzug der Mieteinnahmen</p>}
-                </div>
-              </>
+            {/* IAB-Entlastung (auf Laufzeit umgelegt) reduziert die effektiven Kosten */}
+            {totals.iabEntlastungMonat > 0 && (
+              <div className="mb-5 pb-5 border-b border-[#F8F5F0]/15">
+                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2} /> IAB-Steuervorteil / Monat</p>
+                <p className="font-display text-2xl num text-[#7FB069]">−{fmtEUR(totals.iabEntlastungMonat)}</p>
+                <p className="font-body text-[10px] opacity-50 mt-0.5">Steuerersparnis auf {(financing.plattform.laufzeit)} Jahre umgelegt</p>
+              </div>
             )}
-            {!totals.hasIncome && <div className="mb-7" />}
+
+            {totals.hasIncome && (
+              <div className="mb-5 pb-5 border-b border-[#F8F5F0]/15">
+                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Einnahmen / Monat</p>
+                <p className="font-display text-3xl num text-[#C9A876]">{fmtEUR(totals.monthlyIncomeNetto)}</p>
+              </div>
+            )}
+
+            {/* Belastung pro Mitarbeiter — zwischen Einnahmen und effektiver Gesamtbelastung (Feedback V5) */}
+            {totals.eigennutzungGewerbCount > 0 && (
+              <div className="mb-5 pb-5 border-b border-[#F8F5F0]/15">
+                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> Belastung pro Mitarbeiter</p>
+                <p className="font-display text-3xl num">{fmtEUR(totals.belastungProMA)}</p>
+                <p className="font-body text-[10px] opacity-50 mt-0.5">
+                  {fmtEUR(totals.monatlichGesamtNachIab)} ÷ {totals.eigennutzungGewerbCount} {totals.eigennutzungGewerbCount === 1 ? 'Modul' : 'Module'}
+                  {totals.iabEntlastungProMA > 0 && <> · inkl. IAB −{fmtEUR(totals.iabEntlastungProMA)}/MA</>}
+                </p>
+              </div>
+            )}
+
+            {(totals.hasIncome || totals.iabEntlastungMonat > 0) && (
+              <div className="mb-7">
+                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1">
+                  {totals.cashflowPositive ? 'Überschuss / Monat' : 'Effektive Monatsbelastung'}
+                </p>
+                <p className={`font-display text-4xl num ${totals.cashflowPositive ? 'text-[#7FB069]' : ''}`}>
+                  {totals.cashflowPositive ? '+' : ''}{fmtEUR(Math.abs(totals.effektiveBelastung))}
+                </p>
+                {totals.cashflowPositive
+                  ? <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" strokeWidth={2.5} /> rechnerisch positiv</p>
+                  : <p className="font-body text-xs opacity-50 mt-1.5">nach {totals.iabEntlastungMonat > 0 ? 'IAB-Vorteil' : ''}{totals.iabEntlastungMonat > 0 && totals.hasIncome ? ' & ' : ''}{totals.hasIncome ? 'Mieteinnahmen' : ''}</p>}
+              </div>
+            )}
+            {!totals.hasIncome && totals.iabEntlastungMonat === 0 && totals.eigennutzungGewerbCount === 0 && <div className="mb-7" />}
 
             <Button variant="inverse" onClick={onNext} className="w-full">Unverbindliches Angebot anfragen <ChevronRight className="w-4 h-4" /></Button>
           </div>
@@ -3247,7 +3250,7 @@ export default function App() {
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <p>CoMod Konfigurator — Prototyp v0.9.17</p>
+            <p>CoMod Konfigurator — Prototyp v0.9.18</p>
             <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
