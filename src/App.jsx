@@ -1686,7 +1686,10 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
     return total;
   }, [selections, usageState]);
 
-  const effectivePrice = product.brutto + (hasProjectOrConfig ? einmaligProModul : 0);
+  // Modulpreis bleibt STABIL — anteilige Projektkosten werden NICHT eingerechnet,
+  // weil sie sich mit jeder Modulanzahl-Änderung ändern und dadurch Preissprünge erzeugen würden
+  // (Feedback V7). Projektkosten stehen separat in der Sidebar als eigener Block.
+  const effectivePrice = product.brutto;
 
   return (
     <div className={`border transition-all duration-300 overflow-hidden ${familyTotal > 0 ? 'border-[#3D5446] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
@@ -1745,7 +1748,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
             <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
             <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
             <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
-            {hasProjectOrConfig && <p className="text-[10px] text-[#A88B5A] tracking-wider uppercase">inkl. ant. Projektkosten</p>}
+            <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis brutto</p>
           </div>
           <div className="flex items-center gap-2">
             {count > 0 ? (
@@ -1832,7 +1835,10 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
   }
   function setMode(m) { setModes(prev => ({ ...prev, [product.kuerzel]: m })); }
 
-  const effectivePrice = product.brutto + (hasProjectOrConfig ? einmaligProModul : 0);
+  // Modulpreis bleibt STABIL — anteilige Projektkosten werden NICHT eingerechnet,
+  // weil sie sich mit jeder Modulanzahl-Änderung ändern und dadurch Preissprünge erzeugen würden
+  // (Feedback V7). Projektkosten stehen separat in der Sidebar als eigener Block.
+  const effectivePrice = product.brutto;
   const showsIncome = isModeToggleable(product) && mode === 'einnahmen';
 
   return (
@@ -1874,7 +1880,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
               {calcModulEinheiten(product) > 1 && <><span>·</span><span className="text-[#A88B5A]">{calcModulEinheiten(product)} Einheiten</span></>}
             </div>
             <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
-            {hasProjectOrConfig && <p className="text-[10px] text-[#A88B5A] tracking-wider uppercase">inkl. ant. Projektkosten</p>}
+            <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis brutto</p>
           </div>
           <div className="flex items-center gap-2">
             {count > 0 ? (
@@ -2312,20 +2318,30 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 {totals.einmaligGesamtBrutto > 0 && (
                   <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10">
                     <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalige Projektkosten</p>
-                    {hasProjectOrConfig ? (
-                      <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">{fmtEUR(totals.einmaligProModul)}/Modul × {totals.countTotal}</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
+                    {project ? (
+                      // Projekt-Beitritt: Umlage stabil pro Modul (fixer Projekt-Tarif)
+                      <>
+                        <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">{fmtEUR(project.umlageProModulEinmalig)}/Modul × {totals.countTotal} Module</dt><dd className="num">{fmtEUR(totals.countTotal * project.umlageProModulEinmalig)}</dd></div>
+                        {totals.baugenehmigungEinzeln > 0 && (
+                          <div className="flex justify-between text-sm font-body mt-1"><dt className="text-[#6B6961]">+ Baugenehmigung (anteilig)</dt><dd className="num">{fmtEUR(totals.baugenehmigungEinzeln)}</dd></div>
+                        )}
+                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
+                      </>
+                    ) : gewerbConfig ? (
+                      // Gewerbliche Konfig: Gesamtsumme prominent (Pro-Modul-Wert wäre instabil)
+                      <>
+                        <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">Planung, Genehmigung, Bauleitung</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
+                        {totals.baugenehmigungEinzeln > 0 && (
+                          <p className="font-body text-[10px] text-[#6B6961] mt-1">davon Baugenehmigung {fmtEUR(totals.baugenehmigungEinzeln)} (Richtwert NRW)</p>
+                        )}
+                      </>
                     ) : (
                       // Privat eigenes Grundstück: nur Baugenehmigung als Pauschale
                       <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">Baugenehmigung (Richtwert NRW)</dt><dd className="num">{fmtEUR(totals.baugenehmigungEinzeln)}</dd></div>
                     )}
-                    {totals.baugenehmigungEinzeln > 0 && hasProjectOrConfig && (
-                      <p className="font-body text-[10px] text-[#6B6961] mt-1">
-                        davon Baugenehmigung {fmtEUR(totals.baugenehmigungEinzeln)} (Richtwert NRW)
-                      </p>
-                    )}
-                    <p className="font-body text-[10px] text-[#6B6961] mt-1 italic">
+                    <p className="font-body text-[10px] text-[#6B6961] mt-1.5 italic">
                       {hasProjectOrConfig
-                        ? 'Pflicht — fallen unabhängig von uns an (Planung, Erschließung, Außenanlagen, Behörde). Weitere Kosten je nach Bauprojekt.'
+                        ? 'Pflicht — fallen unabhängig von uns an (Planung, Erschließung, Außenanlagen, Behörde).'
                         : 'Behördliche Gebühr — regional unterschiedlich. Weitere Kosten (Planung, Erschließung) hängen vom konkreten Bauprojekt ab.'}
                     </p>
                   </div>
@@ -3311,7 +3327,7 @@ export default function App() {
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <p>CoMod Konfigurator — Prototyp v0.9.20</p>
+            <p>CoMod Konfigurator — Prototyp v0.9.21</p>
             <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
