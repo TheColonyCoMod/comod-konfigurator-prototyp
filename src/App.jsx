@@ -763,11 +763,11 @@ const fmtNum = (n) => new Intl.NumberFormat('de-DE').format(n || 0);
 function FontStyles() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..700,0..100&family=DM+Sans:wght@300..700&display=swap');
-      .font-display { font-family: 'Fraunces', Georgia, serif; font-variation-settings: "SOFT" 60; }
-      .font-body { font-family: 'DM Sans', system-ui, sans-serif; }
+      @import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@300..700&family=Ubuntu:wght@300;400;500;700&display=swap');
+      .font-display { font-family: 'Roboto Slab', Georgia, serif; }
+      .font-body { font-family: 'Ubuntu', system-ui, sans-serif; }
       .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-      input[type="range"] { accent-color: #3D5446; }
+      input[type="range"] { accent-color: #D2563E; }
       .scrollbar-none::-webkit-scrollbar { display: none; }
       .scrollbar-none { scrollbar-width: none; }
     `}</style>
@@ -777,7 +777,7 @@ function FontStyles() {
 function Button({ children, variant = 'primary', onClick, disabled, className = '', ...rest }) {
   const base = 'inline-flex items-center justify-center gap-2 px-6 py-3 text-sm tracking-wide transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed font-body';
   const styles = {
-    primary: 'bg-[#3D5446] text-[#F8F5F0] hover:bg-[#2C3D33]',
+    primary: 'bg-[#D2563E] text-[#F8F5F0] hover:bg-[#B04528]',
     secondary: 'border border-[#1C1C1A]/20 text-[#1C1C1A] hover:bg-[#1C1C1A]/5',
     inverse: 'bg-[#F8F5F0] text-[#1C1C1A] hover:bg-white',
   };
@@ -809,7 +809,7 @@ function FieldLabel({ children, required, hint }) {
       <label className="font-body text-sm text-[#1C1C1A] flex items-center gap-1.5">
         {children}
         {required
-          ? <span className="text-[#B0452C] font-medium">*</span>
+          ? <span className="text-[#C5392E] font-medium">*</span>
           : <span className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] bg-[#1C1C1A]/5 px-1.5 py-0.5">optional</span>}
       </label>
       {hint && <span className="font-body text-xs text-[#6B6961]">{hint}</span>}
@@ -825,7 +825,7 @@ function StepIndicator({ currentStep, onJump }) {
         <div key={i} className="flex items-center gap-3">
           <button onClick={() => i < currentStep && onJump(i)} disabled={i >= currentStep}
             className={`flex items-center gap-2 transition-colors ${i === currentStep ? 'text-[#1C1C1A]' : i < currentStep ? 'text-[#6B6961] hover:text-[#1C1C1A] cursor-pointer' : 'text-[#6B6961]/40 cursor-default'}`}>
-            <span className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentStep ? 'bg-[#3D5446] w-6' : i < currentStep ? 'bg-[#6B6961]' : 'bg-[#6B6961]/30'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentStep ? 'bg-[#D2563E] w-6' : i < currentStep ? 'bg-[#6B6961]' : 'bg-[#6B6961]/30'}`} />
             <span>{label}</span>
           </button>
           {i < steps.length - 1 && <span className="text-[#6B6961]/30">·</span>}
@@ -840,7 +840,7 @@ function Header({ step, onJump, view, setView }) {
     <header className="border-b border-[#1C1C1A]/10 bg-[#F8F5F0]/80 backdrop-blur sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="font-display text-2xl tracking-tight">CoMod</span>
+          <img src="/brand/comod_logo_black.png" alt="CoMod" className="h-7 w-auto" />
           <span className="font-body text-xs text-[#6B6961] tracking-[0.2em] uppercase border-l border-[#1C1C1A]/15 pl-3 hidden md:inline">Konfigurator</span>
         </div>
         {view === 'customer' && step < 4 && <div className="hidden lg:block"><StepIndicator currentStep={step} onJump={onJump} /></div>}
@@ -860,9 +860,9 @@ function ModuleIcon({ nuf }) {
   return (
     <div className="shrink-0 w-16 h-16 bg-[#F8F5F0] rounded-sm flex items-center justify-center border border-[#1C1C1A]/8">
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none">
-        <rect x="1" y="1" width={w-2} height={h-2} stroke="#3D5446" strokeWidth="1" fill="none"/>
-        <line x1={w*0.62} y1="1" x2={w*0.62} y2={h-1} stroke="#3D5446" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5"/>
-        <line x1={w*0.62} y1={h*0.55} x2={w-1} y2={h*0.55} stroke="#3D5446" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5"/>
+        <rect x="1" y="1" width={w-2} height={h-2} stroke="#D2563E" strokeWidth="1" fill="none"/>
+        <line x1={w*0.62} y1="1" x2={w*0.62} y2={h-1} stroke="#D2563E" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5"/>
+        <line x1={w*0.62} y1={h*0.55} x2={w-1} y2={h*0.55} stroke="#D2563E" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.5"/>
       </svg>
     </div>
   );
@@ -884,7 +884,7 @@ function WelcomeStep({ onSelect }) {
       <div className="mb-16">
         <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-6">Willkommen</p>
         <h1 className="font-display text-5xl md:text-6xl leading-tight tracking-tight mb-6">
-          Was passt zu Dir<span className="text-[#3D5446]">,</span><br/>
+          Was passt zu Dir<span className="text-[#D2563E]">,</span><br/>
           <em className="font-display">erzähl es uns kurz</em><span className="opacity-40"> …</span>
         </h1>
         <p className="font-body text-lg text-[#6B6961] max-w-2xl leading-relaxed">
@@ -896,14 +896,14 @@ function WelcomeStep({ onSelect }) {
           const Icon = o.icon;
           return (
             <button key={o.id} onClick={() => onSelect(o.id)}
-              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#3D5446] p-10 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
-              <div className="w-14 h-14 rounded-full bg-[#3D5446]/5 group-hover:bg-[#3D5446]/10 flex items-center justify-center mb-6 transition-colors">
-                <Icon className="w-6 h-6 text-[#3D5446]" strokeWidth={1.5} />
+              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#D2563E] p-10 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
+              <div className="w-14 h-14 rounded-full bg-[#D2563E]/5 group-hover:bg-[#D2563E]/10 flex items-center justify-center mb-6 transition-colors">
+                <Icon className="w-6 h-6 text-[#D2563E]" strokeWidth={1.5} />
               </div>
               <h3 className="font-display text-3xl mb-2">{o.title}</h3>
               <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-4">{o.subtitle}</p>
               <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-6">{o.desc}</p>
-              <div className="flex items-center gap-2 font-body text-sm text-[#3D5446] opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-2 font-body text-sm text-[#D2563E] opacity-0 group-hover:opacity-100 transition-opacity">
                 Weiter <ArrowRight className="w-4 h-4" />
               </div>
             </button>
@@ -911,7 +911,7 @@ function WelcomeStep({ onSelect }) {
         })}
       </div>
       <div className="mt-16 pt-8 border-t border-[#1C1C1A]/10 flex items-center gap-3 text-sm font-body text-[#6B6961]">
-        <Sparkles className="w-4 h-4 text-[#A88B5A]" strokeWidth={1.5} />
+        <Sparkles className="w-4 h-4 text-[#7B2D8E]" strokeWidth={1.5} />
         <span>Unverbindliche Modellrechnung zur ersten Orientierung — alle Zahlen sind Indikationen, keine zugesicherten Werte.</span>
       </div>
     </div>
@@ -942,14 +942,14 @@ function PrivatModeStep({ onSelectMode, onBack }) {
           const Icon = o.icon;
           return (
             <button key={o.id} onClick={() => onSelectMode(o.id)}
-              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#3D5446] p-8 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
-              <div className="w-12 h-12 rounded-full bg-[#3D5446]/5 group-hover:bg-[#3D5446]/10 flex items-center justify-center mb-6 transition-colors">
-                <Icon className="w-5 h-5 text-[#3D5446]" strokeWidth={1.5} />
+              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#D2563E] p-8 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
+              <div className="w-12 h-12 rounded-full bg-[#D2563E]/5 group-hover:bg-[#D2563E]/10 flex items-center justify-center mb-6 transition-colors">
+                <Icon className="w-5 h-5 text-[#D2563E]" strokeWidth={1.5} />
               </div>
               <h3 className="font-display text-2xl mb-1">{o.title}</h3>
               <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-4">{o.subtitle}</p>
               <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-6">{o.desc}</p>
-              <div className="flex items-center gap-2 font-body text-sm text-[#3D5446] opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-2 font-body text-sm text-[#D2563E] opacity-0 group-hover:opacity-100 transition-opacity">
                 Auswählen <ArrowRight className="w-4 h-4" />
               </div>
             </button>
@@ -980,16 +980,16 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
           const gesamtrabatt = mengenrabatt + (p.projektrabatt || 0);
           return (
           <button key={p.id} onClick={() => onSelect(p)}
-            className={`text-left bg-white border p-8 transition-all duration-300 ${selectedProject?.id === p.id ? 'border-[#3D5446] shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]' : 'border-[#1C1C1A]/10 hover:border-[#3D5446]/50'}`}>
+            className={`text-left bg-white border p-8 transition-all duration-300 ${selectedProject?.id === p.id ? 'border-[#D2563E] shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]' : 'border-[#1C1C1A]/10 hover:border-[#D2563E]/50'}`}>
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="font-display text-2xl mb-1">{p.name}</h3>
                 <p className="font-body text-sm text-[#6B6961]">{p.location}</p>
               </div>
-              {selectedProject?.id === p.id && <div className="w-6 h-6 rounded-full bg-[#3D5446] flex items-center justify-center"><Check className="w-3.5 h-3.5 text-[#F8F5F0]" /></div>}
+              {selectedProject?.id === p.id && <div className="w-6 h-6 rounded-full bg-[#D2563E] flex items-center justify-center"><Check className="w-3.5 h-3.5 text-[#F8F5F0]" /></div>}
             </div>
             <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-3">{p.description}</p>
-            <p className="font-body text-xs text-[#A88B5A] leading-relaxed mb-4 italic">{p.description2}</p>
+            <p className="font-body text-xs text-[#7B2D8E] leading-relaxed mb-4 italic">{p.description2}</p>
             <div className="flex gap-4 mb-4 font-body text-xs text-[#6B6961]">
               <span><span className="num text-[#1C1C1A]">{p.zielModulAnzahl}</span> Module Zielgröße</span>
               <span className="opacity-50">·</span>
@@ -1003,7 +1003,7 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
               </div>
               <div>
                 <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Rabatt gesamt</p>
-                <p className="font-display text-base num text-[#3D5446]">{fmtPct(gesamtrabatt)}</p>
+                <p className="font-display text-base num text-[#D2563E]">{fmtPct(gesamtrabatt)}</p>
                 <p className="font-body text-[10px] text-[#6B6961]">{fmtPct(mengenrabatt)} Menge + {fmtPct(p.projektrabatt)} Projekt</p>
               </div>
               <div>
@@ -1023,32 +1023,32 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
 
       {/* Vor- und Nachteile der Projekt-Beteiligung — unterhalb der Projekte */}
       <div className="mt-10 grid md:grid-cols-2 gap-4">
-        <div className="bg-white border border-[#3D5446]/20 p-5">
-          <p className="font-body text-[11px] uppercase tracking-wider text-[#3D5446] mb-3 flex items-center gap-1.5">
+        <div className="bg-white border border-[#D2563E]/20 p-5">
+          <p className="font-body text-[11px] uppercase tracking-wider text-[#D2563E] mb-3 flex items-center gap-1.5">
             <Plus className="w-3.5 h-3.5" strokeWidth={2} /> Vorteile
           </p>
           <ul className="space-y-2 font-body text-sm text-[#1C1C1A]/85 leading-relaxed">
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[#3D5446] shrink-0 mt-0.5" strokeWidth={2} /><span>Mengenrabatte aus der Gesamtgröße des Projekts</span></li>
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[#3D5446] shrink-0 mt-0.5" strokeWidth={2} /><span>Zusätzliche Einnahmenpotenziale aus Gemeinschaftsmodulen (Gym, CoWork, Wellness)</span></li>
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[#3D5446] shrink-0 mt-0.5" strokeWidth={2} /><span>Nutzung der Gemeinschaftsmodule ohne eigene Investition</span></li>
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[#3D5446] shrink-0 mt-0.5" strokeWidth={2} /><span>Wir kümmern uns um Grundstück, Genehmigung & Bauleitung</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[#D2563E] shrink-0 mt-0.5" strokeWidth={2} /><span>Mengenrabatte aus der Gesamtgröße des Projekts</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[#D2563E] shrink-0 mt-0.5" strokeWidth={2} /><span>Zusätzliche Einnahmenpotenziale aus Gemeinschaftsmodulen (Gym, CoWork, Wellness)</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[#D2563E] shrink-0 mt-0.5" strokeWidth={2} /><span>Nutzung der Gemeinschaftsmodule ohne eigene Investition</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[#D2563E] shrink-0 mt-0.5" strokeWidth={2} /><span>Wir kümmern uns um Grundstück, Genehmigung & Bauleitung</span></li>
           </ul>
         </div>
-        <div className="bg-white border border-[#A88B5A]/30 p-5">
-          <p className="font-body text-[11px] uppercase tracking-wider text-[#A88B5A] mb-3 flex items-center gap-1.5">
+        <div className="bg-white border border-[#7B2D8E]/30 p-5">
+          <p className="font-body text-[11px] uppercase tracking-wider text-[#7B2D8E] mb-3 flex items-center gap-1.5">
             <Info className="w-3.5 h-3.5" strokeWidth={2} /> Zu bedenken
           </p>
           <ul className="space-y-2 font-body text-sm text-[#1C1C1A]/85 leading-relaxed">
-            <li className="flex gap-2"><span className="text-[#A88B5A] shrink-0 mt-0.5">·</span><span>Höheres Gesamtinvestment durch Anteil an Gemeinschaftsflächen</span></li>
-            <li className="flex gap-2"><span className="text-[#A88B5A] shrink-0 mt-0.5">·</span><span>Höhere einmalige Projektkosten (Architektur, PM) auf alle Beteiligten umgelegt</span></li>
-            <li className="flex gap-2"><span className="text-[#A88B5A] shrink-0 mt-0.5">·</span><span>Laufende Umlagen für Pacht, Gemeinschaftsflächen und Verwaltung</span></li>
-            <li className="flex gap-2"><span className="text-[#A88B5A] shrink-0 mt-0.5">·</span><span>Standort und Ausführung werden gemeinsam mit allen Beteiligten festgelegt</span></li>
+            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>Höheres Gesamtinvestment durch Anteil an Gemeinschaftsflächen</span></li>
+            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>Höhere einmalige Projektkosten (Architektur, PM) auf alle Beteiligten umgelegt</span></li>
+            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>Laufende Umlagen für Pacht, Gemeinschaftsflächen und Verwaltung</span></li>
+            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>Standort und Ausführung werden gemeinsam mit allen Beteiligten festgelegt</span></li>
           </ul>
         </div>
       </div>
 
-      <div className="mt-6 bg-[#FBF7EF] border border-[#A88B5A]/30 p-4 flex gap-3 items-start">
-        <Info className="w-5 h-5 text-[#A88B5A] shrink-0 mt-0.5" strokeWidth={1.5} />
+      <div className="mt-6 bg-[#FBF7EF] border border-[#7B2D8E]/30 p-4 flex gap-3 items-start">
+        <Info className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} />
         <p className="font-body text-xs text-[#6B6961] leading-relaxed">
           <span className="font-medium text-[#1C1C1A]">Alle Umlagen kalkuliert auf die Ziel-Modulanzahl.</span> Wir geben das Projekt erst frei, wenn die Ziel-Modulanzahl erreicht ist. Bei höherer tatsächlicher Auslastung verringern sich Deine Umlagen anteilig — schlechter werden sie nicht.
         </p>
@@ -1089,16 +1089,16 @@ function ModulartStep({ onSelect, onBack }) {
           const Icon = o.icon;
           return (
             <button key={o.id} onClick={() => onSelect(o.id)}
-              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#3D5446] p-7 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
-              <div className="w-12 h-12 rounded-full bg-[#3D5446]/5 group-hover:bg-[#3D5446]/10 flex items-center justify-center mb-5 transition-colors">
-                <Icon className="w-5 h-5 text-[#3D5446]" strokeWidth={1.5} />
+              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#D2563E] p-7 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
+              <div className="w-12 h-12 rounded-full bg-[#D2563E]/5 group-hover:bg-[#D2563E]/10 flex items-center justify-center mb-5 transition-colors">
+                <Icon className="w-5 h-5 text-[#D2563E]" strokeWidth={1.5} />
               </div>
               <h3 className="font-display text-2xl mb-1">{o.title}</h3>
               <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-3">{o.subtitle}</p>
               <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-5">{o.desc}</p>
               <div className="pt-3 border-t border-[#1C1C1A]/10 flex items-center justify-between">
-                <p className="font-body text-[10px] uppercase tracking-wider text-[#A88B5A]">{o.finanzhinweis}</p>
-                <ArrowRight className="w-4 h-4 text-[#3D5446] opacity-0 group-hover:opacity-100 transition-opacity" />
+                <p className="font-body text-[10px] uppercase tracking-wider text-[#7B2D8E]">{o.finanzhinweis}</p>
+                <ArrowRight className="w-4 h-4 text-[#D2563E] opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </button>
           );
@@ -1213,8 +1213,8 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
       <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">
         Damit wir Dir realistische Zahlen zeigen können. Wir starten mit Deiner Flächensituation und ermitteln daraus die mögliche Modulanzahl und Geschoss-Verteilung.
       </p>
-      <div className="bg-[#3D5446]/5 border border-[#3D5446]/20 px-4 py-3 mb-8 flex items-center gap-2.5 max-w-2xl">
-        <span className="text-[#B0452C] font-medium text-base">*</span>
+      <div className="bg-[#D2563E]/5 border border-[#D2563E]/20 px-4 py-3 mb-8 flex items-center gap-2.5 max-w-2xl">
+        <span className="text-[#C5392E] font-medium text-base">*</span>
         <p className="font-body text-xs text-[#6B6961]">Pflichtangaben mit Stern. Diese erste Kostenindikation verfeinern wir gemeinsam im Beratungsgespräch.</p>
       </div>
 
@@ -1222,24 +1222,24 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
 
         {/* SCHRITT 1: Fläche-Status */}
         <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-4">
-          <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#3D5446] text-[#F8F5F0] flex items-center justify-center text-xs font-body">1</span> Fläche</h3>
+          <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#D2563E] text-[#F8F5F0] flex items-center justify-center text-xs font-body">1</span> Fläche</h3>
           <FieldLabel required>Wie sieht's mit der Fläche aus?</FieldLabel>
           <div className="grid md:grid-cols-3 gap-3">
             <button onClick={() => setFlaecheStatus('ja')}
-              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'ja' ? 'border-[#3D5446] bg-[#3D5446]/10 ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-              <MapPin className="w-5 h-5 text-[#3D5446] mb-2" strokeWidth={1.5} />
+              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'ja' ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+              <MapPin className="w-5 h-5 text-[#D2563E] mb-2" strokeWidth={1.5} />
               <p className="font-body text-sm text-[#1C1C1A] font-medium">Ja, ich habe</p>
               <p className="font-body text-xs text-[#6B6961] mt-1">Konkretes Grundstück vorhanden</p>
             </button>
             <button onClick={() => setFlaecheStatus('suche_selbst')}
-              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'suche_selbst' ? 'border-[#3D5446] bg-[#3D5446]/10 ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-              <MapPin className="w-5 h-5 text-[#3D5446] mb-2" strokeWidth={1.5} />
+              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'suche_selbst' ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+              <MapPin className="w-5 h-5 text-[#D2563E] mb-2" strokeWidth={1.5} />
               <p className="font-body text-sm text-[#1C1C1A] font-medium">Noch nicht — ich suche</p>
               <p className="font-body text-xs text-[#6B6961] mt-1">Ich kümmere mich selbst um die Fläche</p>
             </button>
             <button onClick={() => setFlaecheStatus('sucht_fuer_mich')}
-              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'sucht_fuer_mich' ? 'border-[#3D5446] bg-[#3D5446]/10 ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-              <MapPin className="w-5 h-5 text-[#A88B5A] mb-2" strokeWidth={1.5} />
+              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'sucht_fuer_mich' ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+              <MapPin className="w-5 h-5 text-[#7B2D8E] mb-2" strokeWidth={1.5} />
               <p className="font-body text-sm text-[#1C1C1A] font-medium">Bitte sucht eine Fläche für mich</p>
               <p className="font-body text-xs text-[#6B6961] mt-1">Ihr unterstützt mich bei der Suche</p>
             </button>
@@ -1251,7 +1251,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
               <FieldLabel required>Grundstücksgröße in m²</FieldLabel>
               <NumberInput value={config.grundstueckGroesse} onChange={v => setConfig(c => ({...c, grundstueckGroesse: v, geschosse: 0, zielModulAnzahl: 0, geschossVerteilung: []}))}
                 placeholder="z. B. 2000"
-                className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#3D5446]" />
+                className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#D2563E]" />
             </div>
           )}
           {(config.flaecheStatus === 'suche_selbst' || config.flaecheStatus === 'sucht_fuer_mich') && (
@@ -1259,10 +1259,10 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
               <FieldLabel required hint="Daraus berechnen wir den Mindestflächenbedarf">Wie viele Module wünschst Du Dir?</FieldLabel>
               <NumberInput value={config.gewuenschteModulAnzahl} onChange={v => setConfig(c => ({...c, gewuenschteModulAnzahl: v, geschosse: 0, zielModulAnzahl: 0, geschossVerteilung: []}))}
                 placeholder="z. B. 50"
-                className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#3D5446]" />
+                className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#D2563E]" />
               {config.flaecheStatus === 'sucht_fuer_mich' && (
-                <div className="bg-[#FBF7EF] border border-[#A88B5A]/30 p-3 flex gap-2 items-start">
-                  <Info className="w-4 h-4 text-[#A88B5A] shrink-0 mt-0.5" strokeWidth={1.5} />
+                <div className="bg-[#FBF7EF] border border-[#7B2D8E]/30 p-3 flex gap-2 items-start">
+                  <Info className="w-4 h-4 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} />
                   <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
                     Wir suchen passende Flächen in Deiner Wunschregion. Details besprechen wir gerne persönlich.
                   </p>
@@ -1275,7 +1275,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
         {/* SCHRITT 2: Geschossigkeit */}
         {hasFlaecheData && (
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-4">
-            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#3D5446] text-[#F8F5F0] flex items-center justify-center text-xs font-body">2</span> Geschossigkeit</h3>
+            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#D2563E] text-[#F8F5F0] flex items-center justify-center text-xs font-body">2</span> Geschossigkeit</h3>
             <FieldLabel required hint="Beeinflusst die maximale Modulanzahl">Wie viele Geschosse sind geplant?</FieldLabel>
             <div className="grid grid-cols-3 gap-3">
               {[
@@ -1284,8 +1284,8 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                 { n: 3, label: '3 Geschosse', sub: 'EG + OG + DG' },
               ].map(g => (
                 <button key={g.n} onClick={() => setGeschosse(g.n)}
-                  className={`p-4 border text-left transition-colors flex items-center gap-3 ${config.geschosse === g.n ? 'border-[#3D5446] bg-[#3D5446]/10 ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-                  <Layers className="w-5 h-5 text-[#3D5446]" strokeWidth={1.5} />
+                  className={`p-4 border text-left transition-colors flex items-center gap-3 ${config.geschosse === g.n ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                  <Layers className="w-5 h-5 text-[#D2563E]" strokeWidth={1.5} />
                   <div><p className="font-body text-sm text-[#1C1C1A]">{g.label}</p><p className="font-body text-xs text-[#6B6961]">{g.sub}</p></div>
                 </button>
               ))}
@@ -1293,8 +1293,8 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
 
             {/* Berechnete Kapazität anzeigen */}
             {maxModuleData && config.geschosse > 0 && (
-              <div className="mt-3 bg-[#3D5446]/5 border border-[#3D5446]/15 p-4">
-                <p className="font-body text-xs uppercase tracking-wider text-[#3D5446] mb-2">Berechnete Kapazität</p>
+              <div className="mt-3 bg-[#D2563E]/5 border border-[#D2563E]/15 p-4">
+                <p className="font-body text-xs uppercase tracking-wider text-[#D2563E] mb-2">Berechnete Kapazität</p>
                 <div className="font-body text-sm text-[#1C1C1A] space-y-1">
                   <p><span className="num">{config.grundstueckGroesse} m²</span> × {Math.round(BEBAUUNGSGRAD * 100)} % bebaubar ÷ {ZIEL_MODUL_BGF} m² BGF = <span className="num font-medium">{maxModuleData.maxProGeschoss}</span> Module / Geschoss</p>
                   <p><span className="num font-medium">{maxModuleData.maxGesamt}</span> Module insgesamt möglich (bei {config.geschosse} {config.geschosse === 1 ? 'Geschoss' : 'Geschossen'})</p>
@@ -1302,26 +1302,26 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
               </div>
             )}
             {mindestflaecheData && config.geschosse > 0 && (
-              <div className="mt-3 bg-[#FBF7EF] border border-[#A88B5A]/30 p-5">
-                <p className="font-body text-xs uppercase tracking-wider text-[#A88B5A] mb-3">Mindestflächenbedarf</p>
+              <div className="mt-3 bg-[#FBF7EF] border border-[#7B2D8E]/30 p-5">
+                <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] mb-3">Mindestflächenbedarf</p>
                 <div className="space-y-3 mb-4">
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="font-body text-sm text-[#6B6961]">Reine Gebäudefläche</span>
                     <span className="font-display text-xl num text-[#1C1C1A]">{fmtNum(mindestflaecheData.gebaeudeflaeche)} m²</span>
                   </div>
-                  <div className="flex items-baseline justify-between gap-3 pt-3 border-t border-[#A88B5A]/20">
+                  <div className="flex items-baseline justify-between gap-3 pt-3 border-t border-[#7B2D8E]/20">
                     <span className="font-body text-sm text-[#1C1C1A]">
                       Empfohlene Mindestgröße<br/>
                       <span className="text-[11px] text-[#6B6961]">inkl. Wege, Parkplätze, Grünflächen</span>
                     </span>
-                    <span className="font-display text-2xl num text-[#A88B5A]">≥ {fmtNum(Math.ceil(mindestflaecheData.mindestGrundstueck / 100) * 100)} m²</span>
+                    <span className="font-display text-2xl num text-[#7B2D8E]">≥ {fmtNum(Math.ceil(mindestflaecheData.mindestGrundstueck / 100) * 100)} m²</span>
                   </div>
                 </div>
                 <p className="font-body text-[11px] text-[#6B6961] italic leading-relaxed">
                   Berechnungsgrundlage: {config.gewuenschteModulAnzahl} Module auf {config.geschosse} {config.geschosse === 1 ? 'Geschoss' : 'Geschossen'} bei {Math.round(BEBAUUNGSGRAD * 100)} % Bebauungsgrad.
                 </p>
                 {config.flaecheStatus === 'sucht_fuer_mich' && (
-                  <p className="font-body text-[11px] text-[#1C1C1A] mt-3 pt-3 border-t border-[#A88B5A]/20 leading-relaxed">
+                  <p className="font-body text-[11px] text-[#1C1C1A] mt-3 pt-3 border-t border-[#7B2D8E]/20 leading-relaxed">
                     <span className="font-medium">Wir suchen Flächen ≥ {fmtNum(Math.ceil(mindestflaecheData.mindestGrundstueck / 100) * 100)} m² in Deiner Region.</span> Diese Information wird an uns übermittelt.
                   </p>
                 )}
@@ -1333,7 +1333,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
         {/* SCHRITT 3: Zielwert + Geschoss-Verteilung */}
         {config.geschosse > 0 && maxZielwert > 0 && (
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-5">
-            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#3D5446] text-[#F8F5F0] flex items-center justify-center text-xs font-body">3</span> Zielwert & Verteilung</h3>
+            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#D2563E] text-[#F8F5F0] flex items-center justify-center text-xs font-body">3</span> Zielwert & Verteilung</h3>
 
             <div>
               {(config.flaecheStatus === 'suche_selbst' || config.flaecheStatus === 'sucht_fuer_mich') ? (
@@ -1341,7 +1341,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                 <div>
                   <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Modulanzahl</p>
                   <div className="flex items-baseline justify-between">
-                    <span className="font-display text-2xl num text-[#3D5446]">{config.zielModulAnzahl}</span>
+                    <span className="font-display text-2xl num text-[#D2563E]">{config.zielModulAnzahl}</span>
                     <span className="font-body text-xs text-[#6B6961]">aus Deiner Wunsch-Vorgabe</span>
                   </div>
                   <p className="font-body text-xs text-[#6B6961] mt-2">Die Modulanzahl ist durch Deine Wunsch-Vorgabe oben festgelegt. Du kannst nur die Verteilung auf die Geschosse anpassen.</p>
@@ -1351,7 +1351,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                 <>
                   <FieldLabel required hint={`Default = Maximum von ${maxZielwert}`}>Ziel-Modulanzahl</FieldLabel>
                   <div className="flex items-baseline justify-between mb-2">
-                    <span className="font-display text-2xl num text-[#3D5446]">{config.zielModulAnzahl}</span>
+                    <span className="font-display text-2xl num text-[#D2563E]">{config.zielModulAnzahl}</span>
                     <span className="font-body text-xs text-[#6B6961]">max. {maxZielwert}</span>
                   </div>
                   <input type="range" min={1} max={maxZielwert} step={1}
@@ -1374,7 +1374,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                       <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1">{geschossNamen[idx]}</p>
                       <NumberInput value={wert} onChange={v => setVerteilungWert(idx, v)}
                         placeholder="0"
-                        className="w-full px-2 py-1.5 bg-white border border-[#1C1C1A]/15 text-lg font-display focus:border-[#3D5446]" />
+                        className="w-full px-2 py-1.5 bg-white border border-[#1C1C1A]/15 text-lg font-display focus:border-[#D2563E]" />
                       <p className="font-body text-[10px] text-[#6B6961] mt-1">Module</p>
                     </div>
                   ))}
@@ -1382,8 +1382,8 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                 <div className="flex justify-between items-center mt-3 font-body text-sm">
                   <span className="text-[#6B6961]">Summe Verteilung: <span className="num text-[#1C1C1A]">{verteilungSumme}</span> / {config.zielModulAnzahl}</span>
                   {validierung.valid
-                    ? <span className="text-[#3D5446] flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={2.5}/> gültig</span>
-                    : <span className="text-[#B0452C] text-xs">{validierung.error}</span>}
+                    ? <span className="text-[#D2563E] flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={2.5}/> gültig</span>
+                    : <span className="text-[#C5392E] text-xs">{validierung.error}</span>}
                 </div>
               </div>
             )}
@@ -1412,12 +1412,12 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                     </div>
                   )}
                   {dachflaeche > 0 && (
-                    <div className="flex justify-between py-2 bg-[#3D5446]/5 px-3 -mx-3">
+                    <div className="flex justify-between py-2 bg-[#D2563E]/5 px-3 -mx-3">
                       <div>
                         <p className="text-[#1C1C1A]">Dachfläche (oberstes Geschoss)</p>
                         <p className="text-xs text-[#6B6961]">{verteilung[verteilung.length-1]} Module × {ZIEL_MODUL_BGF} m² — verfügbar für PV & Begrünung</p>
                       </div>
-                      <span className="num shrink-0 text-[#3D5446]">{fmtNum(dachflaeche)} m²</span>
+                      <span className="num shrink-0 text-[#D2563E]">{fmtNum(dachflaeche)} m²</span>
                     </div>
                   )}
                 </div>
@@ -1432,17 +1432,17 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                       <FieldLabel required={false} hint="Inkl. Speicher & Wechselrichter">PV-Anlage auf Dachfläche</FieldLabel>
                       <div className="grid grid-cols-3 gap-2 mt-2">
                         <button onClick={() => setConfig(c => ({...c, pvAnteil: 0}))}
-                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0 ? 'border-[#3D5446] bg-[#3D5446]/10 ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0 ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
                           <p className="font-body text-sm text-[#1C1C1A]">Keine PV</p>
                           <p className="font-body text-[10px] text-[#6B6961] mt-0.5">—</p>
                         </button>
                         <button onClick={() => setConfig(c => ({...c, pvAnteil: 0.5}))}
-                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0.5 ? 'border-[#3D5446] bg-[#3D5446]/10 ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0.5 ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
                           <p className="font-body text-sm text-[#1C1C1A]">50 % Dach</p>
                           <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pv50} Module · {fmtEUR(pv50 * KOSTEN_PV_PRO_MODUL)}</p>
                         </button>
                         <button onClick={() => setConfig(c => ({...c, pvAnteil: 1}))}
-                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 1 ? 'border-[#3D5446] bg-[#3D5446]/10 ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 1 ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
                           <p className="font-body text-sm text-[#1C1C1A]">100 % Dach</p>
                           <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pv100} Module · {fmtEUR(pv100 * KOSTEN_PV_PRO_MODUL)}</p>
                         </button>
@@ -1459,15 +1459,15 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
         {/* SCHRITT 4: Pacht (nur bei eigener Fläche) */}
         {config.flaecheStatus === 'ja' && config.zielModulAnzahl > 0 && (
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-6">
-            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#3D5446] text-[#F8F5F0] flex items-center justify-center text-xs font-body">4</span> Vorarbeiten & Pacht</h3>
+            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#D2563E] text-[#F8F5F0] flex items-center justify-center text-xs font-body">4</span> Vorarbeiten & Pacht</h3>
 
             <div>
               <FieldLabel required>Möchtest Du Erschließung, Wege & Begrünung im Detail angeben?</FieldLabel>
               <div className="flex gap-2 mb-3">
                 <button onClick={() => setConfig(c => ({...c, detailKosten: true}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ja, ich weiß, was anfällt</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ja, ich weiß, was anfällt</button>
                 <button onClick={() => setConfig(c => ({...c, detailKosten: false}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten === false ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Nein — bitte schätzen</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten === false ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Nein — bitte schätzen</button>
               </div>
               <p className="font-body text-xs text-[#6B6961]">Bei Schätzung nehmen wir Erschließung, Wege und Begrünung pauschal an — Abriss/Entsorgung musst Du dennoch explizit ankreuzen.</p>
               {config.detailKosten && (
@@ -1476,7 +1476,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                   {GRDST_OPTIONEN.map(opt => (
                     <label key={opt.id} className="flex items-start gap-3 cursor-pointer group">
                       <button onClick={() => toggleOption(opt.id)}
-                        className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${config.activeOptionen[opt.id] ? 'bg-[#3D5446] border-[#3D5446]' : 'border-[#1C1C1A]/20 group-hover:border-[#3D5446]/50'}`}>
+                        className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${config.activeOptionen[opt.id] ? 'bg-[#D2563E] border-[#D2563E]' : 'border-[#1C1C1A]/20 group-hover:border-[#D2563E]/50'}`}>
                         {config.activeOptionen[opt.id] && <Check className="w-3.5 h-3.5 text-[#F8F5F0]" strokeWidth={2.5} />}
                       </button>
                       <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
@@ -1490,7 +1490,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                   {GRDST_OPTIONEN.filter(o => !o.schaetzungsfaehig).map(opt => (
                     <label key={opt.id} className="flex items-start gap-3 cursor-pointer group">
                       <button onClick={() => toggleOption(opt.id)}
-                        className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${config.activeOptionen[opt.id] ? 'bg-[#3D5446] border-[#3D5446]' : 'border-[#1C1C1A]/20 group-hover:border-[#3D5446]/50'}`}>
+                        className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${config.activeOptionen[opt.id] ? 'bg-[#D2563E] border-[#D2563E]' : 'border-[#1C1C1A]/20 group-hover:border-[#D2563E]/50'}`}>
                         {config.activeOptionen[opt.id] && <Check className="w-3.5 h-3.5 text-[#F8F5F0]" strokeWidth={2.5} />}
                       </button>
                       <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
@@ -1504,9 +1504,9 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
               <FieldLabel required>Fällt für die Fläche eine Pacht an?</FieldLabel>
               <div className="flex gap-2">
                 <button onClick={() => setConfig(c => ({...c, hasPacht: true}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ja, Pacht</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ja, Pacht</button>
                 <button onClick={() => setConfig(c => ({...c, hasPacht: false}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht === false ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Nein / Eigentum</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht === false ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Nein / Eigentum</button>
               </div>
               {config.hasPacht && (
                 <>
@@ -1515,7 +1515,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                     <div className="flex items-center gap-2">
                       <NumberInput value={config.pachtJahr} onChange={v => setConfig(c => ({...c, pachtJahr: v}))}
                         placeholder="z. B. 96000"
-                        className="flex-1 w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#3D5446]" />
+                        className="flex-1 w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#D2563E]" />
                       <span className="font-body text-sm text-[#6B6961]">€ / Jahr</span>
                     </div>
                   </div>
@@ -1523,9 +1523,9 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                     <FieldLabel required>Wird die Pacht gewerblich oder privat berechnet?</FieldLabel>
                     <div className="flex gap-2">
                       <button onClick={() => setConfig(c => ({...c, pachtGewerblich: true}))}
-                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Gewerblich (+19 % USt)</button>
+                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Gewerblich (+19 % USt)</button>
                       <button onClick={() => setConfig(c => ({...c, pachtGewerblich: false}))}
-                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich === false ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Privat (keine USt)</button>
+                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich === false ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Privat (keine USt)</button>
                     </div>
                   </div>
                 </>
@@ -1540,7 +1540,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
           </Button>
         </div>
         {!pflichtfelderOk && <p className="font-body text-xs text-[#6B6961] text-right">Bitte alle Pflichtfelder ausfüllen</p>}
-        {pflichtfelderOk && !validierung.valid && <p className="font-body text-xs text-[#B0452C] text-right">{validierung.error}</p>}
+        {pflichtfelderOk && !validierung.valid && <p className="font-body text-xs text-[#C5392E] text-right">{validierung.error}</p>}
       </div>
     </div>
   );
@@ -1568,7 +1568,7 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
           <div className="flex gap-1.5 flex-wrap">
             {groessen.map(g => (
               <button key={g} onClick={() => setSelectedVariant({...selectedVariant, groesse: g})}
-                className={`px-3 py-1.5 font-body text-xs border transition-colors num ${selectedVariant.groesse === g ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                className={`px-3 py-1.5 font-body text-xs border transition-colors num ${selectedVariant.groesse === g ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
                 {g} m²
               </button>
             ))}
@@ -1581,7 +1581,7 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
           <div className="flex gap-1.5 flex-wrap">
             {kuechen.map(k => (
               <button key={k} onClick={() => setSelectedVariant({...selectedVariant, kueche: k})}
-                className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.kueche === k ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.kueche === k ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
                 {k}
               </button>
             ))}
@@ -1593,9 +1593,9 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">Möblierung</p>
           <div className="flex gap-1.5 flex-wrap">
             <button onClick={() => setSelectedVariant({...selectedVariant, moebliert: false})}
-              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === false ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Ohne Möbel</button>
+              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === false ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Ohne Möbel</button>
             <button onClick={() => setSelectedVariant({...selectedVariant, moebliert: true})}
-              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === true ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Möbliert</button>
+              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === true ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Möbliert</button>
           </div>
         </div>
       )}
@@ -1610,11 +1610,11 @@ function AvailabilityToggle({ product, mode, onChange }) {
       <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">Nutzung dieses Moduls</p>
       <div className="flex gap-1">
         <button onClick={() => onChange('eigennutzung')}
-          className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${mode === 'eigennutzung' ? 'bg-[#3D5446] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+          className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${mode === 'eigennutzung' ? 'bg-[#D2563E] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
           <Gift className="w-3 h-3" strokeWidth={2} /> Eigennutzung
         </button>
         <button onClick={() => onChange('einnahmen')}
-          className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${mode === 'einnahmen' ? 'bg-[#A88B5A] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+          className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${mode === 'einnahmen' ? 'bg-[#7B2D8E] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
           <TrendingUp className="w-3 h-3" strokeWidth={2} /> Vermietung
         </button>
       </div>
@@ -1693,7 +1693,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
   const effectivePrice = product.brutto;
 
   return (
-    <div className={`border transition-all duration-300 overflow-hidden ${familyTotal > 0 ? 'border-[#3D5446] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
+    <div className={`border transition-all duration-300 overflow-hidden ${familyTotal > 0 ? 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
       {/* Hero-Image: Grundriss groß, weißer Hintergrund (Feedback V4) */}
       <div className="relative bg-white flex items-center justify-center px-2 py-2" style={{ minHeight: '200px' }}>
         {(() => {
@@ -1705,7 +1705,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           );
         })()}
         {familyTotal > 0 && (
-          <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[#3D5446] bg-[#F8F5F0] border border-[#3D5446]/30 px-2 py-0.5 num">{familyTotal} gewählt</span>
+          <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[#D2563E] bg-[#F8F5F0] border border-[#D2563E]/30 px-2 py-0.5 num">{familyTotal} gewählt</span>
         )}
       </div>
       <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8">
@@ -1719,11 +1719,11 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">Nutzung & Finanzierung</p>
           <div className="flex gap-1">
             <button onClick={() => switchUsage('p')}
-              className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${usageState === 'p' ? 'bg-[#3D5446] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+              className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${usageState === 'p' ? 'bg-[#D2563E] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
               <Home className="w-3 h-3" strokeWidth={2} /> Privat (KfW/GLS)
             </button>
             <button onClick={() => switchUsage('g')}
-              className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${usageState === 'g' ? 'bg-[#A88B5A] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+              className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${usageState === 'g' ? 'bg-[#7B2D8E] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
               <Briefcase className="w-3 h-3" strokeWidth={2} /> Gewerblich (Plattform)
             </button>
           </div>
@@ -1737,7 +1737,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <div className="flex gap-1.5 flex-wrap">
             {[12, 24, 32].map(g => (
               <button key={g} onClick={() => setGroesse(g)}
-                className={`px-3 py-1.5 font-body text-xs border transition-colors num ${groesse === g ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                className={`px-3 py-1.5 font-body text-xs border transition-colors num ${groesse === g ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
                 {g} m²
               </button>
             ))}
@@ -1754,19 +1754,19 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <div className="flex items-center gap-2">
             {count > 0 ? (
               <>
-                <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[#3D5446] hover:bg-[#3D5446]/5 flex items-center justify-center transition-colors">
+                <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[#D2563E] hover:bg-[#D2563E]/5 flex items-center justify-center transition-colors">
                   <Minus className="w-4 h-4" strokeWidth={1.5} />
                 </button>
                 <input type="number" min={0} max={999} value={count}
                   onChange={e => setExact(e.target.value)}
                   onFocus={e => e.target.select()}
-                  className="font-display text-xl num w-12 text-center bg-transparent border-b border-[#1C1C1A]/15 focus:border-[#3D5446] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                <button onClick={() => adjust(1)} className="w-9 h-9 rounded-full bg-[#3D5446] hover:bg-[#2C3D33] text-[#F8F5F0] flex items-center justify-center transition-colors">
+                  className="font-display text-xl num w-12 text-center bg-transparent border-b border-[#1C1C1A]/15 focus:border-[#D2563E] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <button onClick={() => adjust(1)} className="w-9 h-9 rounded-full bg-[#D2563E] hover:bg-[#B04528] text-[#F8F5F0] flex items-center justify-center transition-colors">
                   <Plus className="w-4 h-4" strokeWidth={1.5} />
                 </button>
               </>
             ) : (
-              <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[#3D5446] hover:bg-[#3D5446]/5 transition-colors">
+              <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[#D2563E] hover:bg-[#D2563E]/5 transition-colors">
                 <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Hinzufügen
               </button>
             )}
@@ -1781,7 +1781,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
                 <div key={p.kuerzel} className="flex justify-between gap-2 font-body text-xs">
                   <span className="text-[#6B6961]">{selections[p.kuerzel]}× <span className="text-[#1C1C1A]">{getDisplayName(p)}</span></span>
                   <button onClick={() => setSelections(prev => { const n = {...prev}; delete n[p.kuerzel]; return n; })}
-                    className="text-[#6B6961] hover:text-[#B0452C] transition-colors text-[10px]">entfernen</button>
+                    className="text-[#6B6961] hover:text-[#C5392E] transition-colors text-[10px]">entfernen</button>
                 </div>
               ))}
             </div>
@@ -1845,7 +1845,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
   return (
     <div className={`border transition-all duration-300 overflow-hidden ${
       familyTotal > 0
-        ? (showsIncome && product.usage === 'g' ? 'border-[#A88B5A] bg-white shadow-[0_4px_20px_-8px_rgba(168,139,90,0.25)]' : 'border-[#3D5446] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]')
+        ? (showsIncome && product.usage === 'g' ? 'border-[#7B2D8E] bg-white shadow-[0_4px_20px_-8px_rgba(168,139,90,0.25)]' : 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]')
         : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
 
       {/* Hero-Image: Grundriss groß, weißer Hintergrund, minimales Padding (Feedback V4) */}
@@ -1859,7 +1859,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
           );
         })()}
         {familyTotal > 0 && (
-          <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[#3D5446] bg-[#F8F5F0] border border-[#3D5446]/30 px-2 py-0.5 num">{familyTotal} gewählt</span>
+          <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[#D2563E] bg-[#F8F5F0] border border-[#D2563E]/30 px-2 py-0.5 num">{familyTotal} gewählt</span>
         )}
       </div>
 
@@ -1878,7 +1878,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
             <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
             <div className="flex gap-3 text-[#6B6961] text-[11px]">
               <span>{product.nuf} m² NUF</span><span>·</span><span>{product.bgf} m² BGF</span>
-              {calcModulEinheiten(product) > 1 && <><span>·</span><span className="text-[#A88B5A]">{calcModulEinheiten(product)} Einheiten</span></>}
+              {calcModulEinheiten(product) > 1 && <><span>·</span><span className="text-[#7B2D8E]">{calcModulEinheiten(product)} Einheiten</span></>}
             </div>
             <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
             <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis brutto</p>
@@ -1886,19 +1886,19 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
           <div className="flex items-center gap-2">
             {count > 0 ? (
               <>
-                <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[#3D5446] hover:bg-[#3D5446]/5 flex items-center justify-center transition-colors">
+                <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[#D2563E] hover:bg-[#D2563E]/5 flex items-center justify-center transition-colors">
                   <Minus className="w-4 h-4" strokeWidth={1.5} />
                 </button>
                 <input type="number" min={0} max={999} value={count}
                   onChange={e => setExact(e.target.value)}
                   onFocus={e => e.target.select()}
-                  className="font-display text-xl num w-12 text-center bg-transparent border-b border-[#1C1C1A]/15 focus:border-[#3D5446] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                <button onClick={() => adjust(1)} className="w-9 h-9 rounded-full bg-[#3D5446] hover:bg-[#2C3D33] text-[#F8F5F0] flex items-center justify-center transition-colors">
+                  className="font-display text-xl num w-12 text-center bg-transparent border-b border-[#1C1C1A]/15 focus:border-[#D2563E] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <button onClick={() => adjust(1)} className="w-9 h-9 rounded-full bg-[#D2563E] hover:bg-[#B04528] text-[#F8F5F0] flex items-center justify-center transition-colors">
                   <Plus className="w-4 h-4" strokeWidth={1.5} />
                 </button>
               </>
             ) : (
-              <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[#3D5446] hover:bg-[#3D5446]/5 transition-colors">
+              <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[#D2563E] hover:bg-[#D2563E]/5 transition-colors">
                 <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Hinzufügen
               </button>
             )}
@@ -1908,9 +1908,9 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
         <AvailabilityToggle product={product} mode={mode} onChange={setMode} />
 
         {showsIncome && (
-          <div className="mt-3 px-3 py-2 bg-[#A88B5A]/10 border border-[#A88B5A]/25 flex items-center justify-between gap-2">
+          <div className="mt-3 px-3 py-2 bg-[#7B2D8E]/10 border border-[#7B2D8E]/25 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-[#A88B5A]" strokeWidth={2} />
+              <TrendingUp className="w-3.5 h-3.5 text-[#7B2D8E]" strokeWidth={2} />
               <span className="font-body text-xs text-[#1C1C1A]">Mietindikation / Monat</span>
             </div>
             <span className="font-display text-sm num text-[#1C1C1A]">{fmtEUR(product.einnahmen)}</span>
@@ -1925,7 +1925,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
                 <div key={p.kuerzel} className="flex justify-between gap-2 font-body text-xs">
                   <span className="text-[#6B6961]">{selections[p.kuerzel]}× <span className="text-[#1C1C1A]">{getDisplayName(p)}</span></span>
                   <button onClick={() => setSelections(prev => { const n = {...prev}; delete n[p.kuerzel]; return n; })}
-                    className="text-[#6B6961] hover:text-[#B0452C] transition-colors text-[10px]">entfernen</button>
+                    className="text-[#6B6961] hover:text-[#C5392E] transition-colors text-[10px]">entfernen</button>
                 </div>
               ))}
             </div>
@@ -2017,8 +2017,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
           </p>
 
           {totals.rabattPct > 0 && (
-            <div className="bg-[#3D5446]/5 border border-[#3D5446]/20 px-4 py-3 mb-6 flex items-center gap-2.5">
-              <TrendingUp className="w-4 h-4 text-[#3D5446]" strokeWidth={1.5} />
+            <div className="bg-[#D2563E]/5 border border-[#D2563E]/20 px-4 py-3 mb-6 flex items-center gap-2.5">
+              <TrendingUp className="w-4 h-4 text-[#D2563E]" strokeWidth={1.5} />
               <p className="font-body text-xs text-[#1C1C1A]">
                 <span className="font-medium num">{fmtPct(totals.rabattPct)} Rabatt</span> berücksichtigt
                 {gewerbConfig && gewerbConfig.zielModulAnzahl > 0
@@ -2030,8 +2030,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
             </div>
           )}
           {totals.nextStaffel && totals.countTotal > 0 && totals.rabattPct === 0 && !gewerbConfig && (
-            <div className="bg-[#3D5446]/5 border border-[#3D5446]/20 px-4 py-3 mb-6 flex items-center gap-2.5">
-              <TrendingUp className="w-4 h-4 text-[#3D5446]" strokeWidth={1.5} />
+            <div className="bg-[#D2563E]/5 border border-[#D2563E]/20 px-4 py-3 mb-6 flex items-center gap-2.5">
+              <TrendingUp className="w-4 h-4 text-[#D2563E]" strokeWidth={1.5} />
               <p className="font-body text-xs text-[#1C1C1A]">
                 Noch <span className="font-medium num">{totals.nextStaffel.ab - totals.countTotal}</span> Module bis zum nächsten Rabatt-Sprung ({fmtPct(totals.nextStaffel.prozent)}).
               </p>
@@ -2041,12 +2041,12 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
           {availableCategories.length > 1 && (
             <div className="flex gap-2 font-body text-xs tracking-wider uppercase flex-wrap mb-8">
               <button onClick={() => setCatFilter('alle')}
-                className={`px-3 py-1.5 transition-colors ${catFilter === 'alle' ? 'border-[#3D5446] text-[#3D5446]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
+                className={`px-3 py-1.5 transition-colors ${catFilter === 'alle' ? 'border-[#D2563E] text-[#D2563E]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
                 Alle Kategorien
               </button>
               {availableCategories.map(c => (
                 <button key={c} onClick={() => setCatFilter(c)}
-                  className={`px-3 py-1.5 transition-colors ${catFilter === c ? 'border-[#3D5446] text-[#3D5446]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
+                  className={`px-3 py-1.5 transition-colors ${catFilter === c ? 'border-[#D2563E] text-[#D2563E]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
                   {CATEGORIES[c].label}
                 </button>
               ))}
@@ -2105,7 +2105,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
               <>
                 {/* MONATLICHE BELASTUNG — Hero-Element der Sidebar (Verkaufspsychologie) */}
                 {(totals.finanzierungMonat > 0 || totals.hasIncome) && (
-                  <div className="-mx-7 px-7 py-5 mb-5 bg-gradient-to-b from-[#3D5446]/5 to-transparent border-y border-[#3D5446]/15">
+                  <div className="-mx-7 px-7 py-5 mb-5 bg-gradient-to-b from-[#D2563E]/5 to-transparent border-y border-[#D2563E]/15">
                     {/* Verbrauchskosten klein, informativ, OBERHALB der Belastung (Feedback V4) */}
                     {totals.verbrauchskostenMonat > 0 && (
                       <div className="mb-3 pb-3 border-b border-[#1C1C1A]/8">
@@ -2120,7 +2120,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     )}
                     {totals.finanzierungMonat > 0 && (
                       <div className="mb-3">
-                        <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#3D5446] mb-1">Voraussichtliche Monatsrate</p>
+                        <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#D2563E] mb-1">Voraussichtliche Monatsrate</p>
                         <p className="font-display text-3xl num text-[#1C1C1A] leading-none">{fmtEUR(totals.monatlichGesamt)}</p>
                         <div className="mt-2 space-y-0.5">
                           <div className="flex justify-between font-body text-[11px] text-[#6B6961]">
@@ -2134,10 +2134,10 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         </div>
                         <p className="font-body text-[10px] text-[#6B6961] mt-1.5">Vorschau mit Standard-Konditionen — anpassbar im nächsten Schritt</p>
                         {totals.eigennutzungGewerbCount > 0 && (
-                          <div className="mt-3 pt-3 border-t border-[#3D5446]/15">
+                          <div className="mt-3 pt-3 border-t border-[#D2563E]/15">
                             <div className="flex justify-between items-baseline">
-                              <span className="font-body text-[10px] uppercase tracking-wider text-[#3D5446] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> pro Mitarbeiter</span>
-                              <span className="font-display text-lg num text-[#3D5446]">{fmtEUR(totals.belastungProMA)}</span>
+                              <span className="font-body text-[10px] uppercase tracking-wider text-[#D2563E] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> pro Mitarbeiter</span>
+                              <span className="font-display text-lg num text-[#D2563E]">{fmtEUR(totals.belastungProMA)}</span>
                             </div>
                             <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{totals.monatlichGesamt > 0 ? `${fmtEUR(totals.monatlichGesamt)} ÷ ${totals.eigennutzungGewerbCount} eigengenutzte Module` : ''}</p>
                           </div>
@@ -2145,11 +2145,11 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       </div>
                     )}
                     {totals.hasIncome && (
-                      <div className={totals.finanzierungMonat > 0 ? 'pt-3 border-t border-[#A88B5A]/20' : ''}>
-                        <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#A88B5A] mb-1 flex items-center gap-1.5">
+                      <div className={totals.finanzierungMonat > 0 ? 'pt-3 border-t border-[#7B2D8E]/20' : ''}>
+                        <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#7B2D8E] mb-1 flex items-center gap-1.5">
                           <TrendingUp className="w-3 h-3" strokeWidth={2} /> Mietindikation / Monat
                         </p>
-                        <p className="font-display text-2xl num text-[#A88B5A] leading-none">{fmtEUR(totals.monthlyIncomeBrutto)}</p>
+                        <p className="font-display text-2xl num text-[#7B2D8E] leading-none">{fmtEUR(totals.monthlyIncomeBrutto)}</p>
                         {totals.cashflowPositive && (
                           <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1">
                             <Check className="w-3 h-3" strokeWidth={2.5} /> rechnerisch positiv
@@ -2163,14 +2163,14 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 {/* PROJEKT-ECKDATEN (nur bei Projekt-Beitritt) */}
                 {project && (
                   <div className="mb-4 pb-4 border-b border-[#1C1C1A]/10">
-                    <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#A88B5A] mb-2">Projekt-Beteiligung</p>
+                    <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#7B2D8E] mb-2">Projekt-Beteiligung</p>
                     <p className="font-display text-base text-[#1C1C1A] leading-tight mb-1">{project.name}</p>
                     <p className="font-body text-[11px] text-[#6B6961] mb-3">{project.location}</p>
                     <dl className="space-y-1 text-[11px] font-body text-[#6B6961]">
                       <div className="flex justify-between"><dt>Projekt-Gesamtmodule</dt><dd className="num text-[#1C1C1A]">{project.zielModulAnzahl}</dd></div>
                       {project.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(project.grundstueckGroesse)} m²</dd></div>}
                       <div className="flex justify-between"><dt>Anteil</dt><dd className="num text-[#1C1C1A]">{totals.countTotal} von {project.zielModulAnzahl} ({fmtPct(totals.countTotal / project.zielModulAnzahl)})</dd></div>
-                      {project.projektrabatt > 0 && <div className="flex justify-between text-[#3D5446]"><dt>Projekt-Bonus</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
+                      {project.projektrabatt > 0 && <div className="flex justify-between text-[#D2563E]"><dt>Projekt-Bonus</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
                     </dl>
                   </div>
                 )}
@@ -2186,7 +2186,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         <div className="flex justify-between"><dt>Verteilung</dt><dd className="num">{gewerbConfig.geschossVerteilung.join(' / ')}</dd></div>
                       )}
                       {gewerbConfig.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(gewerbConfig.grundstueckGroesse)} m²</dd></div>}
-                      {(gewerbConfig.pvAnteil || 0) > 0 && <div className="flex justify-between text-[#A88B5A]"><dt>PV-Anlage</dt><dd className="num">{Math.round(gewerbConfig.pvAnteil * 100)} % Dach</dd></div>}
+                      {(gewerbConfig.pvAnteil || 0) > 0 && <div className="flex justify-between text-[#7B2D8E]"><dt>PV-Anlage</dt><dd className="num">{Math.round(gewerbConfig.pvAnteil * 100)} % Dach</dd></div>}
                     </dl>
                   </div>
                 )}
@@ -2197,11 +2197,11 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     <div key={it.kuerzel} className="flex items-start justify-between gap-2 text-sm font-body group">
                       <span className="text-[#1C1C1A] flex-1 leading-tight min-w-0">
                         <span className="num">{it.count}×</span> <span className="text-[#6B6961]">{getDisplayName(it)}</span>
-                        {it.mode === 'einnahmen' && it.einnahmen > 0 && <span className="text-[10px] text-[#A88B5A] ml-1 tracking-wider uppercase">verm.</span>}
+                        {it.mode === 'einnahmen' && it.einnahmen > 0 && <span className="text-[10px] text-[#7B2D8E] ml-1 tracking-wider uppercase">verm.</span>}
                       </span>
                       <button
                         onClick={() => setSelections(prev => { const n = {...prev}; delete n[it.kuerzel]; return n; })}
-                        className="opacity-30 hover:opacity-100 hover:text-[#B0452C] transition-all p-0.5 shrink-0"
+                        className="opacity-30 hover:opacity-100 hover:text-[#C5392E] transition-all p-0.5 shrink-0"
                         title="Modul aus Auswahl entfernen">
                         <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                       </button>
@@ -2221,7 +2221,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     </>
                   )}
                   <div className="flex justify-between"><dt>NUF</dt><dd className="num">{fmtNum(totals.gesamtNUF)} m²</dd></div>
-                  {totals.rabattPct > 0 && <div className="flex justify-between text-[#3D5446]"><dt>Rabatt gesamt</dt><dd className="num">−{fmtPct(totals.rabattPct)}</dd></div>}
+                  {totals.rabattPct > 0 && <div className="flex justify-between text-[#D2563E]"><dt>Rabatt gesamt</dt><dd className="num">−{fmtPct(totals.rabattPct)}</dd></div>}
                 </dl>
 
                 {/* Mismatch-Banner: 3 mögliche Zustände */}
@@ -2244,11 +2244,11 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   if (kapazitaetMax > 0 && ist > kapazitaetMax) {
                     const ueber = ist - kapazitaetMax;
                     return (
-                      <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 -mx-7 px-7 py-4 bg-[#B0452C]/10 border-l-4 border-l-[#B0452C]">
-                        <p className="font-body text-xs uppercase tracking-wider text-[#B0452C] mb-1.5 font-medium flex items-center gap-1.5">
+                      <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 -mx-7 px-7 py-4 bg-[#C5392E]/10 border-l-4 border-l-[#C5392E]">
+                        <p className="font-body text-xs uppercase tracking-wider text-[#C5392E] mb-1.5 font-medium flex items-center gap-1.5">
                           <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> Kapazität überschritten
                         </p>
-                        <p className="font-display text-xl num text-[#B0452C]">
+                        <p className="font-display text-xl num text-[#C5392E]">
                           +{ueber} Einheit{ueber === 1 ? '' : 'en'} zu viel
                         </p>
                         <p className="font-body text-xs text-[#1C1C1A]/80 mt-2 leading-relaxed">
@@ -2265,11 +2265,11 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   if (zielwert > 0 && ist > zielwert) {
                     const ueber = ist - zielwert;
                     return (
-                      <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 -mx-7 px-7 py-4 bg-[#FCE4E0] border-l-4 border-l-[#B0452C]">
-                        <p className="font-body text-xs uppercase tracking-wider text-[#B0452C] mb-1.5 font-medium flex items-center gap-1.5">
+                      <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 -mx-7 px-7 py-4 bg-[#FCE4E0] border-l-4 border-l-[#C5392E]">
+                        <p className="font-body text-xs uppercase tracking-wider text-[#C5392E] mb-1.5 font-medium flex items-center gap-1.5">
                           <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> Über Zielwert
                         </p>
-                        <p className="font-display text-xl num text-[#B0452C]">
+                        <p className="font-display text-xl num text-[#C5392E]">
                           +{ueber} Einheit{ueber === 1 ? '' : 'en'} über Ziel
                         </p>
                         <p className="font-body text-xs text-[#1C1C1A]/80 mt-2 leading-relaxed">
@@ -2286,11 +2286,11 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   if (zielwert > 0 && ist < zielwert && ist > 0) {
                     const frei = zielwert - ist;
                     return (
-                      <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 -mx-7 px-7 py-4 bg-[#FCE4E0] border-l-4 border-l-[#B0452C]">
-                        <p className="font-body text-xs uppercase tracking-wider text-[#B0452C] mb-1.5 font-medium flex items-center gap-1.5">
+                      <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 -mx-7 px-7 py-4 bg-[#FCE4E0] border-l-4 border-l-[#C5392E]">
+                        <p className="font-body text-xs uppercase tracking-wider text-[#C5392E] mb-1.5 font-medium flex items-center gap-1.5">
                           <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> Unter Zielwert
                         </p>
-                        <p className="font-display text-xl num text-[#B0452C]">
+                        <p className="font-display text-xl num text-[#C5392E]">
                           Noch {frei} Einheit{frei === 1 ? '' : 'en'} frei
                         </p>
                         <p className="font-body text-xs text-[#1C1C1A]/80 mt-2 leading-relaxed">
@@ -2308,7 +2308,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
 
                 {showMindestflaeche && totals.mindestflaeche && (
                   <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 bg-[#FBF7EF] -mx-7 px-7 py-4">
-                    <p className="font-body text-xs uppercase tracking-wider text-[#A88B5A] mb-2 flex items-center gap-1.5"><MapPin className="w-3 h-3" strokeWidth={2}/> Mindestflächenbedarf</p>
+                    <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] mb-2 flex items-center gap-1.5"><MapPin className="w-3 h-3" strokeWidth={2}/> Mindestflächenbedarf</p>
                     <p className="font-display text-2xl num">{fmtNum(totals.mindestflaeche.mindestGrundstueck)} m²</p>
                     <p className="font-body text-xs text-[#6B6961] mt-1">
                       Gebäudefläche {fmtNum(totals.mindestflaeche.gebaeudeflaeche)} m² ÷ {Math.round(BEBAUUNGSGRAD * 100)} % Bebauungsgrad
@@ -2406,7 +2406,7 @@ function Slider({ label, value, onChange, min, max, step, format = (v) => v, hin
     <div>
       <div className="flex justify-between items-baseline mb-2">
         <label className="font-body text-sm text-[#1C1C1A]">{label}</label>
-        <span className="font-display text-base num text-[#3D5446]">{format(value)}</span>
+        <span className="font-display text-base num text-[#D2563E]">{format(value)}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} className="w-full" />
       {hint && <p className="font-body text-xs text-[#6B6961] mt-1.5">{hint}</p>}
@@ -2421,7 +2421,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
       <div className="bg-white border border-[#1C1C1A]/10 p-7">
         <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
           <h3 className="font-display text-2xl">1. KfW-Förderung (privat)</h3>
-          <span className="font-body text-xs tracking-wider uppercase text-[#3D5446] bg-[#3D5446]/5 px-2 py-1">{totals.countPrivat} Modul{totals.countPrivat > 1 ? 'e' : ''}</span>
+          <span className="font-body text-xs tracking-wider uppercase text-[#D2563E] bg-[#D2563E]/5 px-2 py-1">{totals.countPrivat} Modul{totals.countPrivat > 1 ? 'e' : ''}</span>
         </div>
         <p className="font-body text-sm text-[#6B6961] mb-7">
           Tilgungszuschuss-fähige Förderung der KfW für energieeffizientes Wohnen — bis 150.000 € pro Modul. Der Tilgungsnachlass reduziert den effektiv zurückzuzahlenden Betrag.
@@ -2434,9 +2434,9 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
         </div>
         <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 space-y-1.5 font-body text-sm">
           <div className="flex justify-between"><span className="text-[#6B6961]">KfW-Förderbetrag gesamt</span><span className="num">{fmtEUR(totals.kfwBasis)}</span></div>
-          <div className="flex justify-between text-[#3D5446]"><span>davon Tilgungsnachlass ({fmtPct(financing.kfw.tilgungsnachlass)})</span><span className="num">−{fmtEUR(totals.kfwBasis * financing.kfw.tilgungsnachlass)}</span></div>
+          <div className="flex justify-between text-[#D2563E]"><span>davon Tilgungsnachlass ({fmtPct(financing.kfw.tilgungsnachlass)})</span><span className="num">−{fmtEUR(totals.kfwBasis * financing.kfw.tilgungsnachlass)}</span></div>
           <div className="flex justify-between pt-2 border-t border-[#1C1C1A]/10"><span className="text-[#1C1C1A]">Zurückzuzahlender Betrag</span><span className="num">{fmtEUR(totals.kfwBasis * (1 - financing.kfw.tilgungsnachlass))}</span></div>
-          <div className="flex justify-between font-display text-base pt-2"><span>KfW-Monatsrate</span><span className="num text-[#3D5446]">{fmtEUR(totals.kfwRate)}</span></div>
+          <div className="flex justify-between font-display text-base pt-2"><span>KfW-Monatsrate</span><span className="num text-[#D2563E]">{fmtEUR(totals.kfwRate)}</span></div>
         </div>
       </div>
 
@@ -2444,7 +2444,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
       <div className="bg-white border border-[#1C1C1A]/10 p-7">
         <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
           <h3 className="font-display text-2xl">2. GLS Bank (Restfinanzierung)</h3>
-          <span className="font-body text-xs tracking-wider uppercase text-[#3D5446] bg-[#3D5446]/5 px-2 py-1">10 J · fix</span>
+          <span className="font-body text-xs tracking-wider uppercase text-[#D2563E] bg-[#D2563E]/5 px-2 py-1">10 J · fix</span>
         </div>
         <p className="font-body text-sm text-[#6B6961] mb-5">
           Der Auftragswert abzüglich KfW-Förderhöhe und Eigenkapital — zuzüglich optionaler Upgrades — wird über die GLS Bank finanziert.
@@ -2459,8 +2459,8 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
               const kosten = opt.proModul * (countPrivat || 0);
               return (
                 <button key={opt.id} onClick={() => setPrivatOptionen(p => ({ ...p, [opt.id]: !p[opt.id] }))}
-                  className={`w-full flex items-start gap-3 p-3 border text-left transition-colors ${aktiv ? 'border-[#3D5446] bg-[#3D5446]/5' : 'border-[#1C1C1A]/15 hover:border-[#3D5446]/40'}`}>
-                  <div className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${aktiv ? 'bg-[#3D5446] border-[#3D5446]' : 'border-[#1C1C1A]/20'}`}>
+                  className={`w-full flex items-start gap-3 p-3 border text-left transition-colors ${aktiv ? 'border-[#D2563E] bg-[#D2563E]/5' : 'border-[#1C1C1A]/15 hover:border-[#D2563E]/40'}`}>
+                  <div className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${aktiv ? 'bg-[#D2563E] border-[#D2563E]' : 'border-[#1C1C1A]/20'}`}>
                     {aktiv && <Check className="w-3.5 h-3.5 text-[#F8F5F0]" strokeWidth={2.5} />}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -2475,7 +2475,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
             })}
           </div>
           {totals.privatOptionenKosten > 0 && (
-            <p className="font-body text-xs text-[#3D5446] mt-2 text-right">
+            <p className="font-body text-xs text-[#D2563E] mt-2 text-right">
               Upgrades gesamt: <span className="num font-medium">{fmtEUR(totals.privatOptionenKosten)}</span> → fließen in GLS-Finanzierung
             </p>
           )}
@@ -2484,9 +2484,9 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
         <div className="bg-[#F8F5F0] border border-[#1C1C1A]/8 p-4 mb-6 font-body text-sm space-y-1.5">
           <div className="flex justify-between"><span className="text-[#6B6961]">Auftragswert privat (inkl. ant. Projektkosten)</span><span className="num">{fmtEUR(totals.effPrivat)}</span></div>
           <div className="flex justify-between"><span className="text-[#6B6961]">− KfW-Förderhöhe</span><span className="num">−{fmtEUR(totals.kfwBasis)}</span></div>
-          {totals.privatOptionenKosten > 0 && <div className="flex justify-between text-[#3D5446]"><span>+ optionale Upgrades</span><span className="num">+{fmtEUR(totals.privatOptionenKosten)}</span></div>}
+          {totals.privatOptionenKosten > 0 && <div className="flex justify-between text-[#D2563E]"><span>+ optionale Upgrades</span><span className="num">+{fmtEUR(totals.privatOptionenKosten)}</span></div>}
           <div className="flex justify-between"><span className="text-[#6B6961]">− Eigenkapital</span><span className="num">−{fmtEUR(ekPrivat)}</span></div>
-          <div className="flex justify-between pt-1.5 border-t border-[#1C1C1A]/10 font-display text-base"><span>= GLS-Basis</span><span className="num text-[#3D5446]">{fmtEUR(totals.glsBasis)}</span></div>
+          <div className="flex justify-between pt-1.5 border-t border-[#1C1C1A]/10 font-display text-base"><span>= GLS-Basis</span><span className="num text-[#D2563E]">{fmtEUR(totals.glsBasis)}</span></div>
         </div>
         <div className="space-y-6">
           <Slider label="GLS Zinssatz" value={financing.gls.zins} onChange={v => setFinancing(f => ({...f, gls: {...f.gls, zins: v}}))} min={0.04} max={0.06} step={0.0025} format={fmtPct} hint="Üblicher Bereich 4–6 %" />
@@ -2501,7 +2501,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
               return (
                 <>
                   <div className="flex items-baseline justify-between mb-2">
-                    <span className="font-display text-base num text-[#3D5446]">{fmtEUR(ekPrivat)}</span>
+                    <span className="font-display text-base num text-[#D2563E]">{fmtEUR(ekPrivat)}</span>
                     <span className="font-body text-xs text-[#6B6961]">max. {fmtEUR(ekMax)}</span>
                   </div>
                   <input type="range"
@@ -2514,7 +2514,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
                     className="w-full" />
                   <div className="mt-2 flex items-center gap-2">
                     <NumberInput value={ekPrivat} onChange={v => setEkPrivat(Math.min(v, ekMax))} placeholder="0"
-                      className="flex-1 w-full px-3 py-2 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#3D5446]" />
+                      className="flex-1 w-full px-3 py-2 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#D2563E]" />
                     <span className="font-body text-xs text-[#6B6961]">€</span>
                   </div>
                   {ekMax === 0 && (
@@ -2532,12 +2532,12 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
           </div>
         </div>
         <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 flex justify-between font-display text-base">
-          <span>GLS-Monatsrate</span><span className="num text-[#3D5446]">{fmtEUR(totals.glsRate)}</span>
+          <span>GLS-Monatsrate</span><span className="num text-[#D2563E]">{fmtEUR(totals.glsRate)}</span>
         </div>
 
         {/* Info-Hinweis zur Hausbank-Option */}
-        <div className="mt-5 bg-[#FBF7EF] border border-[#A88B5A]/30 p-4 flex gap-3 items-start">
-          <Info className="w-5 h-5 text-[#A88B5A] shrink-0 mt-0.5" strokeWidth={1.5} />
+        <div className="mt-5 bg-[#FBF7EF] border border-[#7B2D8E]/30 p-4 flex gap-3 items-start">
+          <Info className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} />
           <div className="space-y-1.5">
             <p className="font-body text-sm text-[#1C1C1A] font-medium">Gut zu wissen</p>
             <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
@@ -2558,7 +2558,7 @@ function GewerblichFinanzPanel({ totals, financing, setFinancing }) {
     <div className="bg-white border border-[#1C1C1A]/10 p-7">
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
         <h3 className="font-display text-2xl">Plattform-Finanzierung (gewerblich)</h3>
-        <span className="font-body text-xs tracking-wider uppercase text-[#A88B5A] bg-[#A88B5A]/10 px-2 py-1">{totals.countGewerb} Modul{totals.countGewerb > 1 ? 'e' : ''}</span>
+        <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">{totals.countGewerb} Modul{totals.countGewerb > 1 ? 'e' : ''}</span>
       </div>
       <p className="font-body text-sm text-[#6B6961] mb-7 num">Effektive Kosten netto {fmtEUR(totals.effGewerbNetto)}</p>
       <div className="space-y-6">
@@ -2568,7 +2568,7 @@ function GewerblichFinanzPanel({ totals, financing, setFinancing }) {
       </div>
       <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 space-y-1.5 font-body text-sm">
         <div className="flex justify-between"><span className="text-[#6B6961]">Finanzierungs-Basis</span><span className="num">{fmtEUR(totals.plattformBasis)}</span></div>
-        <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Plattform-Monatsrate</span><span className="num text-[#A88B5A]">{fmtEUR(totals.plattformRate)}</span></div>
+        <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Plattform-Monatsrate</span><span className="num text-[#7B2D8E]">{fmtEUR(totals.plattformRate)}</span></div>
       </div>
       <p className="font-body text-[11px] text-[#6B6961] mt-4 italic leading-relaxed">
         Hinweis: Bei gewerblicher Nutzung wird die Finanzierung üblicherweise ohne Eigenkapital-Beteiligung abgeschlossen. Steuerliche Vorteile (z. B. Investitionsabzugsbetrag IAB) wirken sich über die Steuererklärung aus, nicht über die Raten — siehe Steuerblock unten.
@@ -2592,15 +2592,15 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
       <p className="font-body text-sm text-[#6B6961] mb-5 leading-relaxed">
         Als gewerblicher Käufer kannst Du u. U. Sonder-AfA, Investitionsabzugsbetrag (IAB) oder andere steuerliche Gestaltungen nutzen, um Deine effektive Belastung zu senken. Ob und in welcher Höhe das gilt, hängt von Deinem Unternehmen, Deiner Bilanzsituation und Deinen Investitionsabsichten ab.
       </p>
-      <div className="bg-white border border-[#B0452C]/30 p-3 mb-5 flex gap-2 items-start">
-        <Info className="w-4 h-4 text-[#B0452C] shrink-0 mt-0.5" strokeWidth={1.5} />
+      <div className="bg-white border border-[#C5392E]/30 p-3 mb-5 flex gap-2 items-start">
+        <Info className="w-4 h-4 text-[#C5392E] shrink-0 mt-0.5" strokeWidth={1.5} />
         <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
           <span className="font-medium">Keine Steuerberatung.</span> Die folgende Modellrechnung zeigt eine Indikation auf Basis allgemeiner Annahmen. Bitte sprich vor einer Entscheidung unbedingt mit Deinem Steuerberater.
         </p>
       </div>
 
       <button onClick={() => setAktiv(!aktiv)}
-        className={`w-full px-4 py-3 font-body text-sm border transition-colors ${aktiv ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#1C1C1A] hover:border-[#3D5446]'}`}>
+        className={`w-full px-4 py-3 font-body text-sm border transition-colors ${aktiv ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#1C1C1A] hover:border-[#D2563E]'}`}>
         {aktiv ? 'Steuervorteile-Modellrechnung aktiv' : 'Modellrechnung mit Steuervorteilen anzeigen'}
       </button>
 
@@ -2613,7 +2613,7 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
               <FieldLabel required={false} hint="Bis zu 50 % der geplanten Investition können vorab steuerlich abgezogen werden (§ 7g EStG)">Investitionsabzugsbetrag (IAB)</FieldLabel>
             </div>
             <div className="flex items-baseline justify-between mb-2">
-              <span className="font-display text-base num text-[#A88B5A]">{fmtEUR(iabClamped)}</span>
+              <span className="font-display text-base num text-[#7B2D8E]">{fmtEUR(iabClamped)}</span>
               <span className="font-body text-xs text-[#6B6961]">max. 50 % · {fmtEUR(iabMax)}</span>
             </div>
             <input type="range" min={0} max={iabMax} step={1000} value={iabClamped}
@@ -2625,17 +2625,17 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
           <div className="pt-4 border-t border-[#1C1C1A]/10 space-y-2 font-body text-sm">
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Modellhafte Belastung mit Steuervorteilen</p>
             <div className="flex justify-between"><span className="text-[#6B6961]">Plattform-Rate (vor Steuer)</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
-            <div className="flex justify-between text-[#3D5446]"><span>− Laufende Steuerentlastung (AfA + Zinsen × {fmtPct(financing.plattform.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
+            <div className="flex justify-between text-[#D2563E]"><span>− Laufende Steuerentlastung (AfA + Zinsen × {fmtPct(financing.plattform.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
             {totals.iabEntlastungMonat > 0 && (
-              <div className="flex justify-between text-[#3D5446]"><span>− IAB-Vorteil, auf {financing.plattform.laufzeit} J verteilt</span><span className="num">−{fmtEUR(totals.iabEntlastungMonat)}</span></div>
+              <div className="flex justify-between text-[#D2563E]"><span>− IAB-Vorteil, auf {financing.plattform.laufzeit} J verteilt</span><span className="num">−{fmtEUR(totals.iabEntlastungMonat)}</span></div>
             )}
-            <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Mögliche Rate nach Steuer</span><span className="num text-[#3D5446]">{fmtEUR(totals.plattformRateEff)}</span></div>
+            <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Mögliche Rate nach Steuer</span><span className="num text-[#D2563E]">{fmtEUR(totals.plattformRateEff)}</span></div>
             {totals.eigennutzungGewerbCount > 0 && totals.plattformRateEff > 0 && (
               <div className="flex justify-between text-[#6B6961] text-xs"><span>pro Mitarbeiter-Modul ({totals.eigennutzungGewerbCount})</span><span className="num">{fmtEUR(totals.plattformRateEff / totals.eigennutzungGewerbCount)}</span></div>
             )}
             {iabClamped > 0 && (
               <div className="mt-3 pt-3 border-t border-[#1C1C1A]/10">
-                <div className="flex justify-between text-[#3D5446]">
+                <div className="flex justify-between text-[#D2563E]">
                   <span className="font-medium">Einmalige IAB-Steuerersparnis (Anschaffungsjahr)</span>
                   <span className="num font-medium">{fmtEUR(totals.iabSteuerersparnis)}</span>
                 </div>
@@ -2659,10 +2659,10 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
     : gewerbConfig ? { pachtJahr: gewerbConfig.pachtJahr || 0, pachtGewerblich: gewerbConfig.pachtGewerblich, zielModulAnzahl: 0, isProject: false }
     : { pachtJahr: 0, pachtGewerblich: false, zielModulAnzahl: 0, isProject: false };
   return (
-    <div className="bg-white border border-[#C9A876]/40 p-7">
+    <div className="bg-white border border-[#A87DAE]/40 p-7">
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-        <h3 className="font-display text-2xl flex items-center gap-2"><Repeat className="w-5 h-5 text-[#A88B5A]" strokeWidth={1.5} />Laufende Neben- und Verbrauchskosten</h3>
-        <span className="font-body text-xs tracking-wider uppercase text-[#A88B5A] bg-[#A88B5A]/10 px-2 py-1">Richtwerte</span>
+        <h3 className="font-display text-2xl flex items-center gap-2"><Repeat className="w-5 h-5 text-[#7B2D8E]" strokeWidth={1.5} />Laufende Neben- und Verbrauchskosten</h3>
+        <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">Richtwerte</span>
       </div>
       <p className="font-body text-sm text-[#6B6961] mb-6">Geschätzte Richtwerte zur ersten Orientierung — die tatsächlichen Beträge können je nach Standort, Projektgröße, Verbrauchsverhalten und Versorgern abweichen. Konkrete Werte ermitteln wir gemeinsam mit Dir.</p>
       <div className="space-y-2.5 text-sm font-body">
@@ -2715,7 +2715,7 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
         ))}
         <div className="flex justify-between pt-3 font-display text-base">
           <span>Summe Richtwert</span>
-          <span className="num text-[#A88B5A]">{fmtEUR2(p.proM2Gesamt)}/m²/Mt.</span>
+          <span className="num text-[#7B2D8E]">{fmtEUR2(p.proM2Gesamt)}/m²/Mt.</span>
         </div>
         <div className="flex justify-between text-[#6B6961] text-xs">
           <span>Bei {fmtNum(totals.gesamtNUF)} m² NUF</span>
@@ -2729,19 +2729,19 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
 function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod }) {
   if (!totals.hasIncome) return null;
   return (
-    <div className="bg-[#FBF7EF] border border-[#A88B5A]/30 p-7">
+    <div className="bg-[#FBF7EF] border border-[#7B2D8E]/30 p-7">
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-        <h3 className="font-display text-2xl flex items-center gap-2"><TrendingUp className="w-5 h-5 text-[#A88B5A]" strokeWidth={1.5} />Einnahmen-Prognose</h3>
-        <span className="font-body text-xs tracking-wider uppercase text-[#A88B5A] bg-[#A88B5A]/15 px-2 py-1">Vermietung</span>
+        <h3 className="font-display text-2xl flex items-center gap-2"><TrendingUp className="w-5 h-5 text-[#7B2D8E]" strokeWidth={1.5} />Einnahmen-Prognose</h3>
+        <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/15 px-2 py-1">Vermietung</span>
       </div>
       <p className="font-body text-sm text-[#6B6961] mb-5">Unverbindliche Mietindikation auf Basis aktueller Marktbeobachtungen — die tatsächlich erzielbaren Mieten hängen von Standort, Lage, Nachfrage und Vermarktung ab und können erheblich abweichen.</p>
       <div className="mb-5 p-3 bg-white border border-[#1C1C1A]/10">
         <FieldLabel required={false}>Wer übernimmt die Vermietung?</FieldLabel>
         <div className="flex gap-2">
           <button onClick={() => setVermietungDurchCoMod(false)}
-            className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${!vermietungDurchCoMod ? 'border-[#3D5446] bg-[#3D5446]/10 text-[#3D5446] ring-1 ring-[#3D5446]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Selbst</button>
+            className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${!vermietungDurchCoMod ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Selbst</button>
           <button onClick={() => setVermietungDurchCoMod(true)}
-            className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${vermietungDurchCoMod ? 'border-[#A88B5A] bg-[#A88B5A]/10 text-[#A88B5A] ring-1 ring-[#A88B5A]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Durch uns bewirtschaftet</button>
+            className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${vermietungDurchCoMod ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] ring-1 ring-[#7B2D8E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Durch uns bewirtschaftet</button>
         </div>
         {vermietungDurchCoMod && <p className="font-body text-[11px] text-[#6B6961] mt-2">Wir übernehmen Vermarktung & Verwaltung — eine Betreiber-Fee wird von der Miete abgezogen.</p>}
       </div>
@@ -2757,7 +2757,7 @@ function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod
         <div className="flex justify-between"><dt className="text-[#6B6961]">Bruttomieten / Monat</dt><dd className="num">{fmtEUR(totals.monthlyIncomeBrutto)}</dd></div>
         {vermietungDurchCoMod && <div className="flex justify-between text-[#6B6961]"><dt>Betreiber-Fee</dt><dd className="num">−{fmtEUR(totals.feeAbzug)}</dd></div>}
         <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10">
-          <dt>Einnahmen netto / Mt.</dt><dd className="num text-[#A88B5A]">{fmtEUR(totals.monthlyIncomeNetto)}</dd>
+          <dt>Einnahmen netto / Mt.</dt><dd className="num text-[#7B2D8E]">{fmtEUR(totals.monthlyIncomeNetto)}</dd>
         </div>
       </div>
     </div>
@@ -2783,8 +2783,8 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
       </p>
 
       {hasBoth && (
-        <div className="mb-8 bg-[#3D5446]/5 border border-[#3D5446]/30 p-5 flex gap-3 items-start">
-          <Info className="w-5 h-5 text-[#3D5446] shrink-0 mt-0.5" strokeWidth={1.5} />
+        <div className="mb-8 bg-[#D2563E]/5 border border-[#D2563E]/30 p-5 flex gap-3 items-start">
+          <Info className="w-5 h-5 text-[#D2563E] shrink-0 mt-0.5" strokeWidth={1.5} />
           <p className="font-body text-sm text-[#1C1C1A]/80">
             <span className="text-[#1C1C1A] font-medium">Mischfinanzierung erkannt.</span> {totals.countPrivat} private und {totals.countGewerb} gewerbliche Module — beide Finanzierungswege werden parallel gezeigt. Die gewerblichen Module bieten zusätzlich Steuervorteile.
           </p>
@@ -2862,7 +2862,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {totals.laufendeKostenMonat > 0 && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> Laufende Fixkosten</p>
-                <p className="font-display text-xl num text-[#C9A876]">{fmtEUR(totals.laufendeKostenMonat)}</p>
+                <p className="font-display text-xl num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</p>
                 <p className="font-body text-[10px] opacity-50 mt-0.5">Pacht, Lizenz, Quartiersmgmt, Versicherung, Instandhaltung</p>
               </div>
             )}
@@ -2880,7 +2880,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {totals.hasIncome && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Einnahmen / Monat</p>
-                <p className="font-display text-3xl num text-[#C9A876]">+ {fmtEUR(totals.monthlyIncomeNetto)}</p>
+                <p className="font-display text-3xl num text-[#A87DAE]">+ {fmtEUR(totals.monthlyIncomeNetto)}</p>
               </div>
             )}
 
@@ -2931,10 +2931,10 @@ function Field({ label, value, onChange, type = 'text', textarea = false, placeh
       <FieldLabel required={required}>{label}</FieldLabel>
       {textarea ? (
         <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} placeholder={placeholder}
-          className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 font-body text-sm focus:outline-none focus:border-[#3D5446] resize-none" />
+          className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 font-body text-sm focus:outline-none focus:border-[#D2563E] resize-none" />
       ) : (
         <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 font-body text-sm focus:outline-none focus:border-[#3D5446]" />
+          className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
       )}
     </div>
   );
@@ -2952,8 +2952,8 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
           <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Letzter Schritt</p>
           <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">Wir <em>melden uns</em><span className="opacity-40"> …</span></h1>
           <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">Hinterlasse uns Deine Kontaktdaten — wir senden Dir Dein detailliertes, unverbindliches Angebot und melden uns persönlich.</p>
-          <div className="bg-[#3D5446]/5 border border-[#3D5446]/20 px-4 py-3 mb-6 flex items-center gap-2.5">
-            <span className="text-[#B0452C] font-medium text-base">*</span>
+          <div className="bg-[#D2563E]/5 border border-[#D2563E]/20 px-4 py-3 mb-6 flex items-center gap-2.5">
+            <span className="text-[#C5392E] font-medium text-base">*</span>
             <p className="font-body text-xs text-[#6B6961]">Pflichtangaben für die Kontaktaufnahme.</p>
           </div>
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-5">
@@ -2994,14 +2994,14 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
               {modulart && ` · ${modulart === 'privat' ? 'Wohnen' : modulart === 'business' ? 'Business' : 'Beides'}`}
             </p>
             {gewerbConfig && gewerbConfig.flaecheStatus !== 'ja' && totals.mindestflaeche && (
-              <p className="font-body text-xs text-[#A88B5A] mb-4">Mindestflächenbedarf: {fmtNum(totals.mindestflaeche.mindestGrundstueck)} m²</p>
+              <p className="font-body text-xs text-[#7B2D8E] mb-4">Mindestflächenbedarf: {fmtNum(totals.mindestflaeche.mindestGrundstueck)} m²</p>
             )}
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Module ({totals.countTotal})</p>
             <ul className="space-y-1 mb-5 text-sm font-body max-h-40 overflow-auto scrollbar-none">
               {totals.lineItems.map(it => (
                 <li key={it.kuerzel} className="flex justify-between gap-3">
                   <span><span className="num">{it.count}×</span> <span className="text-[#6B6961]">{getDisplayName(it)}</span>
-                    {it.mode === 'einnahmen' && it.einnahmen > 0 && <span className="text-[10px] text-[#A88B5A] ml-1 tracking-wider uppercase">v</span>}
+                    {it.mode === 'einnahmen' && it.einnahmen > 0 && <span className="text-[10px] text-[#7B2D8E] ml-1 tracking-wider uppercase">v</span>}
                   </span>
                 </li>
               ))}
@@ -3011,12 +3011,12 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
               {(project || gewerbConfig) && <div className="flex justify-between"><dt className="text-[#6B6961]">Projektkosten einm.</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>}
               <div className="flex justify-between"><dt className="text-[#6B6961]">Anzahlung</dt><dd className="num">{fmtEUR(totals.anzahlung)}</dd></div>
               <div className="flex justify-between pt-2 border-t border-[#1C1C1A]/10"><dt className="text-[#6B6961]">Finanzierung/Mt.</dt><dd className="num">{fmtEUR(totals.finanzierungMonat)}</dd></div>
-              {(project || gewerbConfig) && <div className="flex justify-between text-[#A88B5A]"><dt>Nebenkosten/Mt.</dt><dd className="num">{fmtEUR(totals.nebenkostenMonatGesamt)}</dd></div>}
+              {(project || gewerbConfig) && <div className="flex justify-between text-[#7B2D8E]"><dt>Nebenkosten/Mt.</dt><dd className="num">{fmtEUR(totals.nebenkostenMonatGesamt)}</dd></div>}
               <div className="flex justify-between font-body"><dt className="text-[#1C1C1A]">Belastung/Mt.</dt><dd className="num">{fmtEUR(totals.monatlichGesamt)}</dd></div>
               {totals.hasIncome && (
                 <>
-                  <div className="flex justify-between text-[#A88B5A]"><dt>Einnahmen/Mt.</dt><dd className="num">+{fmtEUR(totals.monthlyIncomeNetto)}</dd></div>
-                  <div className={`flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10 ${totals.cashflowPositive ? 'text-[#3D5446]' : ''}`}>
+                  <div className="flex justify-between text-[#7B2D8E]"><dt>Einnahmen/Mt.</dt><dd className="num">+{fmtEUR(totals.monthlyIncomeNetto)}</dd></div>
+                  <div className={`flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10 ${totals.cashflowPositive ? 'text-[#D2563E]' : ''}`}>
                     <dt>{totals.cashflowPositive ? 'Überschuss' : 'Eff. Belastung'}</dt>
                     <dd className="num">{totals.cashflowPositive ? '+' : ''}{fmtEUR(Math.abs(totals.cashflowNetto))}</dd>
                   </div>
@@ -3033,14 +3033,14 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
 function SuccessStep({ lead, onRestart }) {
   return (
     <div className="max-w-3xl mx-auto px-8 py-24 text-center">
-      <div className="w-16 h-16 rounded-full bg-[#3D5446] flex items-center justify-center mx-auto mb-8">
+      <div className="w-16 h-16 rounded-full bg-[#D2563E] flex items-center justify-center mx-auto mb-8">
         <Check className="w-7 h-7 text-[#F8F5F0]" strokeWidth={1.5} />
       </div>
       <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-4">Unverbindliche Angebotsanfrage eingegangen</p>
       <h1 className="font-display text-5xl md:text-6xl leading-tight tracking-tight mb-6">Danke, <em>{lead?.contact?.vorname}</em><span className="opacity-40"> …</span></h1>
       <p className="font-body text-lg text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">Wir haben Deine Anfrage erhalten und melden uns innerhalb von 1–2 Werktagen mit einem detaillierten, unverbindlichen Angebot.</p>
       <div className="bg-white border border-[#1C1C1A]/10 p-6 inline-flex items-center gap-3 font-body text-sm text-[#6B6961] mb-10">
-        <Sparkles className="w-4 h-4 text-[#A88B5A]" strokeWidth={1.5} />
+        <Sparkles className="w-4 h-4 text-[#7B2D8E]" strokeWidth={1.5} />
         Im Live-System würden jetzt automatisch E-Mail + Pipedrive-Eintrag erstellt.
       </div>
       <div><Button onClick={onRestart} variant="secondary">Neue Konfiguration starten</Button></div>
@@ -3087,22 +3087,22 @@ function AdminView({ leads, refreshLeads }) {
                 </div>
                 <div className="text-xs text-[#6B6961] leading-relaxed">
                   {(lead.module?.items || lead.lineItems)?.map(it => (
-                    <div key={it.kuerzel}><span className="num text-[#1C1C1A]">{it.count}×</span> {getDisplayName(it)}{it.mode === 'einnahmen' && <span className="text-[10px] text-[#A88B5A] ml-1">v</span>}</div>
+                    <div key={it.kuerzel}><span className="num text-[#1C1C1A]">{it.count}×</span> {getDisplayName(it)}{it.mode === 'einnahmen' && <span className="text-[10px] text-[#7B2D8E] ml-1">v</span>}</div>
                   ))}
                 </div>
                 <div>
                   <span className="inline-block px-2 py-0.5 text-xs tracking-wider uppercase bg-[#F8F5F0] border border-[#1C1C1A]/10">
                     {(lead.pfad?.customerType || lead.customerType) === 'privat' ? 'Privat' : 'Gewerbe'}
                   </span>
-                  {(lead.pfad?.project || lead.project) && <p className="text-xs text-[#A88B5A] mt-1.5">{(lead.pfad?.project || lead.project).name}</p>}
+                  {(lead.pfad?.project || lead.project) && <p className="text-xs text-[#7B2D8E] mt-1.5">{(lead.pfad?.project || lead.project).name}</p>}
                 </div>
                 <div className="text-right num">{lead.module?.countTotal ?? lead.countTotal}</div>
                 <div className="text-right num">{fmtEUR(lead.finanzen?.bruttoGesamt ?? lead.bruttoGesamt)}</div>
                 <div className="text-right num font-display">{fmtEUR(lead.finanzen?.monatlichGesamt ?? lead.monatlichGesamt)}</div>
                 <div className="text-right num">
                   {((lead.finanzen?.monthlyIncomeNetto ?? lead.monthlyIncomeNetto) > 0) ? (
-                    <><span className="text-[#A88B5A]">{fmtEUR(lead.finanzen?.monthlyIncomeNetto ?? lead.monthlyIncomeNetto)}</span>
-                      {(lead.finanzen?.cashflowPositive ?? lead.cashflowPositive) && <p className="text-[10px] text-[#3D5446] uppercase tracking-wider mt-0.5">+CF</p>}</>
+                    <><span className="text-[#7B2D8E]">{fmtEUR(lead.finanzen?.monthlyIncomeNetto ?? lead.monthlyIncomeNetto)}</span>
+                      {(lead.finanzen?.cashflowPositive ?? lead.cashflowPositive) && <p className="text-[10px] text-[#D2563E] uppercase tracking-wider mt-0.5">+CF</p>}</>
                   ) : <span className="text-[#6B6961]">—</span>}
                 </div>
               </div>
@@ -3328,7 +3328,7 @@ export default function App() {
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <p>CoMod Konfigurator — Prototyp v0.9.23</p>
+            <p>CoMod Konfigurator — Prototyp v0.9.24 — Brand</p>
             <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
