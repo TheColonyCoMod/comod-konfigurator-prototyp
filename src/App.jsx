@@ -837,10 +837,10 @@ function StepIndicator({ currentStep, onJump }) {
 
 function Header({ step, onJump, view, setView }) {
   return (
-    <header className="border-b border-[#1C1C1A]/10 bg-[#F8F5F0]/80 backdrop-blur sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between gap-4">
+    <header className="border-b border-[#1C1C1A]/10 bg-white sticky top-0 z-40">
+      <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <img src="/brand/comod_logo_black.png" alt="CoMod" className="h-7 w-auto" />
+          <img src="/brand/comod_logo_black.png" alt="CoMod" className="h-10 w-auto" />
           <span className="font-body text-xs text-[#6B6961] tracking-[0.2em] uppercase border-l border-[#1C1C1A]/15 pl-3 hidden md:inline">Konfigurator</span>
         </div>
         {view === 'customer' && step < 4 && <div className="hidden lg:block"><StepIndicator currentStep={step} onJump={onJump} /></div>}
@@ -3328,7 +3328,7 @@ export default function App() {
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <p>CoMod Konfigurator — Prototyp v0.9.24 — Brand</p>
+            <p>CoMod Konfigurator — Prototyp v0.9.25</p>
             <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
