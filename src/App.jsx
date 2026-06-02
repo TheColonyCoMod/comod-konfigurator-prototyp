@@ -48,7 +48,7 @@ const PRODUCTS_GEWERB_RAW = [
   { kuerzel: 'CoMod Live B (D,M)',      displayName: 'CoMod Live (D,M)',    family: 'liveb', kueche: 'Ohne Küche', moebliert: true,  beschr: 'Duschbad, möbliert',                   cat: 'wohnen',     nuf: 32, bgf: 36, herst: 144000, marge: 0.15,  einnahmen: 1700, fee: 0.15 },
   { kuerzel: 'CoMod Live B (D)',        displayName: 'CoMod Live (D)',      family: 'liveb', kueche: 'Ohne Küche', moebliert: false, beschr: 'Duschbad',                             cat: 'wohnen',     nuf: 32, bgf: 36, herst: 139000, marge: 0.15,  einnahmen: 1600, fee: 0.15 },
   { kuerzel: 'CoMod Studio (PK,D,M)',   family: 'studio', beschr: 'Pantry-Küche, Duschbad, möbliert',                                            cat: 'wohnen'    , nuf: 32, bgf: 36, herst: 139000, marge: 0.15,  einnahmen: 2000, fee: 0.15 },
-  { kuerzel: 'CoMod Stay (LK,D,M)',     family: 'stay',  kueche: 'L-Küche', beschr: 'L-Küche, Duschbad, möbliert',                               cat: 'wohnen'    , nuf: 24, bgf: 28, herst: 129000, marge: 0.15,  einnahmen: 1900, fee: 0.15 },
+  { kuerzel: 'CoMod Stay (LK,D,M)',     family: 'stay',  kueche: 'L-Küche', beschr: 'L-Küche, Duschbad, möbliert',                               cat: 'wohnen'    , nuf: 24, bgf: 28, herst: 124000, marge: 0.15,  einnahmen: 1900, fee: 0.15 },
   { kuerzel: 'CoMod Stay (PK,D,M)',     family: 'stay',  kueche: 'Pantry', beschr: 'Pantry-Küche, Duschbad, möbliert',                            cat: 'wohnen'    , nuf: 24, bgf: 28, herst: 124000, marge: 0.15,  einnahmen: 1800, fee: 0.15 },
   { kuerzel: 'CoMod Double B (D,M)',    displayName: 'CoMod Double (D,M)',  family: 'double', beschr: '2-in-1, 2 Duschbäder, möbliert',                                                cat: 'wohnen'    , nuf: 36, bgf: 40, herst: 119000, marge: 0.15,  einnahmen: 2200, fee: 0.15 },
   { kuerzel: 'CoMod Gym',             family: 'gym',     beschr: 'Mit Duschen, Umkleiden',                                                      cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 109000, marge: 0.175, einnahmen: 1400, fee: 0.10 },
@@ -159,13 +159,14 @@ function withPrices(p) {
   return { ...p, netto, brutto };
 }
 
-// Rabatt wirkt NUR auf Herstellungskosten — Marge und Provision bleiben vollständig erhalten.
-// Das schützt einerseits die Provision unserer Vertriebspartner und sichert andererseits
-// unsere kalkulatorische Marge auch bei großen Projekten ab.
+// Rabatt wirkt auf Herstellungskosten — Marge UND Provision werden anteilig auf dem
+// rabattierten Herstellpreis berechnet (Feedback V8). Damit profitiert der Kunde nicht
+// nur über den Herstellungspreis-Rabatt, sondern auch über die korrespondierende Reduktion
+// von Marge und Provision.
 function calcRabattiertePreise(product, rabattPct) {
   const herstRabattiert = product.herst * (1 - rabattPct);
   const grundpreis = herstRabattiert * product.marge;
-  const provision = product.herst * PROV; // bleibt auf vollem Herstellpreis
+  const provision = herstRabattiert * PROV;
   const netto = herstRabattiert + grundpreis + provision;
   const brutto = netto * (1 + UST);
   return { netto, brutto, rabattEUR: product.netto - netto };
@@ -684,7 +685,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const monatlichInklNebenkosten = finanzierungMonat + nebenkostenMonatGesamt; // inkl. Verbrauch, für Detail-Stellen
 
   const incomeItems = lineItems.filter(x => x.mode === 'einnahmen' && (x.einnahmen || 0) > 0);
-  // Gewerbliche Module in Eigennutzung — Basis für "Belastung pro Mitarbeiter"-Logik
+  // Gewerbliche Module in Eigennutzung — Basis für "Rate pro Mitarbeiter"-Logik
   const eigennutzungGewerbItems = lineItems.filter(x => x.usage === 'g' && x.mode === 'eigennutzung');
   const eigennutzungGewerbCount = eigennutzungGewerbItems.reduce((s, x) => s + x.count, 0);
   const monthlyIncomeBrutto = incomeItems.reduce((s, x) => s + x.count * x.einnahmen, 0);
@@ -716,7 +717,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const cashflowPositive = effektiveBelastung < 0;
   const cashflowNetto = -effektiveBelastung; // Beibehaltung Vorzeichen-Konvention: positiv = Überschuss
 
-  // Belastung pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup sinnvoll (Feedback V6)
+  // Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup sinnvoll (Feedback V6)
   // Bei Privatkunden mit eigengenutztem Add-Modul gewerblich: keine MA-Umrechnung
   const belastungProMA = istMAWohnen ? (belastungFinanzierungEff + laufendeKostenMonat) / eigennutzungGewerbCount : 0;
   const iabEntlastungProMA = istMAWohnen ? iabEntlastungMonat / eigennutzungGewerbCount : 0;
@@ -887,7 +888,7 @@ function WelcomeStep({ onSelect }) {
           <em className="font-display">erzähl es uns kurz</em><span className="opacity-40"> …</span>
         </h1>
         <p className="font-body text-lg text-[#6B6961] max-w-2xl leading-relaxed">
-          In wenigen Schritten konfigurierst Du Dein CoMod-Setup, siehst die Kosten, die monatliche Belastung und kannst direkt ein unverbindliches Angebot anfordern.
+          In wenigen Schritten konfigurierst Du Dein CoMod-Setup, siehst die Kosten, die Monatsrate und kannst direkt ein unverbindliches Angebot anfordern.
         </p>
       </div>
       <div className="grid md:grid-cols-2 gap-5">
@@ -2119,7 +2120,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     )}
                     {totals.finanzierungMonat > 0 && (
                       <div className="mb-3">
-                        <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#3D5446] mb-1">Voraussichtliche monatliche Belastung</p>
+                        <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#3D5446] mb-1">Voraussichtliche Monatsrate</p>
                         <p className="font-display text-3xl num text-[#1C1C1A] leading-none">{fmtEUR(totals.monatlichGesamt)}</p>
                         <div className="mt-2 space-y-0.5">
                           <div className="flex justify-between font-body text-[11px] text-[#6B6961]">
@@ -2802,7 +2803,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
         <aside className="lg:w-96 lg:shrink-0">
           <div className="lg:sticky lg:top-24 bg-[#1C1C1A] text-[#F8F5F0] p-7">
             <p className="font-body text-xs tracking-[0.3em] uppercase opacity-50 mb-2">
-              {totals.istInvestor ? 'Investmentrechnung' : (totals.hasIncome ? 'Wirtschaftlichkeit' : 'Deine Belastung')}
+              {totals.istInvestor ? 'Investmentrechnung' : (totals.hasIncome ? 'Wirtschaftlichkeit' : 'Deine Monatsrate')}
             </p>
             <h3 className="font-display text-2xl mb-7">Monatlich</h3>
 
@@ -2826,20 +2827,20 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {/* Variante A: Misch- oder reiner Privatkunde — Aufteilung Privat / Gewerblich */}
             {totals.hatPrivatAnteil && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-3">Monatliche Belastung</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-3">Monatsrate</p>
                 <dl className="space-y-2.5 text-sm font-body">
                   <div className="flex justify-between items-baseline">
-                    <dt className="opacity-80">Privat <span className="opacity-50 text-xs">(KfW + GLS)</span></dt>
+                    <dt className="opacity-80">Monatsrate privat <span className="opacity-50 text-xs">(KfW + GLS)</span></dt>
                     <dd className="font-display text-lg num">{fmtEUR(totals.privatFinanzierungMonat)}</dd>
                   </div>
                   {totals.hatGewerbModule && (
                     <div className="flex justify-between items-baseline">
-                      <dt className="opacity-80">Gewerblich <span className="opacity-50 text-xs">(nach Steuer)</span></dt>
+                      <dt className="opacity-80">Monatsrate gewerblich <span className="opacity-50 text-xs">(nach Steuer)</span></dt>
                       <dd className="font-display text-lg num">{fmtEUR(totals.gewerblichRateNachSteuer)}</dd>
                     </div>
                   )}
                   <div className="flex justify-between items-baseline pt-2.5 border-t border-[#F8F5F0]/10">
-                    <dt className="font-body text-xs uppercase tracking-wider opacity-70">Summe Finanzierung</dt>
+                    <dt className="font-body text-xs uppercase tracking-wider opacity-70">Summe Monatsrate</dt>
                     <dd className="font-display text-2xl num">{fmtEUR(totals.belastungFinanzierungEff)}</dd>
                   </div>
                 </dl>
@@ -2849,7 +2850,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {/* Variante B & C: rein gewerblich — eine konsolidierte Finanzierungs-Belastung */}
             {!totals.hatPrivatAnteil && totals.hatGewerbModule && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5">Finanzierung gewerblich <span className="opacity-70">(nach Steuer)</span></p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5">Monatsrate gewerblich <span className="opacity-70">(nach Steuer)</span></p>
                 <p className="font-display text-3xl num">{fmtEUR(totals.gewerblichRateNachSteuer)}</p>
                 {(totals.steuerentlastung > 0 || totals.iabEntlastungMonat > 0) && (
                   <p className="font-body text-[10px] opacity-50 mt-0.5">inkl. AfA, Zins-Abzug{totals.iabEntlastungMonat > 0 ? ' & IAB-Vorteil' : ''}</p>
@@ -2883,10 +2884,10 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               </div>
             )}
 
-            {/* Belastung pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) */}
+            {/* Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) */}
             {totals.istMAWohnen && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> Belastung pro Mitarbeiter</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> Rate pro Mitarbeiter</p>
                 <p className="font-display text-3xl num">{fmtEUR(totals.belastungProMA)}</p>
                 <p className="font-body text-[10px] opacity-50 mt-0.5">
                   ÷ {totals.eigennutzungGewerbCount} {totals.eigennutzungGewerbCount === 1 ? 'eigengen. Modul' : 'eigengen. Module'}
@@ -2900,7 +2901,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1">
                 {totals.cashflowPositive
                   ? (totals.istInvestor ? 'Cashflow / Monat' : 'Überschuss / Monat')
-                  : 'Effektive Monatsbelastung'}
+                  : 'Effektive Monatsrate'}
               </p>
               <p className={`font-display text-4xl num ${totals.cashflowPositive ? 'text-[#7FB069]' : ''}`}>
                 {totals.cashflowPositive ? '+' : ''}{fmtEUR(Math.abs(totals.effektiveBelastung))}
@@ -3327,7 +3328,7 @@ export default function App() {
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <p>CoMod Konfigurator — Prototyp v0.9.21</p>
+            <p>CoMod Konfigurator — Prototyp v0.9.23</p>
             <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
