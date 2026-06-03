@@ -3114,71 +3114,283 @@ function SuccessStep({ lead, onRestart }) {
   );
 }
 
-function AdminView({ leads, refreshLeads }) {
-  async function clearAll() {
-    try { localStorage.removeItem('leads-list'); refreshLeads(); }
-    catch (e) { console.error(e); }
+/* ============================================================================
+   ADMIN-BEREICH (Auth + Lead-Verwaltung aus DB)
+   ============================================================================ */
+
+const LEAD_STATUS_LABELS = {
+  neu:         { label: 'Neu',         color: '#D2563E', bg: '#FBEDE7' },
+  kontaktiert: { label: 'Kontaktiert', color: '#7B2D8E', bg: '#F4ECF6' },
+  angeboten:   { label: 'Angeboten',   color: '#C9A876', bg: '#FBF5E8' },
+  gewonnen:    { label: 'Gewonnen',    color: '#7FB069', bg: '#EFF7EA' },
+  verloren:    { label: 'Verloren',    color: '#6B6961', bg: '#F0EFEC' },
+  archiviert:  { label: 'Archiv',      color: '#6B6961', bg: '#F0EFEC' },
+};
+
+function AdminLogin({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    setLoading(false);
   }
   return (
-    <div className="max-w-7xl mx-auto px-8 py-12">
-      <div className="flex items-end justify-between mb-10 gap-4 flex-wrap">
+    <div className="max-w-md mx-auto px-8 py-20">
+      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Admin-Bereich</p>
+      <h1 className="font-display text-4xl tracking-tight mb-8">Login</h1>
+      <form onSubmit={handleSubmit} className="bg-white border border-[#1C1C1A]/10 p-8 space-y-4">
         <div>
-          <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Admin</p>
-          <h1 className="font-display text-4xl tracking-tight mb-2">Pipeline</h1>
-          <p className="font-body text-sm text-[#6B6961]">{leads.length} {leads.length === 1 ? 'Eintrag' : 'Einträge'} · Im Live-System würde hier ein Pipedrive-Sync laufen</p>
+          <label className="font-body text-xs tracking-wider uppercase text-[#6B6961] block mb-1">E-Mail</label>
+          <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+            className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
         </div>
-        {leads.length > 0 && (
-          <button onClick={clearAll} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] flex items-center gap-1.5">
-            <Trash2 className="w-3.5 h-3.5" /> Alle löschen
-          </button>
+        <div>
+          <label className="font-body text-xs tracking-wider uppercase text-[#6B6961] block mb-1">Passwort</label>
+          <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+            className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+        </div>
+        {error && <p className="text-sm text-[#C5392E] font-body">{error}</p>}
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? 'Bitte warten …' : 'Anmelden'} <ChevronRight className="w-4 h-4" />
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+function AdminLeadDetail({ lead, onClose, onUpdate }) {
+  const [status, setStatus] = useState(lead.status);
+  const [internalNotes, setInternalNotes] = useState(lead.internal_notes || '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    setSaving(true); setSaved(false);
+    const { error } = await supabase.from('leads').update({
+      status, internal_notes: internalNotes
+    }).eq('id', lead.id);
+    if (!error) { setSaved(true); onUpdate({ ...lead, status, internal_notes: internalNotes }); setTimeout(() => setSaved(false), 2000); }
+    else { alert('Fehler beim Speichern: ' + error.message); }
+    setSaving(false);
+  }
+
+  const modulesArr = lead.modules_snapshot?.items || [];
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto py-10" onClick={onClose}>
+      <div className="bg-white max-w-4xl w-full mx-4 my-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
+          <div>
+            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Lead</p>
+            <h2 className="font-display text-3xl tracking-tight">{lead.vorname} {lead.nachname}</h2>
+            <p className="font-body text-sm text-[#6B6961] mt-1">{lead.email} {lead.telefon ? '· ' + lead.telefon : ''}</p>
+            {lead.firma && <p className="font-body text-sm text-[#6B6961]">{lead.firma}</p>}
+            <p className="font-body text-xs text-[#6B6961] mt-3">{new Date(lead.created_at).toLocaleString('de-DE', { dateStyle: 'long', timeStyle: 'short' })}</p>
+          </div>
+          <button onClick={onClose} className="text-[#6B6961] hover:text-[#1C1C1A] p-2"><Plus className="w-5 h-5 rotate-45" /></button>
+        </div>
+        <div className="grid md:grid-cols-2 gap-8 p-8">
+          <div>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Konfiguration</p>
+            <div className="bg-[#F8F5F0] p-4 space-y-2 font-body text-sm">
+              <p><span className="text-[#6B6961]">Typ:</span> {lead.customer_type === 'privat' ? 'Privat' : 'Gewerblich'}{lead.privat_mode ? ` · ${lead.privat_mode === 'projekt' ? 'Projekt-Beitritt' : 'Eigenes Grundstück'}` : ''}</p>
+              <p><span className="text-[#6B6961]">Module gesamt:</span> <span className="num">{lead.modulanzahl_gesamt}</span></p>
+              <p><span className="text-[#6B6961]">NUF:</span> <span className="num">{Number(lead.nuf_gesamt || 0).toFixed(1)} m²</span></p>
+              <div className="pt-2 mt-2 border-t border-[#1C1C1A]/10 space-y-1">
+                {modulesArr.map((it, i) => (
+                  <div key={i} className="text-xs"><span className="num">{it.count}×</span> {it.kuerzel}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Finanzen</p>
+            <div className="bg-[#F8F5F0] p-4 space-y-2 font-body text-sm">
+              <p><span className="text-[#6B6961]">Investmentsumme brutto:</span> <span className="font-display num">{fmtEUR(lead.einmalig_gesamt || 0)}</span></p>
+              <p><span className="text-[#6B6961]">Monatsrate gesamt:</span> <span className="num">{fmtEUR(lead.monatlich_gesamt || 0)}</span></p>
+              {lead.einnahmen_monat > 0 && <p><span className="text-[#6B6961]">Einnahmen / Monat:</span> <span className="num text-[#7FB069]">{fmtEUR(lead.einnahmen_monat)}</span></p>}
+              {lead.angewandter_rabatt_pct > 0 && <p><span className="text-[#6B6961]">Rabatt:</span> <span className="num">{(lead.angewandter_rabatt_pct * 100).toFixed(1)} %</span></p>}
+            </div>
+          </div>
+        </div>
+        {lead.notiz && (
+          <div className="px-8 pb-4">
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Notiz vom Kunden</p>
+            <div className="bg-[#FBF7EF] p-4 font-body text-sm whitespace-pre-wrap">{lead.notiz}</div>
+          </div>
         )}
+        <div className="grid md:grid-cols-2 gap-8 p-8 border-t border-[#1C1C1A]/10">
+          <div>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Status</p>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(LEAD_STATUS_LABELS).map(([key, meta]) => (
+                <button key={key} onClick={() => setStatus(key)}
+                  className={`px-3 py-1.5 text-xs uppercase tracking-wider font-body border transition-colors ${status === key ? 'border-[#1C1C1A] text-[#1C1C1A]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:border-[#1C1C1A]/40'}`}
+                  style={status === key ? { background: meta.bg, color: meta.color, borderColor: meta.color } : {}}>
+                  {meta.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Interne Notizen</p>
+            <textarea value={internalNotes} onChange={e => setInternalNotes(e.target.value)}
+              rows={4} placeholder="Eigene Notizen — nur intern sichtbar"
+              className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 p-3 font-body text-sm focus:outline-none focus:border-[#D2563E] resize-y" />
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-3 px-8 py-5 border-t border-[#1C1C1A]/10 bg-[#F8F5F0]">
+          {saved && <span className="font-body text-xs text-[#7FB069] flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Gespeichert</span>}
+          <button onClick={onClose} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-4 py-2">Abbrechen</button>
+          <Button onClick={save} disabled={saving} className="">{saving ? 'Speichere …' : 'Speichern'}</Button>
+        </div>
       </div>
-      {leads.length === 0 ? (
+    </div>
+  );
+}
+
+function AdminView({ authUser, authProfile }) {
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all'); // 'all' | '7d' | '30d'
+  const [selectedLead, setSelectedLead] = useState(null);
+
+  async function loadLeads() {
+    setLoading(true); setError(null);
+    let query = supabase.from('leads').select('*').order('created_at', { ascending: false });
+    const { data, error } = await query;
+    if (error) setError(error.message);
+    else setLeads(data || []);
+    setLoading(false);
+  }
+
+  useEffect(() => { loadLeads(); }, []);
+
+  // Client-seitige Filterung (DB-Anzahl ist klein, das reicht)
+  const filteredLeads = useMemo(() => {
+    let list = leads;
+    if (statusFilter !== 'all') list = list.filter(l => l.status === statusFilter);
+    if (dateFilter !== 'all') {
+      const days = dateFilter === '7d' ? 7 : 30;
+      const cutoff = Date.now() - days * 86400000;
+      list = list.filter(l => new Date(l.created_at).getTime() >= cutoff);
+    }
+    return list;
+  }, [leads, statusFilter, dateFilter]);
+
+  async function logout() {
+    await supabase.auth.signOut();
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-8 py-12">
+      <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
+        <div>
+          <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Admin · {authProfile?.role === 'master_admin' ? 'Master' : 'Partner'}</p>
+          <h1 className="font-display text-4xl tracking-tight mb-2">Leads</h1>
+          <p className="font-body text-sm text-[#6B6961]">
+            {filteredLeads.length} von {leads.length} {leads.length === 1 ? 'Lead' : 'Leads'} · angemeldet als {authUser?.email}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={loadLeads} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
+          <button onClick={logout} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2">Abmelden</button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 mb-6">
+        <div className="flex items-center gap-2">
+          <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Status:</span>
+          <button onClick={() => setStatusFilter('all')} className={`px-3 py-1 text-xs font-body uppercase tracking-wider border ${statusFilter === 'all' ? 'border-[#1C1C1A] text-[#1C1C1A]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:border-[#1C1C1A]/30'}`}>Alle</button>
+          {Object.entries(LEAD_STATUS_LABELS).map(([key, meta]) => (
+            <button key={key} onClick={() => setStatusFilter(key)}
+              className={`px-3 py-1 text-xs font-body uppercase tracking-wider border ${statusFilter === key ? 'border-current' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:border-[#1C1C1A]/30'}`}
+              style={statusFilter === key ? { color: meta.color, borderColor: meta.color, background: meta.bg } : {}}>
+              {meta.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Zeitraum:</span>
+          <button onClick={() => setDateFilter('all')} className={`px-3 py-1 text-xs font-body uppercase tracking-wider border ${dateFilter === 'all' ? 'border-[#1C1C1A] text-[#1C1C1A]' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Alle</button>
+          <button onClick={() => setDateFilter('30d')} className={`px-3 py-1 text-xs font-body uppercase tracking-wider border ${dateFilter === '30d' ? 'border-[#1C1C1A] text-[#1C1C1A]' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>30 Tage</button>
+          <button onClick={() => setDateFilter('7d')} className={`px-3 py-1 text-xs font-body uppercase tracking-wider border ${dateFilter === '7d' ? 'border-[#1C1C1A] text-[#1C1C1A]' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>7 Tage</button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Leads aus Datenbank …</div>
+      ) : error ? (
+        <div className="bg-white border border-[#C5392E]/30 p-8">
+          <p className="font-body text-sm text-[#C5392E]">Fehler beim Laden: {error}</p>
+        </div>
+      ) : filteredLeads.length === 0 ? (
         <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center">
-          <p className="font-display text-xl text-[#6B6961] mb-2">Noch keine Einträge<span className="opacity-50"> …</span></p>
-          <p className="font-body text-sm text-[#6B6961]">Wechsel zum Konfigurator und sende eine Test-Anfrage.</p>
+          <p className="font-display text-xl text-[#6B6961] mb-2">Keine Leads mit diesen Filtern{leads.length > 0 ? '' : ' vorhanden'}<span className="opacity-50"> …</span></p>
+          {leads.length === 0 && <p className="font-body text-sm text-[#6B6961]">Wechsel zum Konfigurator und sende eine Test-Anfrage.</p>}
         </div>
       ) : (
         <div className="bg-white border border-[#1C1C1A]/10 overflow-x-auto">
           <div className="min-w-[1050px]">
-            <div className="grid grid-cols-[1.5fr_2fr_1fr_0.6fr_1fr_1fr_1fr] gap-4 px-6 py-4 border-b border-[#1C1C1A]/10 font-body text-xs tracking-wider uppercase text-[#6B6961]">
-              <div>Kontakt</div><div>Setup</div><div>Typ</div><div className="text-right">Mod.</div><div className="text-right">Brutto</div><div className="text-right">Belastung</div><div className="text-right">Einnahmen</div>
+            <div className="grid grid-cols-[1.4fr_1fr_2fr_0.5fr_1fr_1fr] gap-4 px-6 py-4 border-b border-[#1C1C1A]/10 font-body text-xs tracking-wider uppercase text-[#6B6961]">
+              <div>Kontakt</div><div>Status</div><div>Setup</div><div className="text-right">Mod.</div><div className="text-right">Brutto</div><div className="text-right">Rate</div>
             </div>
-            {leads.slice().reverse().map((lead, idx) => (
-              <div key={lead.id || idx} className="grid grid-cols-[1.5fr_2fr_1fr_0.6fr_1fr_1fr_1fr] gap-4 px-6 py-5 border-b border-[#1C1C1A]/5 last:border-b-0 font-body text-sm items-start">
-                <div>
-                  <p className="text-[#1C1C1A]">{lead.contact?.vorname} {lead.contact?.nachname}</p>
-                  <p className="text-xs text-[#6B6961] mt-0.5">{lead.contact?.email}</p>
-                  <p className="text-xs text-[#6B6961] mt-2">{new Date(lead.timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-                </div>
-                <div className="text-xs text-[#6B6961] leading-relaxed">
-                  {(lead.module?.items || lead.lineItems)?.map(it => (
-                    <div key={it.kuerzel}><span className="num text-[#1C1C1A]">{it.count}×</span> {getDisplayName(it)}{it.mode === 'einnahmen' && <span className="text-[10px] text-[#7B2D8E] ml-1">v</span>}</div>
-                  ))}
-                </div>
-                <div>
-                  <span className="inline-block px-2 py-0.5 text-xs tracking-wider uppercase bg-[#F8F5F0] border border-[#1C1C1A]/10">
-                    {(lead.pfad?.customerType || lead.customerType) === 'privat' ? 'Privat' : 'Gewerbe'}
-                  </span>
-                  {(lead.pfad?.project || lead.project) && <p className="text-xs text-[#7B2D8E] mt-1.5">{(lead.pfad?.project || lead.project).name}</p>}
-                </div>
-                <div className="text-right num">{lead.module?.countTotal ?? lead.countTotal}</div>
-                <div className="text-right num">{fmtEUR(lead.finanzen?.bruttoGesamt ?? lead.bruttoGesamt)}</div>
-                <div className="text-right num font-display">{fmtEUR(lead.finanzen?.monatlichGesamt ?? lead.monatlichGesamt)}</div>
-                <div className="text-right num">
-                  {((lead.finanzen?.monthlyIncomeNetto ?? lead.monthlyIncomeNetto) > 0) ? (
-                    <><span className="text-[#7B2D8E]">{fmtEUR(lead.finanzen?.monthlyIncomeNetto ?? lead.monthlyIncomeNetto)}</span>
-                      {(lead.finanzen?.cashflowPositive ?? lead.cashflowPositive) && <p className="text-[10px] text-[#D2563E] uppercase tracking-wider mt-0.5">+CF</p>}</>
-                  ) : <span className="text-[#6B6961]">—</span>}
-                </div>
-              </div>
-            ))}
+            {filteredLeads.map(lead => {
+              const meta = LEAD_STATUS_LABELS[lead.status] || LEAD_STATUS_LABELS.neu;
+              const items = lead.modules_snapshot?.items || [];
+              return (
+                <button key={lead.id} onClick={() => setSelectedLead(lead)}
+                  className="w-full text-left grid grid-cols-[1.4fr_1fr_2fr_0.5fr_1fr_1fr] gap-4 px-6 py-5 border-b border-[#1C1C1A]/5 last:border-b-0 font-body text-sm items-start hover:bg-[#F8F5F0]/50 transition-colors">
+                  <div>
+                    <p className="text-[#1C1C1A]">{lead.vorname} {lead.nachname}</p>
+                    <p className="text-xs text-[#6B6961] mt-0.5">{lead.email}</p>
+                    <p className="text-xs text-[#6B6961] mt-2">{new Date(lead.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                  <div>
+                    <span className="inline-block px-2 py-0.5 text-xs tracking-wider uppercase border" style={{ color: meta.color, borderColor: meta.color, background: meta.bg }}>
+                      {meta.label}
+                    </span>
+                  </div>
+                  <div className="text-xs text-[#6B6961] leading-relaxed">
+                    <span className="inline-block px-2 py-0.5 text-[10px] tracking-wider uppercase bg-[#F8F5F0] border border-[#1C1C1A]/10 mr-2">{lead.customer_type === 'privat' ? 'Privat' : 'Gewerbe'}</span>
+                    {items.slice(0, 3).map(it => (
+                      <div key={it.kuerzel} className="mt-1"><span className="num text-[#1C1C1A]">{it.count}×</span> {it.kuerzel}</div>
+                    ))}
+                    {items.length > 3 && <div className="mt-1 text-[#7B2D8E]">… und {items.length - 3} weitere</div>}
+                  </div>
+                  <div className="text-right num">{lead.modulanzahl_gesamt}</div>
+                  <div className="text-right num">{fmtEUR(lead.einmalig_gesamt || 0)}</div>
+                  <div className="text-right num font-display">{fmtEUR(lead.monatlich_gesamt || 0)}</div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
+
+      {selectedLead && <AdminLeadDetail lead={selectedLead} onClose={() => setSelectedLead(null)} onUpdate={updated => {
+        setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
+        setSelectedLead(updated);
+      }} />}
     </div>
   );
 }
+
+function AdminGate({ authUser, authProfile }) {
+  if (authUser === null) {
+    return <div className="max-w-md mx-auto px-8 py-20 font-body text-sm text-[#6B6961]">Lade Session …</div>;
+  }
+  if (!authUser) return <AdminLogin />;
+  if (!authProfile) return <div className="max-w-md mx-auto px-8 py-20 font-body text-sm text-[#6B6961]">Lade Profil …</div>;
+  return <AdminView authUser={authUser} authProfile={authProfile} />;
+}
+
 
 /* ============================================================================
    MAIN APP
@@ -3214,6 +3426,44 @@ export default function App() {
       if (success) setProductsTick(t => t + 1);
     });
     return () => { cancelled = true; };
+  }, []);
+
+  // === Auth-State für Admin-Bereich ===
+  // null = noch nicht geprüft, false = nicht eingeloggt, object = eingeloggter User mit Profil
+  const [authUser, setAuthUser] = useState(null);
+  const [authProfile, setAuthProfile] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session?.user) {
+        setAuthUser(session.user);
+        // Profil laden für Rolle + workspace_id
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        if (!cancelled) setAuthProfile(profile);
+      } else {
+        setAuthUser(false);
+        setAuthProfile(null);
+      }
+    }
+    checkSession();
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setAuthUser(session.user);
+        const { data: profile } = await supabase
+          .from('user_profiles').select('*').eq('id', session.user.id).single();
+        setAuthProfile(profile);
+      } else {
+        setAuthUser(false);
+        setAuthProfile(null);
+      }
+    });
+    return () => { cancelled = true; sub?.subscription?.unsubscribe(); };
   }, []);
 
   // Scroll-to-Top bei jedem Schrittwechsel — sonst landet der User unten in der Sidebar
@@ -3371,6 +3621,55 @@ export default function App() {
       localStorage.setItem('leads-list', JSON.stringify(list));
       setLeads(list);
     } catch (e) { console.error('Storage failed:', e); }
+
+    // === NEU: Lead zusätzlich in Supabase speichern ===
+    // Mapping vom Frontend-Lead-Format auf das DB-Schema. Wenn DB nicht erreichbar,
+    // läuft die Submission trotzdem durch (localStorage als Fallback bleibt aktiv).
+    (async () => {
+      try {
+        const dbLead = {
+          workspace_id: '00000000-0000-0000-0000-000000000001', // CoMod-Default-Workspace
+          source_url: typeof window !== 'undefined' ? window.location.pathname : null,
+          customer_type: lead.pfad?.customerType,
+          privat_mode: lead.pfad?.privatMode,
+          modulart: lead.pfad?.modulart,
+          anrede: lead.kontakt?.anrede,
+          vorname: lead.kontakt?.vorname,
+          nachname: lead.kontakt?.nachname,
+          email: lead.kontakt?.email,
+          telefon: lead.kontakt?.telefon,
+          firma: lead.kontakt?.firma,
+          strasse: lead.kontakt?.strasse,
+          hausnr: lead.kontakt?.hausnr,
+          plz: lead.kontakt?.plz,
+          ort: lead.kontakt?.ort,
+          notiz: lead.kontakt?.notiz,
+          modules_snapshot: lead.module,
+          finanzen_snapshot: lead.finanzen,
+          gewerb_config_snapshot: lead.pfad?.gewerbConfig,
+          angewandter_rabatt_pct: lead.finanzen?.rabattPct,
+          angewandte_provision_pct: 0.035, // bis Provision pro Workspace in DB-Settings gelesen wird
+          einmalig_gesamt: Math.round(lead.finanzen?.bruttoGesamt ?? 0),
+          monatlich_gesamt: Math.round(lead.finanzen?.monatlichGesamt ?? 0),
+          verbrauchskosten_monat: Math.round(lead.finanzen?.verbrauchskostenMonat ?? 0),
+          einnahmen_monat: Math.round(lead.finanzen?.monthlyIncomeNetto ?? 0),
+          modulanzahl_gesamt: lead.module?.countTotal ?? 0,
+          nuf_gesamt: lead.module?.gesamtNUF ?? 0,
+          bgf_gesamt: lead.module?.gesamtBGF ?? 0,
+          status: 'neu',
+          priority: 'normal',
+        };
+        const { data, error } = await supabase.from('leads').insert(dbLead).select('id').single();
+        if (error) {
+          console.warn('[Supabase] Lead-Insert Fehler:', error.message);
+        } else {
+          console.log('[Supabase] Lead in DB gespeichert, ID:', data?.id);
+        }
+      } catch (e) {
+        console.warn('[Supabase] Lead-Insert Verbindungsfehler:', e.message);
+      }
+    })();
+
     setLastLead(lead);
     setStep(4);
   }
@@ -3390,7 +3689,7 @@ export default function App() {
       <FontStyles />
       <Header step={Math.floor(step)} onJump={jumpToStep} view={view} setView={setView} />
 
-      {view === 'admin' ? <AdminView leads={leads} refreshLeads={refreshLeads} />
+      {view === 'admin' ? <AdminGate authUser={authUser} authProfile={authProfile} />
         : step === 0 ? <WelcomeStep onSelect={handleTypeSelect} />
         : step === 0.3 ? <PrivatModeStep onSelectMode={handlePrivatMode} onBack={goToWelcome} />
         : step === 0.4 ? <ProjectPickerStep selectedProject={project} onSelect={handleProjectSelect} onBack={() => setStep(0.3)} />
@@ -3410,7 +3709,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.26</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.27</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
