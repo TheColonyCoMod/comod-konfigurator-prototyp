@@ -3226,6 +3226,62 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
             <div className="bg-[#FBF7EF] p-4 font-body text-sm whitespace-pre-wrap">{lead.notiz}</div>
           </div>
         )}
+
+        {/* Finanzierungs-Details (alle Kunden-Eingaben für Nachvollziehbarkeit) */}
+        {(() => {
+          const fin = lead.finanzen_snapshot || {};
+          const fp = fin.financingParams || {};
+          const hasFinDetails = (fin.ekPrivat > 0 || fin.ekGewerb > 0 || fin.iabBetrag != null || fp.kfw || fp.gls || fp.plattform);
+          if (!hasFinDetails) return null;
+          return (
+            <div className="px-8 pb-4">
+              <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Finanzierungs-Eingaben des Kunden</p>
+              <div className="bg-[#F8F5F0] p-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 font-body text-xs">
+                {fin.ekPrivat > 0 && (
+                  <p><span className="text-[#6B6961]">Eigenkapital privat:</span> <span className="num text-[#1C1C1A]">{fmtEUR(fin.ekPrivat)}</span></p>
+                )}
+                {fin.ekGewerb > 0 && (
+                  <p><span className="text-[#6B6961]">Eigenkapital gewerblich:</span> <span className="num text-[#1C1C1A]">{fmtEUR(fin.ekGewerb)}</span></p>
+                )}
+                {fp.kfw && (
+                  <>
+                    <p><span className="text-[#6B6961]">KfW Zins:</span> <span className="num">{(fp.kfw.zins * 100).toFixed(2)} %</span></p>
+                    <p><span className="text-[#6B6961]">KfW Laufzeit:</span> <span className="num">{fp.kfw.laufzeit} Jahre</span></p>
+                    <p><span className="text-[#6B6961]">KfW Tilgungsnachlass:</span> <span className="num">{(fp.kfw.tilgungsnachlass * 100).toFixed(0)} %</span></p>
+                  </>
+                )}
+                {fp.gls && (
+                  <>
+                    <p><span className="text-[#6B6961]">GLS Zins:</span> <span className="num">{(fp.gls.zins * 100).toFixed(2)} %</span></p>
+                    <p><span className="text-[#6B6961]">GLS Laufzeit:</span> <span className="num">{fp.gls.laufzeit} Jahre</span></p>
+                  </>
+                )}
+                {fp.plattform && (
+                  <>
+                    <p><span className="text-[#6B6961]">Plattform Zins:</span> <span className="num">{(fp.plattform.zins * 100).toFixed(2)} %</span></p>
+                    <p><span className="text-[#6B6961]">Plattform Laufzeit:</span> <span className="num">{fp.plattform.laufzeit} Jahre</span></p>
+                    <p><span className="text-[#6B6961]">Restwert:</span> <span className="num">{(fp.plattform.restwertPct * 100).toFixed(0)} %</span></p>
+                    {fp.plattform.afaJahre > 0 && (
+                      <p><span className="text-[#6B6961]">AfA-Dauer:</span> <span className="num">{fp.plattform.afaJahre} Jahre</span></p>
+                    )}
+                    {fp.plattform.steuer > 0 && (
+                      <p><span className="text-[#6B6961]">Steuerlast (Annahme):</span> <span className="num">{(fp.plattform.steuer * 100).toFixed(0)} %</span></p>
+                    )}
+                  </>
+                )}
+                {fin.iabBetrag != null && fin.iabBetrag > 0 && (
+                  <p><span className="text-[#6B6961]">IAB beantragt:</span> <span className="num text-[#7B2D8E]">{fmtEUR(fin.iabBetrag)}</span></p>
+                )}
+                {fin.anzahlung != null && (
+                  <p><span className="text-[#6B6961]">Anzahlung:</span> <span className="num">{fmtEUR(fin.anzahlung)}</span></p>
+                )}
+                {fin.vermietungDurchUns && (
+                  <p className="sm:col-span-2 lg:col-span-3 text-[#7B2D8E]">↗ Vermietung durch CoMod</p>
+                )}
+              </div>
+            </div>
+          );
+        })()}
         <div className="grid md:grid-cols-2 gap-8 p-8 border-t border-[#1C1C1A]/10">
           <div>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Status</p>
@@ -3728,7 +3784,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.29</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.30</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
