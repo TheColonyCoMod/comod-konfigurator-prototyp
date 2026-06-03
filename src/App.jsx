@@ -1,5 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, Plus, Minus, Check, Home, Building2, Settings, Trash2, Mail, ArrowRight, Sparkles, FolderOpen, Info, TrendingUp, Gift, Receipt, Repeat, Layers, MapPin, Briefcase, Users } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, Minus, Check, Home, Building2, Settings, Trash2, Mail, ArrowRight, Sparkles, FolderOpen, Info, TrendingUp, Gift, Receipt, Repeat, Layers, MapPin, Briefcase, Users, Cloud, CloudOff } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+
+/* ============================================================================
+   SUPABASE CLIENT (mit Fallback auf hartcodierte Werte)
+   ============================================================================ */
+const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpzevjdntws.supabase.co';
+const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -235,11 +243,69 @@ function getDisplayName(product) {
   return product.displayName || product.kuerzel;
 }
 
-const PRODUCTS = {
+// PRODUCTS und ALL_PRODUCTS sind initial mit RAW-Daten gefüllt (Fallback).
+// Werden beim App-Start aus der Supabase-DB überschrieben (Stufe 2 — Backend-Anbindung).
+// Bei DB-Fehler bleibt der Fallback bestehen.
+let PRODUCTS = {
   privat:     PRODUCTS_PRIVAT_RAW.map(withPrices).map(p => ({ ...p, usage: 'p', einnahmen: 0, fee: 0 })),
   gewerblich: PRODUCTS_GEWERB_RAW.map(withPrices).map(p => ({ ...p, usage: 'g' })),
 };
-const ALL_PRODUCTS = [...PRODUCTS.privat, ...PRODUCTS.gewerblich];
+let ALL_PRODUCTS = [...PRODUCTS.privat, ...PRODUCTS.gewerblich];
+
+// Mapping: DB-Schema → Frontend-Modul-Objekt
+// withPrices wird danach noch angewandt für netto/brutto-Berechnung
+function mapDbModuleToFrontend(db) {
+  const base = {
+    kuerzel: db.kuerzel,
+    family: db.family,
+    cat: db.category,
+    usage: db.usage,
+    beschr: db.beschreibung_de,
+    nuf: db.nuf != null ? Number(db.nuf) : undefined,
+    bgf: db.bgf != null ? Number(db.bgf) : undefined,
+    herst: db.herst_preis,
+    marge: Number(db.marge),
+  };
+  // Optionale Felder nur setzen wenn vorhanden (Frontend prüft mit `in` oder undefined)
+  if (db.display_name && db.display_name !== db.kuerzel) base.displayName = db.display_name;
+  if (db.kueche) base.kueche = db.kueche;
+  if (db.moebliert != null) base.moebliert = db.moebliert;
+  if (db.groesse_label != null) base.groesse = db.groesse_label;
+  if (db.usage === 'g') {
+    base.einnahmen = db.einnahmen_indikation || 0;
+    base.fee = Number(db.fee || 0);
+  } else {
+    base.einnahmen = 0;
+    base.fee = 0;
+  }
+  return base;
+}
+
+// Lädt alle aktiven Module aus Supabase und ersetzt PRODUCTS + ALL_PRODUCTS
+// Gibt true zurück bei Erfolg, false bei Fehler/Fallback
+async function loadProductsFromDb() {
+  try {
+    const { data, error } = await supabase
+      .from('modules')
+      .select('*')
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .order('sort_order', { ascending: true });
+    if (error) { console.warn('[Supabase] Module-Load Fehler:', error.message); return false; }
+    if (!data || data.length === 0) { console.warn('[Supabase] Keine Module in DB gefunden, Fallback aktiv'); return false; }
+    const mapped = data.map(mapDbModuleToFrontend).map(withPrices);
+    PRODUCTS = {
+      privat:     mapped.filter(p => p.usage === 'p'),
+      gewerblich: mapped.filter(p => p.usage === 'g'),
+    };
+    ALL_PRODUCTS = [...PRODUCTS.privat, ...PRODUCTS.gewerblich];
+    console.log(`[Supabase] ${mapped.length} Module aus DB geladen (${PRODUCTS.privat.length} privat, ${PRODUCTS.gewerblich.length} gewerblich)`);
+    return true;
+  } catch (e) {
+    console.warn('[Supabase] Verbindungsfehler, Fallback auf hartcodierte Module:', e.message);
+    return false;
+  }
+}
 
 const PROJECTS_TEMPLATES = [
   { id: 'voelk', name: 'Völklinger Straße', location: 'Düsseldorf',
@@ -3135,6 +3201,21 @@ export default function App() {
   const [view, setView] = useState('customer');
   const [step, setStep] = useState(0);
 
+  // Supabase-Anbindung: Module aus DB laden (Fallback auf hartcodiert bei Fehler).
+  // dbStatus: 'loading' → 'db' (DB erfolgreich geladen) | 'fallback' (hartcodierte Daten)
+  // _productsTick: erzwingt Re-Render wenn DB-Module geladen sind (PRODUCTS ist let-Variable)
+  const [dbStatus, setDbStatus] = useState('loading');
+  const [_productsTick, setProductsTick] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    loadProductsFromDb().then(success => {
+      if (cancelled) return;
+      setDbStatus(success ? 'db' : 'fallback');
+      if (success) setProductsTick(t => t + 1);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   // Scroll-to-Top bei jedem Schrittwechsel — sonst landet der User unten in der Sidebar
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [step]);
   const [customerType, setCustomerType] = useState(null);
@@ -3328,7 +3409,20 @@ export default function App() {
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <p>CoMod Konfigurator — Prototyp v0.9.25</p>
+            <div className="flex items-center gap-3">
+              <p>CoMod Konfigurator — Prototyp v0.9.26</p>
+              {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
+              {dbStatus === 'fallback' && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
+                  <CloudOff className="w-3 h-3" /> offline
+                </span>
+              )}
+              {dbStatus === 'db' && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-[#7FB069]/60" title="DB verbunden">
+                  <Cloud className="w-3 h-3" /> live
+                </span>
+              )}
+            </div>
             <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
