@@ -3633,17 +3633,17 @@ export default function App() {
           customer_type: lead.pfad?.customerType,
           privat_mode: lead.pfad?.privatMode,
           modulart: lead.pfad?.modulart,
-          anrede: lead.kontakt?.anrede,
-          vorname: lead.kontakt?.vorname,
-          nachname: lead.kontakt?.nachname,
-          email: lead.kontakt?.email,
-          telefon: lead.kontakt?.telefon,
-          firma: lead.kontakt?.firma,
-          strasse: lead.kontakt?.strasse,
-          hausnr: lead.kontakt?.hausnr,
-          plz: lead.kontakt?.plz,
-          ort: lead.kontakt?.ort,
-          notiz: lead.kontakt?.notiz,
+          anrede: lead.contact?.anrede,
+          vorname: lead.contact?.vorname,
+          nachname: lead.contact?.nachname,
+          email: lead.contact?.email,
+          telefon: lead.contact?.telefon,
+          firma: lead.contact?.firma,
+          strasse: lead.contact?.strasse,
+          hausnr: lead.contact?.hausnr,
+          plz: lead.contact?.plz,
+          ort: lead.contact?.ort,
+          notiz: lead.contact?.notiz,
           modules_snapshot: lead.module,
           finanzen_snapshot: lead.finanzen,
           gewerb_config_snapshot: lead.pfad?.gewerbConfig,
@@ -3709,7 +3709,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.27</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.28</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
