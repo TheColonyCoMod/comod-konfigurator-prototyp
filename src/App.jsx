@@ -3198,6 +3198,9 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Konfiguration</p>
             <div className="bg-[#F8F5F0] p-4 space-y-2 font-body text-sm">
               <p><span className="text-[#6B6961]">Typ:</span> {lead.customer_type === 'privat' ? 'Privat' : 'Gewerblich'}{lead.privat_mode ? ` · ${lead.privat_mode === 'projekt' ? 'Projekt-Beitritt' : 'Eigenes Grundstück'}` : ''}</p>
+              {(lead.project?.name || lead.finanzen_snapshot?.project_name) && (
+                <p><span className="text-[#6B6961]">Projekt:</span> <span className="text-[#7B2D8E]">{lead.project?.name || lead.finanzen_snapshot?.project_name}{(lead.project?.location || lead.finanzen_snapshot?.project_location) ? ` (${lead.project?.location || lead.finanzen_snapshot?.project_location})` : ''}</span></p>
+              )}
               <p><span className="text-[#6B6961]">Module gesamt:</span> <span className="num">{lead.modulanzahl_gesamt}</span></p>
               <p><span className="text-[#6B6961]">NUF:</span> <span className="num">{Number(lead.nuf_gesamt || 0).toFixed(1)} m²</span></p>
               <div className="pt-2 mt-2 border-t border-[#1C1C1A]/10 space-y-1">
@@ -3263,7 +3266,10 @@ function AdminView({ authUser, authProfile }) {
 
   async function loadLeads() {
     setLoading(true); setError(null);
-    let query = supabase.from('leads').select('*').order('created_at', { ascending: false });
+    // Join mit projects um Namen mitzuladen — ohne Match einfach null
+    let query = supabase.from('leads')
+      .select('*, project:projects(name, location, slug)')
+      .order('created_at', { ascending: false });
     const { data, error } = await query;
     if (error) setError(error.message);
     else setLeads(data || []);
@@ -3358,7 +3364,12 @@ function AdminView({ authUser, authProfile }) {
                     </span>
                   </div>
                   <div className="text-xs text-[#6B6961] leading-relaxed">
-                    <span className="inline-block px-2 py-0.5 text-[10px] tracking-wider uppercase bg-[#F8F5F0] border border-[#1C1C1A]/10 mr-2">{lead.customer_type === 'privat' ? 'Privat' : 'Gewerbe'}</span>
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <span className="inline-block px-2 py-0.5 text-[10px] tracking-wider uppercase bg-[#F8F5F0] border border-[#1C1C1A]/10">{lead.customer_type === 'privat' ? 'Privat' : 'Gewerbe'}</span>
+                      {lead.project?.name && (
+                        <span className="text-[11px] text-[#7B2D8E] tracking-wide">{lead.project.name}{lead.project.location ? `, ${lead.project.location}` : ''}</span>
+                      )}
+                    </div>
                     {items.slice(0, 3).map(it => (
                       <div key={it.kuerzel} className="mt-1"><span className="num text-[#1C1C1A]">{it.count}×</span> {it.kuerzel}</div>
                     ))}
@@ -3627,8 +3638,16 @@ export default function App() {
     // läuft die Submission trotzdem durch (localStorage als Fallback bleibt aktiv).
     (async () => {
       try {
+        // Projekt-ID via Slug-Lookup auflösen (Frontend nutzt Slugs wie 'voelk', DB UUIDs)
+        let dbProjectId = null;
+        if (lead.pfad?.project?.id) {
+          const { data: pr } = await supabase
+            .from('projects').select('id').eq('slug', lead.pfad.project.id).maybeSingle();
+          if (pr?.id) dbProjectId = pr.id;
+        }
         const dbLead = {
           workspace_id: '00000000-0000-0000-0000-000000000001', // CoMod-Default-Workspace
+          project_id: dbProjectId,
           source_url: typeof window !== 'undefined' ? window.location.pathname : null,
           customer_type: lead.pfad?.customerType,
           privat_mode: lead.pfad?.privatMode,
@@ -3645,7 +3664,7 @@ export default function App() {
           ort: lead.contact?.ort,
           notiz: lead.contact?.notiz,
           modules_snapshot: lead.module,
-          finanzen_snapshot: lead.finanzen,
+          finanzen_snapshot: { ...(lead.finanzen || {}), project_name: lead.pfad?.project?.name || null, project_location: lead.pfad?.project?.location || null },
           gewerb_config_snapshot: lead.pfad?.gewerbConfig,
           angewandter_rabatt_pct: lead.finanzen?.rabattPct,
           angewandte_provision_pct: 0.035, // bis Provision pro Workspace in DB-Settings gelesen wird
@@ -3709,7 +3728,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.28</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.29</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
