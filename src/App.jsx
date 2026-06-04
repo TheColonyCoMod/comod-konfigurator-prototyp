@@ -3312,7 +3312,7 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
   );
 }
 
-function AdminView({ authUser, authProfile }) {
+function AdminLeadsView({ authUser, authProfile }) {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -3346,24 +3346,16 @@ function AdminView({ authUser, authProfile }) {
     return list;
   }, [leads, statusFilter, dateFilter]);
 
-  async function logout() {
-    await supabase.auth.signOut();
-  }
-
   return (
-    <div className="max-w-7xl mx-auto px-8 py-12">
+    <div>
       <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
         <div>
-          <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Admin · {authProfile?.role === 'master_admin' ? 'Master' : 'Partner'}</p>
           <h1 className="font-display text-4xl tracking-tight mb-2">Leads</h1>
           <p className="font-body text-sm text-[#6B6961]">
-            {filteredLeads.length} von {leads.length} {leads.length === 1 ? 'Lead' : 'Leads'} · angemeldet als {authUser?.email}
+            {filteredLeads.length} von {leads.length} {leads.length === 1 ? 'Lead' : 'Leads'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={loadLeads} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
-          <button onClick={logout} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2">Abmelden</button>
-        </div>
+        <button onClick={loadLeads} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
       </div>
 
       <div className="flex flex-wrap gap-3 mb-6">
@@ -3449,13 +3441,376 @@ function AdminView({ authUser, authProfile }) {
   );
 }
 
+/* ============================================================================
+   ADMIN-MODULE: Liste + Edit-Modal
+   ============================================================================ */
+
+const MODULE_CATEGORIES = [
+  { key: 'wohnen',     label: 'Wohnen' },
+  { key: 'arbeit',     label: 'Arbeit' },
+  { key: 'erlebnis',   label: 'Erlebnis' },
+  { key: 'ergaenzung', label: 'Ergänzung' },
+];
+const MODULE_USAGE = [
+  { key: 'p',      label: 'Privat' },
+  { key: 'g',      label: 'Gewerblich' },
+  { key: 'beides', label: 'Beides' },
+];
+
+function AdminModuleEdit({ module, onClose, onSaved }) {
+  // Neu-anlegen: module ist null → leerer Default
+  const isNew = !module;
+  const [form, setForm] = useState(() => ({
+    kuerzel: '',
+    display_name: '',
+    family: '',
+    category: 'wohnen',
+    usage: 'g',
+    beschreibung_de: '',
+    beschreibung_en: '',
+    icon_path: '',
+    breite_korpus_cm: 350,
+    laenge_korpus_cm: 700,
+    hoehe_cm: 320,
+    is_kombimodul: false,
+    grundmodul_count: 1,
+    kombi_richtung: 'einzel',
+    nuf: null,
+    bgf: null,
+    groesse_label: null,
+    herst_preis: 0,
+    marge: 0.15,
+    einnahmen_indikation: null,
+    fee: null,
+    kueche: null,
+    moebliert: null,
+    is_durchlaufposten: false,
+    is_active: true,
+    sort_order: 0,
+    ...(module || {}),
+  }));
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
+
+  const update = (key) => (e) => {
+    const v = e.target.type === 'checkbox' ? e.target.checked
+            : e.target.type === 'number' ? (e.target.value === '' ? null : Number(e.target.value))
+            : e.target.value === '' ? null : e.target.value;
+    setForm(f => ({ ...f, [key]: v }));
+  };
+
+  async function save() {
+    setSaving(true); setError(null); setSaved(false);
+    // Felder bereinigen — id raus (Update via where, Insert auto)
+    const { id, created_at, updated_at, deleted_at, ...payload } = form;
+    let res;
+    if (isNew) {
+      res = await supabase.from('modules').insert(payload).select('*').single();
+    } else {
+      res = await supabase.from('modules').update(payload).eq('id', module.id).select('*').single();
+    }
+    if (res.error) { setError(res.error.message); setSaving(false); return; }
+    setSaved(true); setSaving(false);
+    setTimeout(() => { onSaved(res.data); }, 600);
+  }
+
+  const Input = ({ label, k, type = 'text', step, hint }) => (
+    <div>
+      <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">{label}</label>
+      <input type={type} value={form[k] ?? ''} onChange={update(k)} step={step}
+        className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+      {hint && <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{hint}</p>}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto py-8" onClick={onClose}>
+      <div className="bg-white max-w-5xl w-full mx-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
+          <div>
+            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">{isNew ? 'Neues Modul' : 'Modul bearbeiten'}</p>
+            <h2 className="font-display text-3xl tracking-tight">{form.display_name || form.kuerzel || 'Neu'}</h2>
+          </div>
+          <button onClick={onClose} className="text-[#6B6961] hover:text-[#1C1C1A] p-2"><Plus className="w-5 h-5 rotate-45" /></button>
+        </div>
+
+        <div className="p-8 space-y-7">
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Identifikation</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Input label="Kürzel (intern, eindeutig)" k="kuerzel" hint="z. B. 'CoMod Stay (LK,D,M)'" />
+              <Input label="Anzeigename" k="display_name" />
+              <Input label="Family" k="family" hint="z. B. 'stay', 'live', 'home'" />
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Kategorie</label>
+                <select value={form.category} onChange={update('category')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]">
+                  {MODULE_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Nutzung</label>
+                <select value={form.usage} onChange={update('usage')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]">
+                  {MODULE_USAGE.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                </select>
+              </div>
+              <Input label="Größen-Label" k="groesse_label" type="number" hint="z. B. 32 für 'Stay 32'" />
+            </div>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Beschreibung & Icon</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Beschreibung (DE)</label>
+                <textarea value={form.beschreibung_de ?? ''} onChange={update('beschreibung_de')} rows={2}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Beschreibung (EN)</label>
+                <textarea value={form.beschreibung_en ?? ''} onChange={update('beschreibung_en')} rows={2}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <Input label="Icon-Pfad" k="icon_path" hint="z. B. '/icons/comod_stay_lkdm.png'" />
+            </div>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Geometrie</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Input label="Breite Korpus (cm)" k="breite_korpus_cm" type="number" />
+              <Input label="Länge Korpus (cm)" k="laenge_korpus_cm" type="number" />
+              <Input label="Höhe (cm)" k="hoehe_cm" type="number" />
+              <Input label="NUF (m²)" k="nuf" type="number" step="0.01" />
+              <Input label="BGF (m²)" k="bgf" type="number" step="0.01" />
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="is_kombi" checked={form.is_kombimodul} onChange={update('is_kombimodul')} />
+                <label htmlFor="is_kombi" className="font-body text-sm">Kombi-Modul</label>
+              </div>
+              {form.is_kombimodul && <>
+                <Input label="Grundmodul-Anzahl" k="grundmodul_count" type="number" />
+                <div>
+                  <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Kombi-Richtung</label>
+                  <select value={form.kombi_richtung ?? 'laengs'} onChange={update('kombi_richtung')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm">
+                    <option value="laengs">Längs</option>
+                    <option value="stirn">Stirn</option>
+                    <option value="einzel">Einzel</option>
+                  </select>
+                </div>
+              </>}
+            </div>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Preise</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Input label="Herstellpreis (€)" k="herst_preis" type="number" />
+              <Input label="Marge" k="marge" type="number" step="0.0001" hint="z. B. 0.15 = 15 %" />
+              <Input label="Einnahmen-Indikation (€/Mt)" k="einnahmen_indikation" type="number" />
+              <Input label="Fee" k="fee" type="number" step="0.0001" hint="z. B. 0.15 = 15 %" />
+            </div>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Eigenschaften & Status</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Küche</label>
+                <select value={form.kueche ?? ''} onChange={update('kueche')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm">
+                  <option value="">— keine —</option>
+                  <option value="L-Küche">L-Küche</option>
+                  <option value="Pantry">Pantry</option>
+                  <option value="U-Küche">U-Küche</option>
+                  <option value="Ohne Küche">Ohne Küche</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <input type="checkbox" id="moebliert" checked={!!form.moebliert} onChange={update('moebliert')} />
+                <label htmlFor="moebliert" className="font-body text-sm">möbliert</label>
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <input type="checkbox" id="durchlauf" checked={form.is_durchlaufposten} onChange={update('is_durchlaufposten')} />
+                <label htmlFor="durchlauf" className="font-body text-sm">Durchlaufposten (Pool)</label>
+              </div>
+              <Input label="Sortier-Reihenfolge" k="sort_order" type="number" />
+              <div className="flex items-center gap-2 pt-5">
+                <input type="checkbox" id="active" checked={form.is_active} onChange={update('is_active')} />
+                <label htmlFor="active" className="font-body text-sm">Aktiv (im Konfigurator sichtbar)</label>
+              </div>
+            </div>
+          </section>
+
+          {error && <div className="p-3 bg-[#FAE5E2] border border-[#C5392E]/30 font-body text-sm text-[#C5392E]">Fehler: {error}</div>}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-8 py-5 border-t border-[#1C1C1A]/10 bg-[#F8F5F0]">
+          {saved && <span className="font-body text-xs text-[#7FB069] flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Gespeichert</span>}
+          <button onClick={onClose} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-4 py-2">Abbrechen</button>
+          <Button onClick={save} disabled={saving}>{saving ? 'Speichere …' : (isNew ? 'Modul anlegen' : 'Speichern')}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminModulesView() {
+  const [modules, setModules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
+  const [usageFilter, setUsageFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'active' | 'inactive'
+  const [editing, setEditing] = useState(undefined); // undefined = nichts | null = neu | object = bearbeiten
+
+  async function loadModules() {
+    setLoading(true); setError(null);
+    const { data, error } = await supabase.from('modules').select('*').is('deleted_at', null).order('sort_order', { ascending: true });
+    if (error) setError(error.message);
+    else setModules(data || []);
+    setLoading(false);
+  }
+
+  useEffect(() => { loadModules(); }, []);
+
+  const filtered = useMemo(() => {
+    let list = modules;
+    if (usageFilter !== 'all') list = list.filter(m => m.usage === usageFilter);
+    if (activeFilter !== 'all') list = list.filter(m => activeFilter === 'active' ? m.is_active : !m.is_active);
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter(m =>
+        (m.kuerzel || '').toLowerCase().includes(s) ||
+        (m.display_name || '').toLowerCase().includes(s) ||
+        (m.family || '').toLowerCase().includes(s));
+    }
+    return list;
+  }, [modules, usageFilter, activeFilter, search]);
+
+  function handleSaved(savedRow) {
+    setModules(prev => {
+      const exists = prev.some(m => m.id === savedRow.id);
+      if (exists) return prev.map(m => m.id === savedRow.id ? savedRow : m);
+      return [...prev, savedRow].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    });
+    setEditing(undefined);
+  }
+
+  return (
+    <div>
+      <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display text-4xl tracking-tight mb-2">Module</h1>
+          <p className="font-body text-sm text-[#6B6961]">
+            {filtered.length} von {modules.length} {modules.length === 1 ? 'Modul' : 'Modulen'} · global gepflegt
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={loadModules} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
+          <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neues Modul</button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <input type="text" placeholder="Suche Kürzel, Family, Name …" value={search} onChange={e => setSearch(e.target.value)}
+          className="bg-white border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm w-72 focus:outline-none focus:border-[#D2563E]" />
+        <div className="flex items-center gap-2">
+          <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Nutzung:</span>
+          {[['all','Alle'],['p','Privat'],['g','Gewerblich']].map(([k,l]) => (
+            <button key={k} onClick={() => setUsageFilter(k)} className={`px-3 py-1 text-xs font-body uppercase tracking-wider border ${usageFilter === k ? 'border-[#1C1C1A] text-[#1C1C1A]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:border-[#1C1C1A]/30'}`}>{l}</button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Status:</span>
+          {[['all','Alle'],['active','Aktiv'],['inactive','Inaktiv']].map(([k,l]) => (
+            <button key={k} onClick={() => setActiveFilter(k)} className={`px-3 py-1 text-xs font-body uppercase tracking-wider border ${activeFilter === k ? 'border-[#1C1C1A] text-[#1C1C1A]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:border-[#1C1C1A]/30'}`}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Module …</div>
+      ) : error ? (
+        <div className="bg-white border border-[#C5392E]/30 p-8"><p className="font-body text-sm text-[#C5392E]">Fehler: {error}</p></div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center"><p className="font-display text-xl text-[#6B6961]">Keine Module mit diesen Filtern<span className="opacity-50"> …</span></p></div>
+      ) : (
+        <div className="bg-white border border-[#1C1C1A]/10 overflow-x-auto">
+          <div className="min-w-[900px]">
+            <div className="grid grid-cols-[2fr_0.8fr_0.8fr_0.6fr_1fr_1fr_0.5fr] gap-3 px-5 py-4 border-b border-[#1C1C1A]/10 font-body text-xs tracking-wider uppercase text-[#6B6961]">
+              <div>Modul</div><div>Family</div><div>Kategorie</div><div>Nutz.</div><div className="text-right">Herst-Preis</div><div className="text-right">Marge</div><div className="text-center">Aktiv</div>
+            </div>
+            {filtered.map(m => (
+              <button key={m.id} onClick={() => setEditing(m)} className="w-full text-left grid grid-cols-[2fr_0.8fr_0.8fr_0.6fr_1fr_1fr_0.5fr] gap-3 px-5 py-3.5 border-b border-[#1C1C1A]/5 last:border-b-0 font-body text-sm items-center hover:bg-[#F8F5F0]/50 transition-colors">
+                <div>
+                  <p className="text-[#1C1C1A]">{m.display_name || m.kuerzel}</p>
+                  {m.kuerzel !== m.display_name && <p className="text-[10px] text-[#6B6961]">{m.kuerzel}</p>}
+                </div>
+                <div className="text-xs text-[#6B6961]">{m.family}</div>
+                <div className="text-xs text-[#6B6961]">{m.category}</div>
+                <div className="text-xs">
+                  <span className="px-1.5 py-0.5 border border-[#1C1C1A]/10 bg-[#F8F5F0] uppercase tracking-wider">{m.usage}</span>
+                </div>
+                <div className="text-right num">{fmtEUR(m.herst_preis || 0)}</div>
+                <div className="text-right num text-[#6B6961]">{((m.marge || 0) * 100).toFixed(1)} %</div>
+                <div className="text-center">
+                  {m.is_active ? <Check className="w-3.5 h-3.5 text-[#7FB069] inline" /> : <span className="text-[10px] text-[#6B6961] uppercase tracking-wider">aus</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {editing !== undefined && <AdminModuleEdit module={editing} onClose={() => setEditing(undefined)} onSaved={handleSaved} />}
+    </div>
+  );
+}
+
+/* ============================================================================
+   ADMIN-PANEL: Tab-Navigation + Wrapper für die Sub-Views
+   ============================================================================ */
+
+function AdminPanel({ authUser, authProfile }) {
+  const [tab, setTab] = useState('leads'); // 'leads' | 'modules' | 'projects' | 'settings'
+  async function logout() { await supabase.auth.signOut(); }
+  const tabs = [
+    { key: 'leads',    label: 'Leads' },
+    { key: 'modules',  label: 'Module' },
+    { key: 'projects', label: 'Projekte', disabled: true },
+    { key: 'settings', label: 'Settings', disabled: true },
+  ];
+  return (
+    <div className="max-w-7xl mx-auto px-8 py-12">
+      <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
+        <div>
+          <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">
+            Admin · {authProfile?.role === 'master_admin' ? 'Master' : 'Partner'} · {authUser?.email}
+          </p>
+          <div className="flex items-center gap-1 -ml-1">
+            {tabs.map(t => (
+              <button key={t.key} onClick={() => !t.disabled && setTab(t.key)} disabled={t.disabled}
+                className={`font-body text-sm tracking-wider uppercase px-4 py-2 border-b-2 transition-colors ${tab === t.key ? 'border-[#D2563E] text-[#1C1C1A]' : t.disabled ? 'border-transparent text-[#6B6961]/50 cursor-not-allowed' : 'border-transparent text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                {t.label}{t.disabled && <span className="ml-1 text-[10px] text-[#6B6961]">·bald</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={logout} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2">Abmelden</button>
+      </div>
+
+      {tab === 'leads'   && <AdminLeadsView authUser={authUser} authProfile={authProfile} />}
+      {tab === 'modules' && <AdminModulesView />}
+    </div>
+  );
+}
+
 function AdminGate({ authUser, authProfile }) {
   if (authUser === null) {
     return <div className="max-w-md mx-auto px-8 py-20 font-body text-sm text-[#6B6961]">Lade Session …</div>;
   }
   if (!authUser) return <AdminLogin />;
   if (!authProfile) return <div className="max-w-md mx-auto px-8 py-20 font-body text-sm text-[#6B6961]">Lade Profil …</div>;
-  return <AdminView authUser={authUser} authProfile={authProfile} />;
+  return <AdminPanel authUser={authUser} authProfile={authProfile} />;
 }
 
 
@@ -3784,7 +4139,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.30</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.31</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
