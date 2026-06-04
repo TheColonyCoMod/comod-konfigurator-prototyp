@@ -4346,6 +4346,294 @@ function AdminProjectsView() {
   );
 }
 
+/* ============================================================================
+   ADMIN-SETTINGS: Globale Konstanten
+   ============================================================================ */
+
+// Setting-Definitionen mit Kategorie + Typ + Label + Beschreibung
+const SETTING_DEFS = [
+  // PROVISIONEN & STEUERN
+  { key: 'PROV',           cat: 'provision', type: 'percent', label: 'Provisionssatz',                desc: 'Default-Provision auf den rabattierten Herstellpreis' },
+  { key: 'UST',            cat: 'provision', type: 'percent', label: 'Umsatzsteuer',                  desc: 'Wird auf den Netto-Preis aufgeschlagen' },
+  { key: 'ANZ_PCT',        cat: 'provision', type: 'percent', label: 'Anzahlung',                     desc: 'Anteil der Investmentsumme als Anzahlung' },
+  { key: 'STEUER_GMBH',    cat: 'provision', type: 'percent', label: 'Steuerlast GmbH',               desc: 'GewSt + KSt + Soli (Annahme)' },
+  { key: 'IAB_MAX_PCT',    cat: 'provision', type: 'percent', label: 'IAB Maximum',                   desc: 'Investitionsabzugsbetrag maximal % der Investition' },
+
+  // FINANZIERUNG
+  { key: 'KFW_FOERDERHOEHE',     cat: 'finanz', type: 'euro',    label: 'KfW Förderhöhe',           desc: 'Pauschal pro Privat-Antrag' },
+  { key: 'KFW_ZINS',             cat: 'finanz', type: 'percent', label: 'KfW Zinssatz',             desc: 'Standard-Zinssatz' },
+  { key: 'KFW_LAUFZEIT_JAHRE',   cat: 'finanz', type: 'years',   label: 'KfW Laufzeit',             desc: 'in Jahren' },
+  { key: 'KFW_TILGUNGSNACHLASS', cat: 'finanz', type: 'percent', label: 'KfW Tilgungsnachlass',     desc: 'Anteil, der nicht zurückgezahlt werden muss' },
+  { key: 'GLS_ZINS',             cat: 'finanz', type: 'percent', label: 'GLS Zinssatz',             desc: 'Standard-Zinssatz GLS-Bank' },
+  { key: 'GLS_LAUFZEIT_JAHRE',   cat: 'finanz', type: 'years',   label: 'GLS Laufzeit',             desc: 'in Jahren' },
+  { key: 'PLATTFORM_ZINS_DEFAULT',  cat: 'finanz', type: 'percent', label: 'Plattform Zinssatz',     desc: 'Default-Zinssatz Plattform-Finanzierung' },
+  { key: 'PLATTFORM_LAUFZEIT_JAHRE', cat: 'finanz', type: 'years', label: 'Plattform Laufzeit',     desc: 'in Jahren' },
+  { key: 'PLATTFORM_RESTWERT_PCT',   cat: 'finanz', type: 'percent', label: 'Restwert am Laufzeitende', desc: 'Anteil des Werts am Ende' },
+  { key: 'AFA_JAHRE',            cat: 'finanz', type: 'years',   label: 'AfA-Dauer Modulhaus',      desc: 'Abschreibungsdauer in Jahren' },
+
+  // KOSTEN
+  { key: 'NEBENKOSTEN_LIZENZ_PRO_M2',   cat: 'kosten', type: 'euro_decimal', label: 'Lizenzgebühr CoMod',       desc: '€ pro m²/Monat' },
+  { key: 'NEBENKOSTEN_QM_PRO_M2',       cat: 'kosten', type: 'euro_decimal', label: 'Quartiersmanagement',      desc: '€ pro m²/Monat' },
+  { key: 'NEBENKOSTEN_VERS_PRO_M2',     cat: 'kosten', type: 'euro_decimal', label: 'Versicherung',             desc: '€ pro m²/Monat' },
+  { key: 'NEBENKOSTEN_INSTAND_PRO_M2',  cat: 'kosten', type: 'euro_decimal', label: 'Instandhaltung',           desc: '€ pro m²/Monat' },
+  { key: 'VERBRAUCH_STROM_PRO_M2',      cat: 'kosten', type: 'euro_decimal', label: 'Strom (variabel)',         desc: '€ pro m²/Monat' },
+  { key: 'VERBRAUCH_WASSER_PRO_M2',     cat: 'kosten', type: 'euro_decimal', label: 'Wasser/Abwasser',          desc: '€ pro m²/Monat' },
+  { key: 'VERBRAUCH_HEIZUNG_PRO_M2',    cat: 'kosten', type: 'euro_decimal', label: 'Heizung/Warmwasser',       desc: '€ pro m²/Monat' },
+  { key: 'KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL', cat: 'kosten', type: 'euro', label: 'Treppen/Laubengang',       desc: '€ pro Modul in OG/DG' },
+  { key: 'KOSTEN_TERRASSE_PRO_MODUL',           cat: 'kosten', type: 'euro', label: 'Terrasse',                 desc: '€ pro Modul im EG' },
+  { key: 'KOSTEN_PV_PRO_MODUL',                 cat: 'kosten', type: 'euro', label: 'PV-Anlage inkl. Speicher', desc: '€ pro oberstem Modul' },
+  { key: 'KOSTEN_DACHBEGRUENUNG_PRO_MODUL',     cat: 'kosten', type: 'euro', label: 'Dachbegrünung',            desc: '€ pro oberstem Modul' },
+
+  // GEOMETRIE & BAUGENEHMIGUNG
+  { key: 'ZIEL_MODUL_NUF',        cat: 'geometrie', type: 'integer', label: 'Standard-NUF eines Moduls', desc: 'in m² (für Pacht-Umlage)' },
+  { key: 'ZIEL_MODUL_BGF',        cat: 'geometrie', type: 'integer', label: 'Standard-BGF eines Moduls', desc: 'in m²' },
+  { key: 'MODUL_HOEHE_CM',        cat: 'geometrie', type: 'integer', label: 'Modul-Höhe',                desc: 'in cm' },
+  { key: 'BEBAUUNGSGRAD',         cat: 'geometrie', type: 'percent', label: 'Bebauungsgrad',             desc: 'Anteil bebaubare Fläche vom Grundstück' },
+  { key: 'WANDSTAERKE_LAENGS_CM', cat: 'geometrie', type: 'integer', label: 'Wandstärke Längsseiten',    desc: 'in cm (Kiri 5-lagig)' },
+  { key: 'WANDSTAERKE_STIRN_CM',  cat: 'geometrie', type: 'integer', label: 'Wandstärke Stirnseiten',    desc: 'in cm (Derix CLT)' },
+  { key: 'BAUWERT_PRO_M3',        cat: 'geometrie', type: 'euro',    label: 'Bauwert NRW',               desc: '€ pro m³ BRI (Baugenehmigung)' },
+  { key: 'GEBUEHR_SATZ',          cat: 'geometrie', type: 'percent', label: 'Gebührensatz NRW',          desc: 'auf Bauwert (Baugenehmigung)' },
+  { key: 'GEBUEHR_MINDEST',       cat: 'geometrie', type: 'euro',    label: 'Mindestgebühr NRW',         desc: 'für Baugenehmigung' },
+  { key: 'GEBUEHR_RUNDUNG',       cat: 'geometrie', type: 'euro',    label: 'Gebühren-Rundung NRW',      desc: 'auf nächste X €' },
+];
+
+const SETTING_CATEGORIES = [
+  { key: 'provision', label: 'Provisionen & Steuern' },
+  { key: 'rabatt',    label: 'Mengen-Rabatt' },
+  { key: 'finanz',    label: 'Finanzierung' },
+  { key: 'kosten',    label: 'Kosten' },
+  { key: 'geometrie', label: 'Geometrie & Baugenehmigung' },
+];
+
+function AdminSettingsView() {
+  const [settings, setSettings]   = useState({});
+  const [original, setOriginal]   = useState({});
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
+  const [saving, setSaving]       = useState(false);
+  const [saved, setSaved]         = useState(false);
+  const [activeCat, setActiveCat] = useState('provision');
+
+  async function loadAll() {
+    setLoading(true); setError(null);
+    const { data, error } = await supabase.from('settings').select('*').is('workspace_id', null);
+    if (error) { setError(error.message); setLoading(false); return; }
+    const map = {};
+    (data || []).forEach(s => { map[s.key] = s.value; });
+    setSettings(map);
+    setOriginal(JSON.parse(JSON.stringify(map)));
+    setLoading(false);
+  }
+  useEffect(() => { loadAll(); }, []);
+
+  const dirtyKeys = useMemo(() =>
+    Object.keys(settings).filter(k => JSON.stringify(settings[k]) !== JSON.stringify(original[k])),
+    [settings, original]);
+  const isDirty = dirtyKeys.length > 0;
+
+  function updateSetting(key, value) { setSettings(s => ({ ...s, [key]: value })); }
+
+  async function saveAll() {
+    setSaving(true); setError(null); setSaved(false);
+    const updates = dirtyKeys.map(key =>
+      supabase.from('settings').update({ value: settings[key] }).is('workspace_id', null).eq('key', key)
+    );
+    const results = await Promise.all(updates);
+    const firstError = results.find(r => r.error);
+    if (firstError) { setError(firstError.error.message); setSaving(false); return; }
+    setOriginal(JSON.parse(JSON.stringify(settings)));
+    setSaving(false); setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
+  function resetChanges() { setSettings(JSON.parse(JSON.stringify(original))); }
+
+  const NO_SPINNER = '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0';
+
+  function renderSettingInput(def) {
+    const val = settings[def.key];
+    const orig = original[def.key];
+    const changed = JSON.stringify(val) !== JSON.stringify(orig);
+
+    if (def.type === 'percent') {
+      const display = (val == null || val === '') ? '' : String(+(val * 100).toFixed(4)).replace('.', ',');
+      return (
+        <div className="flex items-center gap-2">
+          <input type="text" inputMode="decimal" value={display}
+            onChange={e => {
+              const cleaned = String(e.target.value).replace(',', '.').trim();
+              const n = cleaned === '' ? null : Number(cleaned);
+              updateSetting(def.key, (n == null || isNaN(n)) ? null : n / 100);
+            }}
+            className={`flex-1 bg-[#F8F5F0] border ${changed ? 'border-[#7B2D8E]' : 'border-[#1C1C1A]/10'} px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num`} />
+          <span className="font-body text-xs text-[#6B6961]">%</span>
+        </div>
+      );
+    }
+    if (def.type === 'euro' || def.type === 'euro_decimal') {
+      const step = def.type === 'euro_decimal' ? '0.01' : '1';
+      return (
+        <div className="flex items-center gap-2">
+          <input type="number" step={step} value={val ?? ''}
+            onChange={e => updateSetting(def.key, e.target.value === '' ? null : Number(e.target.value))}
+            className={`flex-1 bg-[#F8F5F0] border ${changed ? 'border-[#7B2D8E]' : 'border-[#1C1C1A]/10'} px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+          <span className="font-body text-xs text-[#6B6961]">€</span>
+        </div>
+      );
+    }
+    if (def.type === 'integer' || def.type === 'years') {
+      return (
+        <div className="flex items-center gap-2">
+          <input type="number" value={val ?? ''}
+            onChange={e => updateSetting(def.key, e.target.value === '' ? null : Number(e.target.value))}
+            className={`flex-1 bg-[#F8F5F0] border ${changed ? 'border-[#7B2D8E]' : 'border-[#1C1C1A]/10'} px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num`} />
+          {def.type === 'years' && <span className="font-body text-xs text-[#6B6961]">Jahre</span>}
+        </div>
+      );
+    }
+    return <p className="font-body text-xs text-[#C5392E]">Unbekannter Typ: {def.type}</p>;
+  }
+
+  function renderRabattStaffel() {
+    const list = Array.isArray(settings.RABATT_STAFFEL) ? settings.RABATT_STAFFEL : [];
+    const orig = original.RABATT_STAFFEL;
+    const changed = JSON.stringify(list) !== JSON.stringify(orig);
+
+    function updateRow(i, field, val) {
+      const next = [...list];
+      next[i] = { ...next[i], [field]: val };
+      updateSetting('RABATT_STAFFEL', next);
+    }
+    function removeRow(i) {
+      updateSetting('RABATT_STAFFEL', list.filter((_, idx) => idx !== i));
+    }
+    function addRow() {
+      const next = [...list, { ab: 0, prozent: 0 }];
+      updateSetting('RABATT_STAFFEL', next);
+    }
+    function sortByAb() {
+      updateSetting('RABATT_STAFFEL', [...list].sort((a, b) => a.ab - b.ab));
+    }
+
+    return (
+      <div className="bg-white border border-[#1C1C1A]/10 p-6">
+        <div className="flex items-end justify-between mb-4 gap-4 flex-wrap">
+          <div>
+            <p className="font-body text-base text-[#1C1C1A] mb-1">Mengen-Rabattstaffel</p>
+            <p className="font-body text-xs text-[#6B6961] max-w-xl">Ab der angegebenen Modulanzahl wird der jeweilige Rabatt angewendet. Höhere Stufe überschreibt niedrigere. Wird im Konfigurator automatisch berechnet.</p>
+          </div>
+          {changed && <span className="font-body text-[10px] text-[#7B2D8E] uppercase tracking-wider whitespace-nowrap">geändert</span>}
+        </div>
+        <div className="space-y-2">
+          <div className="grid grid-cols-[1fr_1fr_auto] gap-3 px-2 font-body text-[10px] tracking-wider uppercase text-[#6B6961]">
+            <div>Ab Modulanzahl</div>
+            <div>Rabatt</div>
+            <div></div>
+          </div>
+          {list.map((row, i) => (
+            <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-3 items-center">
+              <input type="number" value={row.ab ?? 0}
+                onChange={e => updateRow(i, 'ab', Number(e.target.value) || 0)}
+                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+              <div className="flex items-center gap-2">
+                <input type="text" inputMode="decimal"
+                  value={(row.prozent == null) ? '' : String(+(row.prozent * 100).toFixed(4)).replace('.', ',')}
+                  onChange={e => {
+                    const c = String(e.target.value).replace(',', '.').trim();
+                    const n = c === '' ? 0 : Number(c);
+                    updateRow(i, 'prozent', isNaN(n) ? 0 : n / 100);
+                  }}
+                  className="flex-1 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num" />
+                <span className="font-body text-xs text-[#6B6961]">%</span>
+              </div>
+              <button onClick={() => removeRow(i)} title="Zeile entfernen"
+                className="text-[#C5392E]/60 hover:text-[#C5392E] p-1.5">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 mt-4">
+          <button onClick={addRow} className="font-body text-xs tracking-wider uppercase border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A] hover:border-[#1C1C1A]/30 px-3 py-1.5 flex items-center gap-1.5">
+            <Plus className="w-3.5 h-3.5" /> Stufe hinzufügen
+          </button>
+          {list.length > 1 && (
+            <button onClick={sortByAb} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-2 py-1.5">
+              Nach Modulanzahl sortieren
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const activeDefs = activeCat === 'rabatt' ? [] : SETTING_DEFS.filter(d => d.cat === activeCat);
+
+  return (
+    <div>
+      <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display text-4xl tracking-tight mb-2">Settings</h1>
+          <p className="font-body text-sm text-[#6B6961]">
+            Globale Konstanten — wirken auf alle Workspaces und Projekte
+          </p>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          {isDirty && <span className="font-body text-xs text-[#7B2D8E] uppercase tracking-wider">{dirtyKeys.length} ungespeicherte Änderung{dirtyKeys.length === 1 ? '' : 'en'}</span>}
+          {saved && <span className="font-body text-xs text-[#7FB069] flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Gespeichert</span>}
+          {isDirty && (
+            <button onClick={resetChanges} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2">Verwerfen</button>
+          )}
+          <button onClick={loadAll} disabled={isDirty} title={isDirty ? 'Erst speichern oder verwerfen' : ''}
+            className={`font-body text-xs tracking-wider uppercase px-3 py-2 border ${isDirty ? 'text-[#6B6961]/40 border-[#1C1C1A]/5 cursor-not-allowed' : 'text-[#6B6961] hover:text-[#1C1C1A] border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30'}`}>
+            Neu laden
+          </button>
+          <Button onClick={saveAll} disabled={!isDirty || saving}>
+            {saving ? 'Speichere …' : 'Alle Änderungen speichern'}
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1 mb-6 border-b border-[#1C1C1A]/10">
+        {SETTING_CATEGORIES.map(c => {
+          const catDirty = c.key === 'rabatt'
+            ? (JSON.stringify(settings.RABATT_STAFFEL) !== JSON.stringify(original.RABATT_STAFFEL))
+            : SETTING_DEFS.filter(d => d.cat === c.key).some(d => JSON.stringify(settings[d.key]) !== JSON.stringify(original[d.key]));
+          return (
+            <button key={c.key} onClick={() => setActiveCat(c.key)}
+              className={`font-body text-sm tracking-wider uppercase px-4 py-2 border-b-2 transition-colors -mb-px ${activeCat === c.key ? 'border-[#D2563E] text-[#1C1C1A]' : 'border-transparent text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+              {c.label}
+              {catDirty && <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[#7B2D8E]" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {error && <div className="bg-[#FAE5E2] border border-[#C5392E]/30 p-4 mb-4 font-body text-sm text-[#C5392E]">Fehler: {error}</div>}
+
+      {loading ? (
+        <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Settings …</div>
+      ) : activeCat === 'rabatt' ? (
+        renderRabattStaffel()
+      ) : (
+        <div className="bg-white border border-[#1C1C1A]/10 p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5">
+            {activeDefs.map(def => (
+              <div key={def.key} className="grid grid-cols-[1.4fr_1fr] gap-4 items-start">
+                <div>
+                  <p className="font-body text-sm text-[#1C1C1A]">{def.label}</p>
+                  <p className="font-body text-xs text-[#6B6961] mt-0.5">{def.desc}</p>
+                  <p className="font-body text-[10px] text-[#6B6961]/60 mt-0.5 font-mono">{def.key}</p>
+                </div>
+                {renderSettingInput(def)}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminPanel({ authUser, authProfile }) {
   const [tab, setTab] = useState('leads'); // 'leads' | 'modules' | 'projects' | 'settings'
   async function logout() { await supabase.auth.signOut(); }
@@ -4353,7 +4641,7 @@ function AdminPanel({ authUser, authProfile }) {
     { key: 'leads',    label: 'Leads' },
     { key: 'modules',  label: 'Module' },
     { key: 'projects', label: 'Projekte' },
-    { key: 'settings', label: 'Settings', disabled: true },
+    { key: 'settings', label: 'Settings' },
   ];
   return (
     <div className="max-w-7xl mx-auto px-8 py-12">
@@ -4377,6 +4665,7 @@ function AdminPanel({ authUser, authProfile }) {
       {tab === 'leads'    && <AdminLeadsView authUser={authUser} authProfile={authProfile} />}
       {tab === 'modules'  && <AdminModulesView />}
       {tab === 'projects' && <AdminProjectsView />}
+      {tab === 'settings' && <AdminSettingsView />}
     </div>
   );
 }
@@ -4719,7 +5008,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.35</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.36</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
