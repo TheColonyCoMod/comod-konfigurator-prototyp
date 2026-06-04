@@ -74,9 +74,10 @@ const PRODUCTS_GEWERB_RAW = [
   { kuerzel: 'Container-Pool',          family: 'pool',    beschr: 'Pool mit Strömungsanlage, Terrassen, Filter',                                  cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 59000,  marge: 0.075, einnahmen: 0,    fee: 0    },
 ];
 
-const PROV = 0.035;
-const UST = 0.19;
-const ANZ_PCT = 0.35;
+// === SETTINGS — werden beim App-Start aus DB überschrieben (Fallback: Werte hier) ===
+let PROV = 0.035;
+let UST = 0.19;
+let ANZ_PCT = 0.35;
 
 const FAMILY_LABELS = {
   live:      { label: 'CoMod Live',     desc: 'Wohnmodul, 32 m² NUF' },
@@ -108,7 +109,7 @@ const FAMILIES_BUSINESS = ['liveb', 'studio', 'stay', 'double', 'gym', 'music', 
 // - Gesamtsumme 5,40 €/m²/Mt enthält CoMod-spezifische Posten (Lizenz, QM)
 // typ: 'fix' = laufende Fixkosten (kalkulierbar, Teil der Gesamtbelastung als "+ laufende Kosten")
 //      'verbrauch' = variable Verbrauchskosten (individueller Richtwert, NICHT in Belastung eingerechnet)
-const NEBENKOSTEN_POSTEN = [
+let NEBENKOSTEN_POSTEN = [
   { id: 'lizenz',  label: 'Lizenzgebühr CoMod',   proM2: 0.80, typ: 'fix' },
   { id: 'qm',      label: 'Quartiersmanagement',  proM2: 0.70, typ: 'fix' },
   { id: 'vers',    label: 'Versicherung',         proM2: 0.40, typ: 'fix' },
@@ -118,14 +119,14 @@ const NEBENKOSTEN_POSTEN = [
   { id: 'heizung', label: 'Heizung / Warmwasser', proM2: 1.20, typ: 'verbrauch' },
 ];
 
-const ZIEL_MODUL_NUF = 32; // Mittelwert für Pacht-Umlage-Berechnung (alle Module gerechnet mit 32 m²)
-const ZIEL_MODUL_BGF = 36; // Standard-BGF eines Moduls für Mindestflächenberechnung
-const BEBAUUNGSGRAD = 0.80; // 80% der Fläche sind effektiv bebaubar (Rest = Wege, Begrünung, Parkplätze etc.)
-// Pauschalkosten je Modul (Platzhalter, später Admin-pflegbar)
-const KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL = 3500; // OG + DG benötigen Aufgänge
-const KOSTEN_TERRASSE_PRO_MODUL = 2500;           // EG bekommt Terrasse
-const KOSTEN_PV_PRO_MODUL = 12000;                // PV-Anlage inkl. Speicher & Wechselrichter pro oberstem Modul (Vollausstattung 100 %)
-const KOSTEN_DACHBEGRUENUNG_PRO_MODUL = 4500;     // extensive Dachbegrünung je oberstem Modul
+let ZIEL_MODUL_NUF = 32; // Mittelwert für Pacht-Umlage-Berechnung (alle Module gerechnet mit 32 m²)
+let ZIEL_MODUL_BGF = 36; // Standard-BGF eines Moduls für Mindestflächenberechnung
+let BEBAUUNGSGRAD = 0.80; // 80% der Fläche sind effektiv bebaubar (Rest = Wege, Begrünung, Parkplätze etc.)
+// Pauschalkosten je Modul (aus Settings)
+let KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL = 3500; // OG + DG benötigen Aufgänge
+let KOSTEN_TERRASSE_PRO_MODUL = 2500;           // EG bekommt Terrasse
+let KOSTEN_PV_PRO_MODUL = 12000;                // PV-Anlage inkl. Speicher & Wechselrichter pro oberstem Modul
+let KOSTEN_DACHBEGRUENUNG_PRO_MODUL = 4500;     // extensive Dachbegrünung je oberstem Modul
 
 // Optionale Upgrades für Privatkunden (Brutto-Preise; werden auf GLS-Finanzierung aufgerechnet, nie KfW)
 // Preise vorerst aus Gewerbe übernommen, später Backend-pflegbar
@@ -138,11 +139,11 @@ const PRIVAT_UPGRADES = [
 // === BAUGENEHMIGUNG NRW ===
 // Berechnung nach NRW-Schema: BRI × Bauwert × Gebührensatz
 // (Richtwert — regional unterschiedlich; im Backend später anpassbar)
-const MODUL_HOEHE = 3.2;          // m — einheitliche Stockwerkshöhe für BRI-Berechnung
-const BAUWERT_PRO_M3 = 400;       // €/m³ — Richtwert NRW
-const GEBUEHR_SATZ = 0.006;       // 0,6 % der Rohbausumme
-const GEBUEHR_MINDEST = 500;      // €
-const GEBUEHR_RUNDUNG = 500;      // aufgerundet auf volle 500 €
+let MODUL_HOEHE = 3.2;          // m — einheitliche Stockwerkshöhe für BRI-Berechnung
+let BAUWERT_PRO_M3 = 400;       // €/m³ — Richtwert NRW
+let GEBUEHR_SATZ = 0.006;       // 0,6 % der Rohbausumme
+let GEBUEHR_MINDEST = 500;      // €
+let GEBUEHR_RUNDUNG = 500;      // aufgerundet auf volle 500 €
 
 // Bruttorauminhalt eines Moduls (BRI = BGF × Höhe)
 function calcBRI(bgf) {
@@ -363,10 +364,88 @@ async function loadProjectsFromDb() {
   }
 }
 
-const RABATT_STAFFEL = [
+let RABATT_STAFFEL = [
   { ab: 5, prozent: 0.05 }, { ab: 10, prozent: 0.10 }, { ab: 25, prozent: 0.15 },
   { ab: 50, prozent: 0.20 }, { ab: 75, prozent: 0.25 }, { ab: 100, prozent: 0.30 },
 ];
+
+// Lädt alle globalen Settings aus der DB und überschreibt die Default-Konstanten.
+// Bei Fehler bleibt der Fallback (hartcodiert) aktiv.
+async function loadSettingsFromDb() {
+  try {
+    const { data, error } = await supabase.from('settings').select('*').is('workspace_id', null);
+    if (error) { console.warn('[Supabase] Settings-Load Fehler:', error.message); return false; }
+    if (!data || data.length === 0) { console.warn('[Supabase] Keine Settings in DB'); return false; }
+    const map = {};
+    data.forEach(s => { map[s.key] = s.value; });
+
+    // Einfache Skalar-Settings
+    if (map.PROV != null)             PROV = Number(map.PROV);
+    if (map.UST != null)              UST = Number(map.UST);
+    if (map.ANZ_PCT != null)          ANZ_PCT = Number(map.ANZ_PCT);
+    if (map.BEBAUUNGSGRAD != null)    BEBAUUNGSGRAD = Number(map.BEBAUUNGSGRAD);
+    if (map.ZIEL_MODUL_NUF != null)   ZIEL_MODUL_NUF = Number(map.ZIEL_MODUL_NUF);
+    if (map.ZIEL_MODUL_BGF != null)   ZIEL_MODUL_BGF = Number(map.ZIEL_MODUL_BGF);
+    if (map.MODUL_HOEHE_CM != null)   MODUL_HOEHE = Number(map.MODUL_HOEHE_CM) / 100;
+    if (map.BAUWERT_PRO_M3 != null)   BAUWERT_PRO_M3 = Number(map.BAUWERT_PRO_M3);
+    if (map.GEBUEHR_SATZ != null)     GEBUEHR_SATZ = Number(map.GEBUEHR_SATZ);
+    if (map.GEBUEHR_MINDEST != null)  GEBUEHR_MINDEST = Number(map.GEBUEHR_MINDEST);
+    if (map.GEBUEHR_RUNDUNG != null)  GEBUEHR_RUNDUNG = Number(map.GEBUEHR_RUNDUNG);
+    if (map.KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL != null) KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL = Number(map.KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL);
+    if (map.KOSTEN_TERRASSE_PRO_MODUL != null)           KOSTEN_TERRASSE_PRO_MODUL = Number(map.KOSTEN_TERRASSE_PRO_MODUL);
+    if (map.KOSTEN_PV_PRO_MODUL != null)                 KOSTEN_PV_PRO_MODUL = Number(map.KOSTEN_PV_PRO_MODUL);
+    if (map.KOSTEN_DACHBEGRUENUNG_PRO_MODUL != null)     KOSTEN_DACHBEGRUENUNG_PRO_MODUL = Number(map.KOSTEN_DACHBEGRUENUNG_PRO_MODUL);
+
+    // Rabattstaffel (Array)
+    if (Array.isArray(map.RABATT_STAFFEL) && map.RABATT_STAFFEL.length > 0) {
+      RABATT_STAFFEL = [...map.RABATT_STAFFEL]
+        .map(s => ({ ab: Number(s.ab), prozent: Number(s.prozent) }))
+        .sort((a, b) => a.ab - b.ab);
+    }
+
+    // Finanzierungs-Defaults aus mehreren Settings zusammenbauen
+    FIN_DEFAULTS = {
+      kfw: {
+        foerderhoehe: Number(map.KFW_FOERDERHOEHE ?? FIN_DEFAULTS.kfw.foerderhoehe),
+        zins:         Number(map.KFW_ZINS ?? FIN_DEFAULTS.kfw.zins),
+        laufzeit:     Number(map.KFW_LAUFZEIT_JAHRE ?? FIN_DEFAULTS.kfw.laufzeit),
+        tilgungsnachlass: Number(map.KFW_TILGUNGSNACHLASS ?? FIN_DEFAULTS.kfw.tilgungsnachlass),
+      },
+      gls: {
+        zins:     Number(map.GLS_ZINS ?? FIN_DEFAULTS.gls.zins),
+        laufzeit: Number(map.GLS_LAUFZEIT_JAHRE ?? FIN_DEFAULTS.gls.laufzeit),
+      },
+      plattform: {
+        zins:        Number(map.PLATTFORM_ZINS_DEFAULT ?? FIN_DEFAULTS.plattform.zins),
+        laufzeit:    Number(map.PLATTFORM_LAUFZEIT_JAHRE ?? FIN_DEFAULTS.plattform.laufzeit),
+        steuer:      Number(map.STEUER_GMBH ?? FIN_DEFAULTS.plattform.steuer),
+        afaJahre:    Number(map.AFA_JAHRE ?? FIN_DEFAULTS.plattform.afaJahre),
+        restwertPct: Number(map.PLATTFORM_RESTWERT_PCT ?? FIN_DEFAULTS.plattform.restwertPct),
+      },
+    };
+
+    // Nebenkosten/Verbrauch aus Settings
+    const nebenkostenMap = {
+      lizenz: 'NEBENKOSTEN_LIZENZ_PRO_M2',
+      qm:     'NEBENKOSTEN_QM_PRO_M2',
+      vers:   'NEBENKOSTEN_VERS_PRO_M2',
+      instand: 'NEBENKOSTEN_INSTAND_PRO_M2',
+      strom:  'VERBRAUCH_STROM_PRO_M2',
+      wasser: 'VERBRAUCH_WASSER_PRO_M2',
+      heizung: 'VERBRAUCH_HEIZUNG_PRO_M2',
+    };
+    NEBENKOSTEN_POSTEN = NEBENKOSTEN_POSTEN.map(p => {
+      const k = nebenkostenMap[p.id];
+      return k && map[k] != null ? { ...p, proM2: Number(map[k]) } : p;
+    });
+
+    console.log(`[Supabase] ${data.length} Settings aus DB geladen`);
+    return true;
+  } catch (e) {
+    console.warn('[Supabase] Settings-Load Verbindungsfehler:', e.message);
+    return false;
+  }
+}
 
 const PROJEKTKOSTEN_STAFFEL = [
   { maxMod: 10,       arch: 7500,  eing: 12500, pm: 36000  },
@@ -382,7 +461,7 @@ const GRDST_OPTIONEN = [
   { id: 'gruen',  label: 'Begrünung, Bäume, Hecken',              netto: 75,  bezug: 'freiflaeche', anteil: 0.7, schaetzungsfaehig: true },
 ];
 
-const FIN_DEFAULTS = {
+let FIN_DEFAULTS = {
   kfw: { foerderhoehe: 150000, zins: 0.02, laufzeit: 25, tilgungsnachlass: 0.15 },
   gls: { zins: 0.05, laufzeit: 10 }, // Laufzeit fix
   plattform: { zins: 0.055, laufzeit: 10, steuer: 0.30, afaJahre: 8, restwertPct: 0 }, // Laufzeit max 10
@@ -4408,11 +4487,23 @@ const SETTING_CATEGORIES = [
 function AdminSettingsView() {
   const [settings, setSettings]   = useState({});
   const [original, setOriginal]   = useState({});
+  // Pro Prozent-Setting ein Display-String-Buffer, damit "17,5" flüssig getippt werden kann
+  // (sonst verschluckt React das Komma beim Re-Render)
+  const [pctBuffers, setPctBuffers] = useState({});
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
   const [activeCat, setActiveCat] = useState('provision');
+
+  const pctToStr = (v) => (v == null || v === '' || isNaN(v)) ? '' : String(+(v * 100).toFixed(4)).replace('.', ',');
+  const strToPct = (s) => {
+    if (s == null || s === '') return null;
+    const cleaned = String(s).replace(',', '.').trim();
+    if (cleaned === '' || cleaned === '.' || cleaned === '-') return null;
+    const n = Number(cleaned);
+    return isNaN(n) ? null : n / 100;
+  };
 
   async function loadAll() {
     setLoading(true); setError(null);
@@ -4422,6 +4513,14 @@ function AdminSettingsView() {
     (data || []).forEach(s => { map[s.key] = s.value; });
     setSettings(map);
     setOriginal(JSON.parse(JSON.stringify(map)));
+    // Buffers für alle Prozent-Settings initialisieren
+    const buf = {};
+    SETTING_DEFS.filter(d => d.type === 'percent').forEach(d => { buf[d.key] = pctToStr(map[d.key]); });
+    // Rabattstaffel-Buffers (pro Zeile)
+    if (Array.isArray(map.RABATT_STAFFEL)) {
+      map.RABATT_STAFFEL.forEach((row, i) => { buf[`RABATT_${i}`] = pctToStr(row.prozent); });
+    }
+    setPctBuffers(buf);
     setLoading(false);
   }
   useEffect(() => { loadAll(); }, []);
@@ -4455,14 +4554,20 @@ function AdminSettingsView() {
     const changed = JSON.stringify(val) !== JSON.stringify(orig);
 
     if (def.type === 'percent') {
-      const display = (val == null || val === '') ? '' : String(+(val * 100).toFixed(4)).replace('.', ',');
+      // Buffer-String erlaubt freies Tippen mit Komma ("17,5" ohne dass das Komma verschluckt wird)
+      const display = pctBuffers[def.key] ?? pctToStr(val);
       return (
         <div className="flex items-center gap-2">
           <input type="text" inputMode="decimal" value={display}
             onChange={e => {
-              const cleaned = String(e.target.value).replace(',', '.').trim();
-              const n = cleaned === '' ? null : Number(cleaned);
-              updateSetting(def.key, (n == null || isNaN(n)) ? null : n / 100);
+              const raw = e.target.value;
+              setPctBuffers(b => ({ ...b, [def.key]: raw }));
+              const parsed = strToPct(raw);
+              updateSetting(def.key, parsed);
+            }}
+            onBlur={() => {
+              // Beim Verlassen: Buffer auf saubere Anzeige normalisieren
+              setPctBuffers(b => ({ ...b, [def.key]: pctToStr(settings[def.key]) }));
             }}
             className={`flex-1 bg-[#F8F5F0] border ${changed ? 'border-[#7B2D8E]' : 'border-[#1C1C1A]/10'} px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num`} />
           <span className="font-body text-xs text-[#6B6961]">%</span>
@@ -4536,11 +4641,15 @@ function AdminSettingsView() {
                 className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
               <div className="flex items-center gap-2">
                 <input type="text" inputMode="decimal"
-                  value={(row.prozent == null) ? '' : String(+(row.prozent * 100).toFixed(4)).replace('.', ',')}
+                  value={pctBuffers[`RABATT_${i}`] ?? pctToStr(row.prozent)}
                   onChange={e => {
-                    const c = String(e.target.value).replace(',', '.').trim();
-                    const n = c === '' ? 0 : Number(c);
-                    updateRow(i, 'prozent', isNaN(n) ? 0 : n / 100);
+                    const raw = e.target.value;
+                    setPctBuffers(b => ({ ...b, [`RABATT_${i}`]: raw }));
+                    const parsed = strToPct(raw);
+                    updateRow(i, 'prozent', parsed ?? 0);
+                  }}
+                  onBlur={() => {
+                    setPctBuffers(b => ({ ...b, [`RABATT_${i}`]: pctToStr(list[i]?.prozent) }));
                   }}
                   className="flex-1 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num" />
                 <span className="font-body text-xs text-[#6B6961]">%</span>
@@ -4570,7 +4679,7 @@ function AdminSettingsView() {
 
   return (
     <div>
-      <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
+      <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h1 className="font-display text-4xl tracking-tight mb-2">Settings</h1>
           <p className="font-body text-sm text-[#6B6961]">
@@ -4591,6 +4700,13 @@ function AdminSettingsView() {
             {saving ? 'Speichere …' : 'Alle Änderungen speichern'}
           </Button>
         </div>
+      </div>
+
+      {/* Netto/Brutto-Hinweis */}
+      <div className="bg-[#F4ECF6]/40 border-l-4 border-[#7B2D8E]/40 px-4 py-3 mb-6 font-body text-xs text-[#6B6961]">
+        <span className="text-[#7B2D8E] font-medium">Hinweis:</span> Alle €-Werte sind <strong>netto</strong> einzugeben.
+        Umsatzsteuer (USt) und Provision werden in den Berechnungen automatisch aufgeschlagen.
+        Prozent-Felder akzeptieren Komma und Punkt (z. B. "5,75" oder "5.75").
       </div>
 
       <div className="flex flex-wrap items-center gap-1 mb-6 border-b border-[#1C1C1A]/10">
@@ -4708,11 +4824,11 @@ export default function App() {
   const [_productsTick, setProductsTick] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    // Module + Projekte parallel laden — beide ersetzen Fallback-Daten bei Erfolg
-    Promise.all([loadProductsFromDb(), loadProjectsFromDb()]).then(([modOk, projOk]) => {
+    // Module + Projekte + Settings parallel laden — alle ersetzen Fallback-Daten bei Erfolg
+    Promise.all([loadProductsFromDb(), loadProjectsFromDb(), loadSettingsFromDb()]).then(([modOk, projOk, setOk]) => {
       if (cancelled) return;
-      // dbStatus = 'db' nur wenn beides geklappt hat (sonst zeigt der Footer 'fallback' an)
-      setDbStatus((modOk && projOk) ? 'db' : 'fallback');
+      // dbStatus = 'db' nur wenn alle drei geklappt haben (sonst zeigt der Footer 'fallback' an)
+      setDbStatus((modOk && projOk && setOk) ? 'db' : 'fallback');
       // Re-Render in jedem Fall, damit zumindest die teilweise geladenen Daten sichtbar werden
       setProductsTick(t => t + 1);
     });
@@ -5008,7 +5124,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.36</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.37</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
