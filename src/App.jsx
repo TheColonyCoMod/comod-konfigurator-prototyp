@@ -1877,7 +1877,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
   const effectivePrice = product.brutto;
 
   return (
-    <div className={`border transition-all duration-300 overflow-hidden ${familyTotal > 0 ? 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
+    <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${familyTotal > 0 ? 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
       {/* Hero-Image: Grundriss groß, weißer Hintergrund (Feedback V4) */}
       <div className="relative bg-white flex items-center justify-center px-2 py-2" style={{ minHeight: '200px' }}>
         {(() => {
@@ -1892,7 +1892,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[#D2563E] bg-[#F8F5F0] border border-[#D2563E]/30 px-2 py-0.5 num">{familyTotal} gewählt</span>
         )}
       </div>
-      <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8">
+      <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1">
         <div className="mb-4">
           <h4 className="font-display text-xl leading-tight mb-1">CoMod Add</h4>
           <p className="font-body text-xs text-[#6B6961] leading-snug">Ergänzungsmodul leer — z. B. Hobby, Lager, Praxis, Büro</p>
@@ -2027,7 +2027,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
   const showsIncome = isModeToggleable(product) && mode === 'einnahmen';
 
   return (
-    <div className={`border transition-all duration-300 overflow-hidden ${
+    <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${
       familyTotal > 0
         ? (showsIncome && product.usage === 'g' ? 'border-[#7B2D8E] bg-white shadow-[0_4px_20px_-8px_rgba(168,139,90,0.25)]' : 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]')
         : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
@@ -2047,8 +2047,8 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
         )}
       </div>
 
-      {/* Textteil dezent farblich abgesetzt vom weißen Hero */}
-      <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8">
+      {/* Textteil dezent farblich abgesetzt vom weißen Hero — flex-1 füllt die restliche Höhe der Karte */}
+      <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1">
         <div className="flex items-baseline justify-between gap-2 mb-1">
           <h4 className="font-display text-xl leading-tight">{fam.label}</h4>
         </div>
@@ -5124,7 +5124,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.37</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.38</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
