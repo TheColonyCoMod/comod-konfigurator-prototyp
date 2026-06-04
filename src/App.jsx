@@ -307,7 +307,9 @@ async function loadProductsFromDb() {
   }
 }
 
-const PROJECTS_TEMPLATES = [
+// PROJECTS_TEMPLATES — Fallback. Wird beim App-Start aus DB überschrieben.
+// Bei DB-Fehler bleibt diese hartcodierte Liste aktiv.
+let PROJECTS_TEMPLATES = [
   { id: 'voelk', name: 'Völklinger Straße', location: 'Düsseldorf',
     description: 'Urbanes Wohnprojekt mit Mischnutzung, 1.200 m² Grundstück',
     projektrabatt: 0.05, umlageProModulEinmalig: 8500,
@@ -323,6 +325,43 @@ const PROJECTS_TEMPLATES = [
     grundstueckGroesse: 2500,
     description2: 'Mitarbeiter-Wohnen mit verkürzter Pacht — keine Quartiers-Module.' },
 ];
+
+// Mapping DB-Schema → Frontend-Format
+function mapDbProjectToFrontend(db) {
+  return {
+    id: db.slug,                                        // Frontend nutzt Slug als id
+    name: db.name,
+    location: db.location || '',
+    description: db.description_de || '',
+    description2: db.description2_de || '',
+    projektrabatt: Number(db.projektrabatt || 0),
+    umlageProModulEinmalig: db.umlage_pro_modul_einmalig || 0,
+    pachtJahr: db.pacht_jahr || 0,
+    pachtGewerblich: !!db.pacht_gewerblich,
+    zielModulAnzahl: db.ziel_modul_anzahl,
+    maxModulAnzahl: db.max_modul_anzahl,
+    grundstueckGroesse: db.grundstueck_groesse,
+    fassadenVarianteId: db.fassaden_variante_id,
+  };
+}
+
+// Lädt alle 'live'-Projekte aus DB und ersetzt PROJECTS_TEMPLATES
+async function loadProjectsFromDb() {
+  try {
+    const { data, error } = await supabase
+      .from('projects').select('*')
+      .eq('status', 'live').is('deleted_at', null)
+      .order('sort_order', { ascending: true });
+    if (error) { console.warn('[Supabase] Projekt-Load Fehler:', error.message); return false; }
+    if (!data || data.length === 0) { console.warn('[Supabase] Keine Live-Projekte in DB, Fallback aktiv'); return false; }
+    PROJECTS_TEMPLATES = data.map(mapDbProjectToFrontend);
+    console.log(`[Supabase] ${PROJECTS_TEMPLATES.length} Projekte aus DB geladen`);
+    return true;
+  } catch (e) {
+    console.warn('[Supabase] Projekt-Load Verbindungsfehler:', e.message);
+    return false;
+  }
+}
 
 const RABATT_STAFFEL = [
   { ab: 5, prozent: 0.05 }, { ab: 10, prozent: 0.10 }, { ab: 25, prozent: 0.15 },
@@ -3904,6 +3943,8 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
   };
   const [rabattStr,     setRabattStr]     = useState(() => pctToStr(form.projektrabatt));
   const [provisionStr,  setProvisionStr]  = useState(() => pctToStr(form.provision_pct));
+  // Berechnungshilfe: temporäre Geschoss-Wahl, nicht persistiert
+  const [geschosseHilfe, setGeschosseHilfe] = useState(2);
 
   const update = (key) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked
@@ -4023,6 +4064,71 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
               </div>
             </div>
           </section>
+
+          {/* Berechnungshilfe — verwendet calcMaxModule + ZIEL_MODUL_BGF + BEBAUUNGSGRAD */}
+          {form.grundstueck_groesse > 0 && (() => {
+            const calc = (geschosse) => calcMaxModule({ grundstueckGroesse: form.grundstueck_groesse, geschosse });
+            const result = calc(geschosseHilfe);
+            const empfZiel = Math.round(result.maxGesamt * 0.8);
+            const empfMax  = result.maxGesamt;
+            // Pacht-Empfehlung: typisch 5-15 €/m² Grundstück und Jahr — Mitte 10
+            const pachtEmpf = Math.round((form.grundstueck_groesse || 0) * 10 / 1000) * 1000;
+            // Umlage/Modul: typisch 5.000-10.000 € Erschließung — Mitte 7.500
+            const umlageEmpf = 7500;
+            return (
+              <section className="border-l-4 border-[#7B2D8E]/30 pl-4 -ml-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E]">↺ Berechnungshilfe</p>
+                  <p className="font-body text-[10px] text-[#6B6961]">basierend auf Grundstück {fmtEUR(form.grundstueck_groesse).replace(' €','')} m² · 80 % bebaubar · Modul-BGF 36 m²</p>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1.5">Geplante Anzahl Geschosse (nur für Schätzung)</label>
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3].map(g => (
+                        <button key={g} onClick={() => setGeschosseHilfe(g)}
+                          className={`px-4 py-1.5 font-body text-xs border transition-colors num ${geschosseHilfe === g ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                          {g} {g === 1 ? 'Geschoss' : 'Geschosse'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-[#F4ECF6]/40 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="font-body text-sm">
+                      <p className="text-[#6B6961] text-xs mb-1">Maximal möglich auf diesem Grundstück</p>
+                      <p><span className="num text-[#1C1C1A]">{result.maxProGeschoss}</span> Module pro Geschoss · <span className="num text-[#7B2D8E]">{result.maxGesamt}</span> Module gesamt</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-start sm:justify-end">
+                      <button onClick={() => setForm(f => ({...f, ziel_modul_anzahl: empfZiel, max_modul_anzahl: empfMax}))}
+                        className="font-body text-xs uppercase tracking-wider bg-[#7B2D8E]/10 text-[#7B2D8E] border border-[#7B2D8E]/40 hover:bg-[#7B2D8E]/20 px-3 py-1.5">
+                        ↓ Ziel {empfZiel} · Max {empfMax} übernehmen
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-body text-xs text-[#6B6961]">
+                    <div className="bg-[#F8F5F0]/60 p-3">
+                      <p className="uppercase tracking-wider mb-1.5">Umlage/Modul — Richtwert</p>
+                      <p>Typisch <span className="num text-[#1C1C1A]">5.000 – 10.000 €</span> pro Modul für Erschließung, Architektur, gemeinsame Flächen.</p>
+                      <button onClick={() => setForm(f => ({...f, umlage_pro_modul_einmalig: umlageEmpf}))}
+                        className="mt-2 text-[#7B2D8E] hover:text-[#5D2069] underline underline-offset-2">
+                        Mittelwert {fmtEUR(umlageEmpf)} übernehmen
+                      </button>
+                    </div>
+                    <div className="bg-[#F8F5F0]/60 p-3">
+                      <p className="uppercase tracking-wider mb-1.5">Pacht/Jahr — Richtwert</p>
+                      <p>Typisch <span className="num text-[#1C1C1A]">5 – 15 €/m²</span> Grundstück/Jahr. Stadtlage höher, Land niedriger.</p>
+                      {pachtEmpf > 0 && (
+                        <button onClick={() => setForm(f => ({...f, pacht_jahr: pachtEmpf}))}
+                          className="mt-2 text-[#7B2D8E] hover:text-[#5D2069] underline underline-offset-2">
+                          Mittelwert {fmtEUR(pachtEmpf)}/Jahr übernehmen
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
 
           <section>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Finanzielles</p>
@@ -4313,10 +4419,13 @@ export default function App() {
   const [_productsTick, setProductsTick] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    loadProductsFromDb().then(success => {
+    // Module + Projekte parallel laden — beide ersetzen Fallback-Daten bei Erfolg
+    Promise.all([loadProductsFromDb(), loadProjectsFromDb()]).then(([modOk, projOk]) => {
       if (cancelled) return;
-      setDbStatus(success ? 'db' : 'fallback');
-      if (success) setProductsTick(t => t + 1);
+      // dbStatus = 'db' nur wenn beides geklappt hat (sonst zeigt der Footer 'fallback' an)
+      setDbStatus((modOk && projOk) ? 'db' : 'fallback');
+      // Re-Render in jedem Fall, damit zumindest die teilweise geladenen Daten sichtbar werden
+      setProductsTick(t => t + 1);
     });
     return () => { cancelled = true; };
   }, []);
@@ -4610,7 +4719,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.34</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.35</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
