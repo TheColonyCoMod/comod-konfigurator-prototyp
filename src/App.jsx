@@ -3850,8 +3850,395 @@ function AdminModulesView() {
 }
 
 /* ============================================================================
-   ADMIN-PANEL: Tab-Navigation + Wrapper für die Sub-Views
+   ADMIN-PROJEKTE: Liste + Edit-Modal (inkl. Fassaden-Mini-Editor)
    ============================================================================ */
+
+const PROJECT_STATUS_LABELS = {
+  draft:             { label: 'Entwurf',         color: '#6B6961', bg: '#F0EFEC' },
+  pending_approval:  { label: 'Wartet auf Freigabe', color: '#C9A876', bg: '#FBF5E8' },
+  approved:          { label: 'Freigegeben',     color: '#7B2D8E', bg: '#F4ECF6' },
+  live:              { label: 'Live',            color: '#7FB069', bg: '#EFF7EA' },
+  paused:            { label: 'Pausiert',        color: '#D2563E', bg: '#FBEDE7' },
+  rejected:          { label: 'Abgelehnt',       color: '#C5392E', bg: '#FAE5E2' },
+  archived:          { label: 'Archiviert',      color: '#6B6961', bg: '#F0EFEC' },
+};
+
+function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
+  const isNew = !project;
+  const [form, setForm] = useState(() => ({
+    workspace_id: '00000000-0000-0000-0000-000000000001',
+    slug: '',
+    name: '',
+    location: '',
+    description_de: '',
+    description_en: '',
+    description2_de: '',
+    description2_en: '',
+    hero_image_url: '',
+    ziel_modul_anzahl: 20,
+    max_modul_anzahl: 30,
+    grundstueck_groesse: null,
+    projektrabatt: 0,
+    umlage_pro_modul_einmalig: 0,
+    pacht_jahr: 0,
+    pacht_gewerblich: false,
+    provision_pct: null,
+    fassaden_variante_id: fassaden.find(f => f.slug === 'standard')?.id || null,
+    status: 'draft',
+    sort_order: 0,
+    ...(project || {}),
+  }));
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // String-Buffer für Prozent-Felder
+  const pctToStr = (v) => (v == null || v === '' || isNaN(v)) ? '' : String(+(v * 100).toFixed(4)).replace('.', ',');
+  const strToPct = (s) => {
+    if (s == null || s === '') return null;
+    const cleaned = String(s).replace(',', '.').trim();
+    const n = Number(cleaned);
+    return isNaN(n) ? null : n / 100;
+  };
+  const [rabattStr,     setRabattStr]     = useState(() => pctToStr(form.projektrabatt));
+  const [provisionStr,  setProvisionStr]  = useState(() => pctToStr(form.provision_pct));
+
+  const update = (key) => (e) => {
+    const v = e.target.type === 'checkbox' ? e.target.checked
+            : e.target.type === 'number' ? (e.target.value === '' ? null : Number(e.target.value))
+            : e.target.value === '' ? null : e.target.value;
+    setForm(f => ({ ...f, [key]: v }));
+  };
+
+  const NO_SPINNER = '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0';
+
+  async function save() {
+    setSaving(true); setError(null); setSaved(false);
+    const rabattNum    = strToPct(rabattStr) ?? 0;
+    const provisionNum = strToPct(provisionStr);
+    const { id, created_at, updated_at, deleted_at, project: _p, ...rest } = form;
+    const payload = { ...rest, projektrabatt: rabattNum, provision_pct: provisionNum };
+    let res;
+    if (isNew) {
+      res = await supabase.from('projects').insert(payload).select('*').single();
+    } else {
+      res = await supabase.from('projects').update(payload).eq('id', project.id).select('*').single();
+    }
+    if (res.error) { setError(res.error.message); setSaving(false); return; }
+    setSaved(true); setSaving(false);
+    setTimeout(() => { onSaved(res.data); }, 600);
+  }
+
+  async function softDelete() {
+    if (!project) return;
+    setDeleting(true); setError(null);
+    const { error } = await supabase.from('projects').update({ deleted_at: new Date().toISOString() }).eq('id', project.id);
+    if (error) { setError(error.message); setDeleting(false); return; }
+    onDeleted(project.id);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto py-8" onClick={onClose}>
+      <div className="bg-white max-w-5xl w-full mx-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
+          <div>
+            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">{isNew ? 'Neues Projekt' : 'Projekt bearbeiten'}</p>
+            <h2 className="font-display text-3xl tracking-tight">{form.name || 'Neu'}</h2>
+            {form.location && <p className="font-body text-sm text-[#6B6961] mt-1">{form.location}</p>}
+          </div>
+          <button onClick={onClose} className="text-[#6B6961] hover:text-[#1C1C1A] p-2"><Plus className="w-5 h-5 rotate-45" /></button>
+        </div>
+
+        <div className="p-8 space-y-7">
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Identifikation</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Slug (URL-Kürzel)</label>
+                <input type="text" value={form.slug ?? ''} onChange={update('slug')}
+                  placeholder="z. B. voelk, albst" className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Wird in URLs verwendet, möglichst kurz</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Projekt-Name</label>
+                <input type="text" value={form.name ?? ''} onChange={update('name')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Ort</label>
+                <input type="text" value={form.location ?? ''} onChange={update('location')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Beschreibung</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Beschreibung (DE)</label>
+                <textarea value={form.description_de ?? ''} onChange={update('description_de')} rows={2}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Beschreibung (EN)</label>
+                <textarea value={form.description_en ?? ''} onChange={update('description_en')} rows={2}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Hinweistext (DE, im Akzent angezeigt)</label>
+                <textarea value={form.description2_de ?? ''} onChange={update('description2_de')} rows={2}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Hinweistext (EN)</label>
+                <textarea value={form.description2_en ?? ''} onChange={update('description2_en')} rows={2}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Dimensionierung</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Ziel-Modulanzahl</label>
+                <input type="number" value={form.ziel_modul_anzahl ?? ''} onChange={update('ziel_modul_anzahl')}
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Wird benötigt, um Projekt freizugeben</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Max. Modulanzahl</label>
+                <input type="number" value={form.max_modul_anzahl ?? ''} onChange={update('max_modul_anzahl')}
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Obergrenze, wieviele Module wirklich gebaut werden</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Grundstück (m²)</label>
+                <input type="number" value={form.grundstueck_groesse ?? ''} onChange={update('grundstueck_groesse')}
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Finanzielles</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Projektrabatt (%)</label>
+                <input type="text" inputMode="decimal" value={rabattStr} onChange={e => setRabattStr(e.target.value)}
+                  placeholder="z. B. 5 oder 5,5"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">zusätzlich zur Mengenstaffel</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Umlage / Modul einmalig (€)</label>
+                <input type="number" value={form.umlage_pro_modul_einmalig ?? ''} onChange={update('umlage_pro_modul_einmalig')}
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Erschließung, gemeinsame Flächen, etc.</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Pacht / Jahr (€)</label>
+                <input type="number" value={form.pacht_jahr ?? ''} onChange={update('pacht_jahr')}
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">wird auf Ziel-Anzahl umgelegt</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Provision (%, Override)</label>
+                <input type="text" inputMode="decimal" value={provisionStr} onChange={e => setProvisionStr(e.target.value)}
+                  placeholder="leer = global"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">leer = globaler Default 3,5 %</p>
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <input type="checkbox" id="pacht_gewerb" checked={!!form.pacht_gewerblich} onChange={update('pacht_gewerblich')} />
+                <label htmlFor="pacht_gewerb" className="font-body text-sm">Gewerbliche Pacht (+19 % USt für Privat-Anteil)</label>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Fassaden-Variante</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {fassaden.map(f => (
+                <button key={f.id} onClick={() => setForm(form => ({...form, fassaden_variante_id: f.id}))}
+                  className={`text-left p-3 border transition-colors ${form.fassaden_variante_id === f.id ? 'border-[#D2563E] bg-[#D2563E]/5' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`font-body text-sm ${form.fassaden_variante_id === f.id ? 'text-[#D2563E]' : 'text-[#1C1C1A]'}`}>{f.label_de}</span>
+                    {form.fassaden_variante_id === f.id && <Check className="w-4 h-4 text-[#D2563E]" />}
+                  </div>
+                  <p className="font-body text-xs text-[#6B6961] mt-1">
+                    {f.ist_auf_anfrage ? 'Individuelle Konfiguration auf Anfrage' :
+                     f.aufpreis_pro_einzelmodul_eur > 0 ? `+${fmtEUR(f.aufpreis_pro_einzelmodul_eur)} pro Einzelmodul · ${f.dicke_cm} cm` :
+                     `Im Preis enthalten · ${f.dicke_cm} cm`}
+                  </p>
+                </button>
+              ))}
+            </div>
+            <p className="font-body text-[10px] text-[#6B6961] mt-2">
+              Die Variante gilt für alle Module, die in diesem Projekt gewählt werden. Fassaden-Mengen pflegst Du in der DB (settings/fassaden_varianten).
+            </p>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Status & Reihenfolge</p>
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(PROJECT_STATUS_LABELS).map(([key, meta]) => (
+                  <button key={key} onClick={() => setForm(f => ({...f, status: key}))}
+                    className={`px-3 py-1.5 text-xs uppercase tracking-wider font-body border transition-colors`}
+                    style={form.status === key ? { background: meta.bg, color: meta.color, borderColor: meta.color } : { borderColor: '#1C1C1A26', color: '#6B6961' }}>
+                    {meta.label}
+                  </button>
+                ))}
+              </div>
+              <p className="font-body text-[10px] text-[#6B6961]">
+                Status <strong>Live</strong> = im Konfigurator wählbar. Andere Stati sind nur im Admin sichtbar.
+              </p>
+              <div className="max-w-xs">
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Sortier-Reihenfolge</label>
+                <input type="number" value={form.sort_order ?? ''} onChange={update('sort_order')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+            </div>
+          </section>
+
+          {error && <div className="p-3 bg-[#FAE5E2] border border-[#C5392E]/30 font-body text-sm text-[#C5392E]">Fehler: {error}</div>}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 px-8 py-5 border-t border-[#1C1C1A]/10 bg-[#F8F5F0]">
+          <div>
+            {!isNew && !confirmDelete && (
+              <button onClick={() => setConfirmDelete(true)} className="font-body text-xs tracking-wider uppercase text-[#C5392E]/70 hover:text-[#C5392E] flex items-center gap-1.5"><Trash2 className="w-3.5 h-3.5" /> Projekt archivieren</button>
+            )}
+            {!isNew && confirmDelete && (
+              <div className="flex items-center gap-2">
+                <span className="font-body text-xs text-[#C5392E]">Wirklich archivieren?</span>
+                <button onClick={softDelete} disabled={deleting} className="font-body text-xs uppercase tracking-wider bg-[#C5392E] text-white px-3 py-1.5 hover:bg-[#A52E25]">{deleting ? 'Lösche …' : 'Ja, archivieren'}</button>
+                <button onClick={() => setConfirmDelete(false)} className="font-body text-xs uppercase tracking-wider text-[#6B6961] hover:text-[#1C1C1A] px-2">Abbrechen</button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {saved && <span className="font-body text-xs text-[#7FB069] flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Gespeichert</span>}
+            <button onClick={onClose} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-4 py-2">Abbrechen</button>
+            <Button onClick={save} disabled={saving}>{saving ? 'Speichere …' : (isNew ? 'Projekt anlegen' : 'Speichern')}</Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminProjectsView() {
+  const [projects, setProjects] = useState([]);
+  const [fassaden, setFassaden] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [editing, setEditing] = useState(undefined);
+
+  async function loadAll() {
+    setLoading(true); setError(null);
+    const [pRes, fRes] = await Promise.all([
+      supabase.from('projects').select('*').is('deleted_at', null).order('sort_order', { ascending: true }),
+      supabase.from('fassaden_varianten').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
+    ]);
+    if (pRes.error) setError(pRes.error.message);
+    else setProjects(pRes.data || []);
+    if (!fRes.error) setFassaden(fRes.data || []);
+    setLoading(false);
+  }
+
+  useEffect(() => { loadAll(); }, []);
+
+  const filtered = useMemo(() => {
+    if (statusFilter === 'all') return projects;
+    return projects.filter(p => p.status === statusFilter);
+  }, [projects, statusFilter]);
+
+  function handleSaved(savedRow) {
+    setProjects(prev => {
+      const exists = prev.some(p => p.id === savedRow.id);
+      if (exists) return prev.map(p => p.id === savedRow.id ? savedRow : p);
+      return [...prev, savedRow].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    });
+    setEditing(undefined);
+  }
+
+  function handleDeleted(deletedId) {
+    setProjects(prev => prev.filter(p => p.id !== deletedId));
+    setEditing(undefined);
+  }
+
+  return (
+    <div>
+      <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display text-4xl tracking-tight mb-2">Projekte</h1>
+          <p className="font-body text-sm text-[#6B6961]">
+            {filtered.length} von {projects.length} {projects.length === 1 ? 'Projekt' : 'Projekten'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={loadAll} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
+          <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neues Projekt</button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Status:</span>
+        <button onClick={() => setStatusFilter('all')} className={`px-3 py-1 text-xs font-body uppercase tracking-wider border ${statusFilter === 'all' ? 'border-[#1C1C1A] text-[#1C1C1A]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:border-[#1C1C1A]/30'}`}>Alle</button>
+        {Object.entries(PROJECT_STATUS_LABELS).map(([key, meta]) => (
+          <button key={key} onClick={() => setStatusFilter(key)}
+            className={`px-3 py-1 text-xs font-body uppercase tracking-wider border ${statusFilter === key ? 'border-current' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:border-[#1C1C1A]/30'}`}
+            style={statusFilter === key ? { color: meta.color, borderColor: meta.color, background: meta.bg } : {}}>
+            {meta.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Projekte …</div>
+      ) : error ? (
+        <div className="bg-white border border-[#C5392E]/30 p-8"><p className="font-body text-sm text-[#C5392E]">Fehler: {error}</p></div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center"><p className="font-display text-xl text-[#6B6961]">Keine Projekte mit diesem Filter<span className="opacity-50"> …</span></p></div>
+      ) : (
+        <div className="bg-white border border-[#1C1C1A]/10 overflow-x-auto">
+          <div className="min-w-[900px]">
+            <div className="grid grid-cols-[1.5fr_1fr_1fr_0.7fr_1fr_0.7fr] gap-3 px-5 py-4 border-b border-[#1C1C1A]/10 font-body text-xs tracking-wider uppercase text-[#6B6961]">
+              <div>Projekt</div><div>Ort</div><div>Status</div><div className="text-right">Ziel-Mod.</div><div className="text-right">Umlage/Mod</div><div className="text-right">Pacht/Jahr</div>
+            </div>
+            {filtered.map(p => {
+              const meta = PROJECT_STATUS_LABELS[p.status] || PROJECT_STATUS_LABELS.draft;
+              return (
+                <button key={p.id} onClick={() => setEditing(p)} className="w-full text-left grid grid-cols-[1.5fr_1fr_1fr_0.7fr_1fr_0.7fr] gap-3 px-5 py-3.5 border-b border-[#1C1C1A]/5 last:border-b-0 font-body text-sm items-center hover:bg-[#F8F5F0]/50 transition-colors">
+                  <div>
+                    <p className="text-[#1C1C1A]">{p.name}</p>
+                    <p className="text-[10px] text-[#6B6961]">{p.slug}</p>
+                  </div>
+                  <div className="text-xs text-[#6B6961]">{p.location || '—'}</div>
+                  <div>
+                    <span className="inline-block px-2 py-0.5 text-[10px] tracking-wider uppercase border" style={{ color: meta.color, borderColor: meta.color, background: meta.bg }}>{meta.label}</span>
+                  </div>
+                  <div className="text-right num">{p.ziel_modul_anzahl}</div>
+                  <div className="text-right num">{p.umlage_pro_modul_einmalig > 0 ? fmtEUR(p.umlage_pro_modul_einmalig) : '—'}</div>
+                  <div className="text-right num">{p.pacht_jahr > 0 ? fmtEUR(p.pacht_jahr) : '—'}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {editing !== undefined && <AdminProjectEdit project={editing} fassaden={fassaden} onClose={() => setEditing(undefined)} onSaved={handleSaved} onDeleted={handleDeleted} />}
+    </div>
+  );
+}
 
 function AdminPanel({ authUser, authProfile }) {
   const [tab, setTab] = useState('leads'); // 'leads' | 'modules' | 'projects' | 'settings'
@@ -3859,7 +4246,7 @@ function AdminPanel({ authUser, authProfile }) {
   const tabs = [
     { key: 'leads',    label: 'Leads' },
     { key: 'modules',  label: 'Module' },
-    { key: 'projects', label: 'Projekte', disabled: true },
+    { key: 'projects', label: 'Projekte' },
     { key: 'settings', label: 'Settings', disabled: true },
   ];
   return (
@@ -3881,8 +4268,9 @@ function AdminPanel({ authUser, authProfile }) {
         <button onClick={logout} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2">Abmelden</button>
       </div>
 
-      {tab === 'leads'   && <AdminLeadsView authUser={authUser} authProfile={authProfile} />}
-      {tab === 'modules' && <AdminModulesView />}
+      {tab === 'leads'    && <AdminLeadsView authUser={authUser} authProfile={authProfile} />}
+      {tab === 'modules'  && <AdminModulesView />}
+      {tab === 'projects' && <AdminProjectsView />}
     </div>
   );
 }
@@ -4222,7 +4610,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.33</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.34</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
