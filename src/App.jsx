@@ -3493,6 +3493,18 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
 
+  // String-Buffer für Prozent-Felder, damit "15,5" oder "15." flüssig getippt werden kann
+  // (DB hält 0.155, UI zeigt 15,5). Beim Save in form-Werte zurückkonvertiert.
+  const pctToStr = (v) => (v == null || v === '' || isNaN(v)) ? '' : String(+(v * 100).toFixed(4)).replace('.', ',');
+  const strToPct = (s) => {
+    if (s == null || s === '') return null;
+    const cleaned = String(s).replace(',', '.').trim();
+    const n = Number(cleaned);
+    return isNaN(n) ? null : n / 100;
+  };
+  const [margeStr, setMargeStr] = useState(() => pctToStr(form.marge));
+  const [feeStr,   setFeeStr]   = useState(() => pctToStr(form.fee));
+
   const update = (key) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked
             : e.target.type === 'number' ? (e.target.value === '' ? null : Number(e.target.value))
@@ -3502,8 +3514,11 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
 
   async function save() {
     setSaving(true); setError(null); setSaved(false);
-    // Felder bereinigen — id raus (Update via where, Insert auto)
-    const { id, created_at, updated_at, deleted_at, ...payload } = form;
+    // Prozent-Strings in numerische Werte zurück (DB-Format 0.15)
+    const margeNum = strToPct(margeStr);
+    const feeNum   = strToPct(feeStr);
+    const { id, created_at, updated_at, deleted_at, ...rest } = form;
+    const payload = { ...rest, marge: margeNum, fee: feeNum };
     let res;
     if (isNew) {
       res = await supabase.from('modules').insert(payload).select('*').single();
@@ -3515,14 +3530,12 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
     setTimeout(() => { onSaved(res.data); }, 600);
   }
 
-  const Input = ({ label, k, type = 'text', step, hint }) => (
-    <div>
-      <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">{label}</label>
-      <input type={type} value={form[k] ?? ''} onChange={update(k)} step={step}
-        className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
-      {hint && <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{hint}</p>}
-    </div>
-  );
+  // CSS-Klasse für Felder ohne Spinner-Pfeile (Preise + Prozente):
+  // appearance:none plus Vendor-Prefixes für Chrome/Safari
+  const NO_SPINNER = '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0';
+
+  // Input-Felder werden inline gerendert. Eine Sub-Component innerhalb von AdminModuleEdit
+  // würde bei jedem Render neu erzeugt → Inputs verlieren den Fokus beim Tippen.
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto py-8" onClick={onClose}>
@@ -3539,9 +3552,23 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
           <section>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Identifikation</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Input label="Kürzel (intern, eindeutig)" k="kuerzel" hint="z. B. 'CoMod Stay (LK,D,M)'" />
-              <Input label="Anzeigename" k="display_name" />
-              <Input label="Family" k="family" hint="z. B. 'stay', 'live', 'home'" />
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Kürzel (intern, eindeutig)</label>
+                <input type="text" value={form.kuerzel ?? ''} onChange={update('kuerzel')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              <p className="font-body text-[10px] text-[#6B6961] mt-0.5">z. B. 'CoMod Stay (LK,D,M)'</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Anzeigename</label>
+                <input type="text" value={form.display_name ?? ''} onChange={update('display_name')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Family</label>
+                <input type="text" value={form.family ?? ''} onChange={update('family')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              <p className="font-body text-[10px] text-[#6B6961] mt-0.5">z. B. 'stay', 'live', 'home'</p>
+              </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Kategorie</label>
                 <select value={form.category} onChange={update('category')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]">
@@ -3554,7 +3581,12 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
                   {MODULE_USAGE.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                 </select>
               </div>
-              <Input label="Größen-Label" k="groesse_label" type="number" hint="z. B. 32 für 'Stay 32'" />
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Größen-Label</label>
+                <input type="number" value={form.groesse_label ?? ''} onChange={update('groesse_label')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              <p className="font-body text-[10px] text-[#6B6961] mt-0.5">z. B. 32 für 'Stay 32'</p>
+              </div>
             </div>
           </section>
 
@@ -3571,24 +3603,53 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
                 <textarea value={form.beschreibung_en ?? ''} onChange={update('beschreibung_en')} rows={2}
                   className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
               </div>
-              <Input label="Icon-Pfad" k="icon_path" hint="z. B. '/icons/comod_stay_lkdm.png'" />
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Icon-Pfad</label>
+                <input type="text" value={form.icon_path ?? ''} onChange={update('icon_path')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">z. B. '/icons/comod_stay_lkdm.png'</p>
+              </div>
             </div>
           </section>
 
           <section>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Geometrie</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Input label="Breite Korpus (cm)" k="breite_korpus_cm" type="number" />
-              <Input label="Länge Korpus (cm)" k="laenge_korpus_cm" type="number" />
-              <Input label="Höhe (cm)" k="hoehe_cm" type="number" />
-              <Input label="NUF (m²)" k="nuf" type="number" step="0.01" />
-              <Input label="BGF (m²)" k="bgf" type="number" step="0.01" />
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Breite Korpus (cm)</label>
+                <input type="number" value={form.breite_korpus_cm ?? ''} onChange={update('breite_korpus_cm')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Länge Korpus (cm)</label>
+                <input type="number" value={form.laenge_korpus_cm ?? ''} onChange={update('laenge_korpus_cm')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Höhe (cm)</label>
+                <input type="number" value={form.hoehe_cm ?? ''} onChange={update('hoehe_cm')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">NUF (m²)</label>
+                <input type="number" value={form.nuf ?? ''} onChange={update('nuf')} step="0.01"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">BGF (m²)</label>
+                <input type="number" value={form.bgf ?? ''} onChange={update('bgf')} step="0.01"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="is_kombi" checked={form.is_kombimodul} onChange={update('is_kombimodul')} />
                 <label htmlFor="is_kombi" className="font-body text-sm">Kombi-Modul</label>
               </div>
               {form.is_kombimodul && <>
-                <Input label="Grundmodul-Anzahl" k="grundmodul_count" type="number" />
+                <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Grundmodul-Anzahl</label>
+                <input type="number" value={form.grundmodul_count ?? ''} onChange={update('grundmodul_count')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
                 <div>
                   <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Kombi-Richtung</label>
                   <select value={form.kombi_richtung ?? 'laengs'} onChange={update('kombi_richtung')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm">
@@ -3604,10 +3665,28 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
           <section>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Preise</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Input label="Herstellpreis (€)" k="herst_preis" type="number" />
-              <Input label="Marge" k="marge" type="number" step="0.0001" hint="z. B. 0.15 = 15 %" />
-              <Input label="Einnahmen-Indikation (€/Mt)" k="einnahmen_indikation" type="number" />
-              <Input label="Fee" k="fee" type="number" step="0.0001" hint="z. B. 0.15 = 15 %" />
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Herstellpreis (€)</label>
+                <input type="number" value={form.herst_preis ?? ''} onChange={update('herst_preis')}
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Marge (%)</label>
+                <input type="text" inputMode="decimal" value={margeStr} onChange={e => setMargeStr(e.target.value)}
+                  placeholder="z. B. 15 oder 15,5"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Einnahmen-Indikation (€/Mt)</label>
+                <input type="number" value={form.einnahmen_indikation ?? ''} onChange={update('einnahmen_indikation')}
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Fee (%)</label>
+                <input type="text" inputMode="decimal" value={feeStr} onChange={e => setFeeStr(e.target.value)}
+                  placeholder="z. B. 15 oder 15,5"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
             </div>
           </section>
 
@@ -3632,7 +3711,11 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
                 <input type="checkbox" id="durchlauf" checked={form.is_durchlaufposten} onChange={update('is_durchlaufposten')} />
                 <label htmlFor="durchlauf" className="font-body text-sm">Durchlaufposten (Pool)</label>
               </div>
-              <Input label="Sortier-Reihenfolge" k="sort_order" type="number" />
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Sortier-Reihenfolge</label>
+                <input type="number" value={form.sort_order ?? ''} onChange={update('sort_order')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              </div>
               <div className="flex items-center gap-2 pt-5">
                 <input type="checkbox" id="active" checked={form.is_active} onChange={update('is_active')} />
                 <label htmlFor="active" className="font-body text-sm">Aktiv (im Konfigurator sichtbar)</label>
@@ -4139,7 +4222,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.31</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.33</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
