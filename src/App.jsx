@@ -807,21 +807,29 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     if (bg) baugenehmigungEinzeln = bg.brutto;
   } else if (gesamtBGF > 0) {
     // Privat mit eigenem Grundstück (kein Projekt, kein Gewerbe-Setup):
-    // Alle Module zählen als EG-Module. Pflicht-Posten: Fundamente + Terrassen + Baugenehmigung.
-    // Architektur/PM kommen nicht in der Privat-Karte vor (das wird individuell besprochen).
+    // Modul-bezogene Pflicht-Posten + Planungskosten aus Staffel.
+    // In der Sidebar werden die zwei Blöcke (modulbezogen / planungsbezogen) optisch getrennt
+    // dargestellt — Planung als "kommt bei jedem Bauprojekt on top" Hinweis (Sekundär-Block).
     baugenehmigungEinzeln = calcBaugenehmigung(gesamtBGF);
     const fundamentNetto = countTotal * KOSTEN_FUNDAMENT_PRO_EG_MODUL;
     const terrasseNetto = countTotal * KOSTEN_TERRASSE_PRO_MODUL;
+    const staffel = getProjektkostenStaffel(countTotal);
     const posten = [
+      // Modul-bezogene Pflichtkosten (typ: pflicht)
       { id: 'fundament', label: 'Fundamente', netto: fundamentNetto, brutto: fundamentNetto * (1 + UST), typ: 'pflicht',
         detail: `${countTotal} Module × ${fmtEUR(KOSTEN_FUNDAMENT_PRO_EG_MODUL)} (Schraubfundamente inkl. Arbeit)` },
       { id: 'terrasse', label: 'Terrassen', netto: terrasseNetto, brutto: terrasseNetto * (1 + UST), typ: 'pflicht',
         detail: `${countTotal} Module × ${fmtEUR(KOSTEN_TERRASSE_PRO_MODUL)}` },
       { id: 'baugenehmigung', label: 'Baugenehmigung (Richtwert NRW)',
         netto: baugenehmigungEinzeln, brutto: baugenehmigungEinzeln, typ: 'pflicht', ohneUst: true },
+      // Planungs-Pauschalen (typ: planung) — kommt bei jedem Bauprojekt on top
+      { id: 'arch', label: 'Architektur & Entwurfsplanung', netto: staffel.arch, brutto: staffel.arch * (1 + UST), typ: 'planung' },
+      { id: 'eing', label: 'Eingabeplanung (Architekt)',     netto: staffel.eing, brutto: staffel.eing * (1 + UST), typ: 'planung' },
+      { id: 'pm',   label: 'Projektmanagement & Bauleitung', netto: staffel.pm,   brutto: staffel.pm   * (1 + UST), typ: 'planung' },
     ];
-    const summeBrutto = (fundamentNetto + terrasseNetto) * (1 + UST) + baugenehmigungEinzeln;
-    einmaligDetail = { posten, summeNetto: fundamentNetto + terrasseNetto + baugenehmigungEinzeln, summeBrutto };
+    const summeNetto = posten.reduce((s, p) => s + p.netto, 0);
+    const summeBrutto = posten.reduce((s, p) => s + p.brutto, 0);
+    einmaligDetail = { posten, summeNetto, summeBrutto };
     einmaligGesamtBrutto = summeBrutto;
   }
   const einmaligProModul = countTotal > 0 ? einmaligGesamtBrutto / countTotal : 0;
@@ -1065,11 +1073,24 @@ function StepIndicator({ currentStep, onJump }) {
 }
 
 function Header({ step, onJump, view, setView }) {
+  function handleRestart() {
+    // Nur fragen, wenn der Nutzer schon irgendwo unterwegs ist (step > 1 oder im Admin)
+    const inProgress = view === 'customer' && step > 1;
+    if (inProgress) {
+      const ok = window.confirm('Konfigurator von vorne starten? Aktuelle Eingaben gehen verloren.');
+      if (!ok) return;
+    }
+    // Sauberer Reset via Page-Reload (alle States, Auswahl, Mode zurück auf Initial)
+    window.location.reload();
+  }
   return (
     <header className="border-b border-[#1C1C1A]/10 bg-white sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <img src="/brand/comod_logo_black.png" alt="CoMod" className="h-10 w-auto" />
+          <button onClick={handleRestart} title="Zum Start des Konfigurators"
+            className="flex items-center hover:opacity-70 transition-opacity">
+            <img src="/brand/comod_logo_black.png" alt="CoMod — zum Start" className="h-10 w-auto" />
+          </button>
           <span className="font-body text-xs text-[#6B6961] tracking-[0.2em] uppercase border-l border-[#1C1C1A]/15 pl-3 hidden md:inline">Konfigurator</span>
         </div>
         {view === 'customer' && step < 4 && <div className="hidden lg:block"><StepIndicator currentStep={step} onJump={onJump} /></div>}
@@ -2588,14 +2609,32 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         )}
                       </>
                     ) : (
-                      // Privat eigenes Grundstück: Detailliste der Pflicht-Posten (Fundamente, Terrassen, Baugenehmigung)
+                      // Privat eigenes Grundstück: zwei Sub-Blöcke
+                      // Block 1 (prominent): Modul-bezogene Pflichtkosten (typ='pflicht')
+                      // Block 2 (zurückhaltender, on-top-Hinweis): Planungskosten (typ='planung')
                       <>
-                        {totals.einmaligDetail?.posten?.map(p => (
+                        {totals.einmaligDetail?.posten?.filter(p => p.typ === 'pflicht').map(p => (
                           <div key={p.id} className="flex justify-between text-sm font-body mt-1">
                             <dt className="text-[#6B6961]">{p.label}</dt>
                             <dd className="num">{fmtEUR(p.brutto)}</dd>
                           </div>
                         ))}
+
+                        {/* Planungs-Block: kleinere Typo, gedämpfte Farbe, mit Hinweistext */}
+                        {totals.einmaligDetail?.posten?.some(p => p.typ === 'planung') && (
+                          <div className="mt-3 pt-3 border-t border-dashed border-[#1C1C1A]/15">
+                            <p className="font-body text-[11px] text-[#6B6961] italic mb-1.5 leading-snug">
+                              Diese Kosten kommen leider bei jedem Bauprojekt noch on top:
+                            </p>
+                            {totals.einmaligDetail.posten.filter(p => p.typ === 'planung').map(p => (
+                              <div key={p.id} className="flex justify-between text-xs font-body text-[#6B6961] mt-0.5">
+                                <dt>{p.label}</dt>
+                                <dd className="num">{fmtEUR(p.brutto)}</dd>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
                       </>
                     )}
@@ -5335,7 +5374,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.46</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.47</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
