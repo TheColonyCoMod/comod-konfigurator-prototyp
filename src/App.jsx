@@ -124,6 +124,7 @@ let ZIEL_MODUL_NUF = 32; // Mittelwert für Pacht-Umlage-Berechnung (alle Module
 let ZIEL_MODUL_BGF = 36; // Standard-BGF eines Moduls für Mindestflächenberechnung
 let BEBAUUNGSGRAD = 0.80; // 80% der Fläche sind effektiv bebaubar (Rest = Wege, Begrünung, Parkplätze etc.)
 // Pauschalkosten je Modul (aus Settings)
+let KOSTEN_FUNDAMENT_PRO_EG_MODUL = 1000;       // Schraubfundamente inkl. Arbeit pro EG-Modul
 let KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL = 3500; // OG + DG benötigen Aufgänge
 let KOSTEN_TERRASSE_PRO_MODUL = 2500;           // EG bekommt Terrasse
 let KOSTEN_PV_PRO_MODUL = 12000;                // PV-Anlage inkl. Speicher & Wechselrichter pro oberstem Modul
@@ -400,6 +401,7 @@ async function loadSettingsFromDb() {
     if (map.GEBUEHR_MINDEST != null)  GEBUEHR_MINDEST = Number(map.GEBUEHR_MINDEST);
     if (map.GEBUEHR_RUNDUNG != null)  GEBUEHR_RUNDUNG = Number(map.GEBUEHR_RUNDUNG);
     if (map.KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL != null) KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL = Number(map.KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL);
+    if (map.KOSTEN_FUNDAMENT_PRO_EG_MODUL != null)       KOSTEN_FUNDAMENT_PRO_EG_MODUL = Number(map.KOSTEN_FUNDAMENT_PRO_EG_MODUL);
     if (map.KOSTEN_TERRASSE_PRO_MODUL != null)           KOSTEN_TERRASSE_PRO_MODUL = Number(map.KOSTEN_TERRASSE_PRO_MODUL);
     if (map.KOSTEN_PV_PRO_MODUL != null)                 KOSTEN_PV_PRO_MODUL = Number(map.KOSTEN_PV_PRO_MODUL);
     if (map.KOSTEN_DACHBEGRUENUNG_PRO_MODUL != null)     KOSTEN_DACHBEGRUENUNG_PRO_MODUL = Number(map.KOSTEN_DACHBEGRUENUNG_PRO_MODUL);
@@ -627,6 +629,12 @@ function calcEinmaligeProjektkosten({ modulAnzahl, grundstueckGroesse, geschosse
       });
     }
     if (egCount > 0) {
+      const nettoFund = egCount * KOSTEN_FUNDAMENT_PRO_EG_MODUL;
+      posten.push({
+        id: 'fundament', label: 'Fundamente (EG-Module)',
+        netto: nettoFund, brutto: nettoFund * (1 + UST), typ: 'pflicht',
+        detail: `${egCount} EG-Module × ${fmtEUR(KOSTEN_FUNDAMENT_PRO_EG_MODUL)} (Schraubfundamente inkl. Arbeit)`
+      });
       const netto = egCount * KOSTEN_TERRASSE_PRO_MODUL;
       posten.push({
         id: 'terrasse', label: 'Terrassen (EG-Module)',
@@ -4637,6 +4645,7 @@ const SETTING_DEFS = [
   { key: 'VERBRAUCH_STROM_PRO_M2',      cat: 'kosten', type: 'euro_decimal', label: 'Strom (variabel)',         desc: '€ pro m²/Monat' },
   { key: 'VERBRAUCH_WASSER_PRO_M2',     cat: 'kosten', type: 'euro_decimal', label: 'Wasser/Abwasser',          desc: '€ pro m²/Monat' },
   { key: 'VERBRAUCH_HEIZUNG_PRO_M2',    cat: 'kosten', type: 'euro_decimal', label: 'Heizung/Warmwasser',       desc: '€ pro m²/Monat' },
+  { key: 'KOSTEN_FUNDAMENT_PRO_EG_MODUL',       cat: 'kosten', type: 'euro', label: 'Fundamente',               desc: '€ pro EG-Modul (Schraubfundamente inkl. Arbeit)' },
   { key: 'KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL', cat: 'kosten', type: 'euro', label: 'Treppen/Laubengang',       desc: '€ pro Modul in OG/DG' },
   { key: 'KOSTEN_TERRASSE_PRO_MODUL',           cat: 'kosten', type: 'euro', label: 'Terrasse',                 desc: '€ pro Modul im EG' },
   { key: 'KOSTEN_PV_PRO_MODUL',                 cat: 'kosten', type: 'euro', label: 'PV-Anlage inkl. Speicher', desc: '€ pro oberstem Modul' },
@@ -5303,7 +5312,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.44</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.45</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
