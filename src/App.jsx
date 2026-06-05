@@ -807,9 +807,22 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     if (bg) baugenehmigungEinzeln = bg.brutto;
   } else if (gesamtBGF > 0) {
     // Privat mit eigenem Grundstück (kein Projekt, kein Gewerbe-Setup):
-    // Mindestens Baugenehmigung anzeigen — andere Pauschalkosten kann der Kunde später ergänzen
+    // Alle Module zählen als EG-Module. Pflicht-Posten: Fundamente + Terrassen + Baugenehmigung.
+    // Architektur/PM kommen nicht in der Privat-Karte vor (das wird individuell besprochen).
     baugenehmigungEinzeln = calcBaugenehmigung(gesamtBGF);
-    einmaligGesamtBrutto = baugenehmigungEinzeln;
+    const fundamentNetto = countTotal * KOSTEN_FUNDAMENT_PRO_EG_MODUL;
+    const terrasseNetto = countTotal * KOSTEN_TERRASSE_PRO_MODUL;
+    const posten = [
+      { id: 'fundament', label: 'Fundamente', netto: fundamentNetto, brutto: fundamentNetto * (1 + UST), typ: 'pflicht',
+        detail: `${countTotal} Module × ${fmtEUR(KOSTEN_FUNDAMENT_PRO_EG_MODUL)} (Schraubfundamente inkl. Arbeit)` },
+      { id: 'terrasse', label: 'Terrassen', netto: terrasseNetto, brutto: terrasseNetto * (1 + UST), typ: 'pflicht',
+        detail: `${countTotal} Module × ${fmtEUR(KOSTEN_TERRASSE_PRO_MODUL)}` },
+      { id: 'baugenehmigung', label: 'Baugenehmigung (Richtwert NRW)',
+        netto: baugenehmigungEinzeln, brutto: baugenehmigungEinzeln, typ: 'pflicht', ohneUst: true },
+    ];
+    const summeBrutto = (fundamentNetto + terrasseNetto) * (1 + UST) + baugenehmigungEinzeln;
+    einmaligDetail = { posten, summeNetto: fundamentNetto + terrasseNetto + baugenehmigungEinzeln, summeBrutto };
+    einmaligGesamtBrutto = summeBrutto;
   }
   const einmaligProModul = countTotal > 0 ? einmaligGesamtBrutto / countTotal : 0;
 
@@ -2575,8 +2588,16 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         )}
                       </>
                     ) : (
-                      // Privat eigenes Grundstück: nur Baugenehmigung als Pauschale
-                      <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">Baugenehmigung (Richtwert NRW)</dt><dd className="num">{fmtEUR(totals.baugenehmigungEinzeln)}</dd></div>
+                      // Privat eigenes Grundstück: Detailliste der Pflicht-Posten (Fundamente, Terrassen, Baugenehmigung)
+                      <>
+                        {totals.einmaligDetail?.posten?.map(p => (
+                          <div key={p.id} className="flex justify-between text-sm font-body mt-1">
+                            <dt className="text-[#6B6961]">{p.label}</dt>
+                            <dd className="num">{fmtEUR(p.brutto)}</dd>
+                          </div>
+                        ))}
+                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
+                      </>
                     )}
                     <p className="font-body text-[10px] text-[#6B6961] mt-1.5 italic">
                       {hasProjectOrConfig
@@ -4637,19 +4658,20 @@ const SETTING_DEFS = [
   { key: 'PLATTFORM_RESTWERT_PCT',   cat: 'finanz', type: 'percent', label: 'Restwert am Laufzeitende', desc: 'Anteil des Werts am Ende' },
   { key: 'AFA_JAHRE',            cat: 'finanz', type: 'years',   label: 'AfA-Dauer Modulhaus',      desc: 'Abschreibungsdauer in Jahren' },
 
-  // KOSTEN
-  { key: 'NEBENKOSTEN_LIZENZ_PRO_M2',   cat: 'kosten', type: 'euro_decimal', label: 'Lizenzgebühr CoMod',       desc: '€ pro m²/Monat' },
-  { key: 'NEBENKOSTEN_QM_PRO_M2',       cat: 'kosten', type: 'euro_decimal', label: 'Quartiersmanagement',      desc: '€ pro m²/Monat' },
-  { key: 'NEBENKOSTEN_VERS_PRO_M2',     cat: 'kosten', type: 'euro_decimal', label: 'Versicherung',             desc: '€ pro m²/Monat' },
-  { key: 'NEBENKOSTEN_INSTAND_PRO_M2',  cat: 'kosten', type: 'euro_decimal', label: 'Instandhaltung',           desc: '€ pro m²/Monat' },
-  { key: 'VERBRAUCH_STROM_PRO_M2',      cat: 'kosten', type: 'euro_decimal', label: 'Strom (variabel)',         desc: '€ pro m²/Monat' },
-  { key: 'VERBRAUCH_WASSER_PRO_M2',     cat: 'kosten', type: 'euro_decimal', label: 'Wasser/Abwasser',          desc: '€ pro m²/Monat' },
-  { key: 'VERBRAUCH_HEIZUNG_PRO_M2',    cat: 'kosten', type: 'euro_decimal', label: 'Heizung/Warmwasser',       desc: '€ pro m²/Monat' },
-  { key: 'KOSTEN_FUNDAMENT_PRO_EG_MODUL',       cat: 'kosten', type: 'euro', label: 'Fundamente',               desc: '€ pro EG-Modul (Schraubfundamente inkl. Arbeit)' },
-  { key: 'KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL', cat: 'kosten', type: 'euro', label: 'Treppen/Laubengang',       desc: '€ pro Modul in OG/DG' },
-  { key: 'KOSTEN_TERRASSE_PRO_MODUL',           cat: 'kosten', type: 'euro', label: 'Terrasse',                 desc: '€ pro Modul im EG' },
-  { key: 'KOSTEN_PV_PRO_MODUL',                 cat: 'kosten', type: 'euro', label: 'PV-Anlage inkl. Speicher', desc: '€ pro oberstem Modul' },
-  { key: 'KOSTEN_DACHBEGRUENUNG_PRO_MODUL',     cat: 'kosten', type: 'euro', label: 'Dachbegrünung',            desc: '€ pro oberstem Modul' },
+  // KOSTEN LAUFEND (€ pro m²/Monat)
+  { key: 'NEBENKOSTEN_LIZENZ_PRO_M2',   cat: 'kosten_lfd', type: 'euro_decimal', label: 'Lizenzgebühr CoMod',       desc: '€ pro m²/Monat' },
+  { key: 'NEBENKOSTEN_QM_PRO_M2',       cat: 'kosten_lfd', type: 'euro_decimal', label: 'Quartiersmanagement',      desc: '€ pro m²/Monat' },
+  { key: 'NEBENKOSTEN_VERS_PRO_M2',     cat: 'kosten_lfd', type: 'euro_decimal', label: 'Versicherung',             desc: '€ pro m²/Monat' },
+  { key: 'NEBENKOSTEN_INSTAND_PRO_M2',  cat: 'kosten_lfd', type: 'euro_decimal', label: 'Instandhaltung',           desc: '€ pro m²/Monat' },
+  { key: 'VERBRAUCH_STROM_PRO_M2',      cat: 'kosten_lfd', type: 'euro_decimal', label: 'Strom (variabel)',         desc: '€ pro m²/Monat' },
+  { key: 'VERBRAUCH_WASSER_PRO_M2',     cat: 'kosten_lfd', type: 'euro_decimal', label: 'Wasser/Abwasser',          desc: '€ pro m²/Monat' },
+  { key: 'VERBRAUCH_HEIZUNG_PRO_M2',    cat: 'kosten_lfd', type: 'euro_decimal', label: 'Heizung/Warmwasser',       desc: '€ pro m²/Monat' },
+  // KOSTEN EINMALIG (€ pro Modul)
+  { key: 'KOSTEN_FUNDAMENT_PRO_EG_MODUL',       cat: 'kosten_einmal', type: 'euro', label: 'Fundamente',               desc: '€ pro EG-Modul (Schraubfundamente inkl. Arbeit)' },
+  { key: 'KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL', cat: 'kosten_einmal', type: 'euro', label: 'Treppen/Laubengang',       desc: '€ pro Modul in OG/DG' },
+  { key: 'KOSTEN_TERRASSE_PRO_MODUL',           cat: 'kosten_einmal', type: 'euro', label: 'Terrasse',                 desc: '€ pro Modul im EG' },
+  { key: 'KOSTEN_PV_PRO_MODUL',                 cat: 'kosten_einmal', type: 'euro', label: 'PV-Anlage inkl. Speicher', desc: '€ pro oberstem Modul' },
+  { key: 'KOSTEN_DACHBEGRUENUNG_PRO_MODUL',     cat: 'kosten_einmal', type: 'euro', label: 'Dachbegrünung',            desc: '€ pro oberstem Modul' },
 
   // GEOMETRIE & BAUGENEHMIGUNG
   { key: 'ZIEL_MODUL_NUF',        cat: 'geometrie', type: 'integer', label: 'Standard-NUF eines Moduls', desc: 'in m² (für Pacht-Umlage)' },
@@ -4665,11 +4687,12 @@ const SETTING_DEFS = [
 ];
 
 const SETTING_CATEGORIES = [
-  { key: 'provision', label: 'Provisionen & Steuern' },
-  { key: 'rabatt',    label: 'Mengen-Rabatt' },
-  { key: 'finanz',    label: 'Finanzierung' },
-  { key: 'kosten',    label: 'Kosten' },
-  { key: 'geometrie', label: 'Geometrie & Baugenehmigung' },
+  { key: 'provision',    label: 'Provisionen & Steuern' },
+  { key: 'rabatt',       label: 'Mengen-Rabatt' },
+  { key: 'finanz',       label: 'Finanzierung' },
+  { key: 'kosten_lfd',   label: 'Kosten laufend' },
+  { key: 'kosten_einmal',label: 'Kosten einmalig' },
+  { key: 'geometrie',    label: 'Geometrie & Baugenehmigung' },
 ];
 
 function AdminSettingsView() {
@@ -5312,7 +5335,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.45</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.46</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
