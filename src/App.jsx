@@ -94,7 +94,7 @@ const FAMILY_LABELS = {
   community: { label: 'CoMod Community',desc: 'Versammlungsmodul, 32 / 64 / 96 m²' },
   addb:      { label: 'CoMod Add B',    desc: 'Ergänzungsmodul gewerblich, leer' },
   pool:      { label: 'Container-Pool', desc: 'Pool mit Strömungsanlage' },
-  stack:     { label: 'CoMod Family',   desc: 'Gestapelte Modul-Kombination, 2 Geschosse + Dachterrasse' },
+  stack:     { label: 'CoMod Stack',    desc: 'Gestapelte Modul-Kombination, 2 Geschosse + Dachterrasse' },
 };
 
 // Add ist die einzige Familie, die je nach Auswahl privat oder gewerblich werden kann
@@ -265,6 +265,9 @@ function mapDbModuleToFrontend(db) {
     beschr: db.beschreibung_de,
     nuf: db.nuf != null ? Number(db.nuf) : undefined,
     bgf: db.bgf != null ? Number(db.bgf) : undefined,
+    // Footprint (EG-Grundfläche) — die für den Stellplatz auf dem Grundstück relevante Fläche.
+    // Für 1-geschossige Module = bgf. Für Stack-Module = explizit gepflegt (z. B. 72 m²).
+    footprint: db.footprint_m2 != null ? Number(db.footprint_m2) : (db.bgf != null ? Number(db.bgf) : undefined),
     herst: db.herst_preis,
     marge: Number(db.marge),
     // Anzahl Geschosse — Standard 1, für Stack-Module ggf. 2 oder 3 (Stapelung)
@@ -490,9 +493,20 @@ function getProjektkostenStaffel(modulAnzahl) {
   const netto = t.arch + t.eing + t.pm;
   return { arch: t.arch, eing: t.eing, pm: t.pm, netto, brutto: netto * (1 + UST) };
 }
-function calcMindestflaeche({ totalBGF, geschosse }) {
-  if (totalBGF <= 0 || geschosse <= 0) return { gebaeudeflaeche: 0, mindestGrundstueck: 0 };
-  const gebaeudeflaeche = Math.ceil(totalBGF / geschosse);
+// Footprint = EG-Grundfläche eines Moduls auf dem Grundstück
+// - Module mit eigenem footprint (z. B. Stack: 72 m²): exakter Wert aus DB
+// - Module ohne footprint: bgf verteilt auf userGeschosse (Normalfall: 1-geschossige Module)
+function calcFootprintProModul(product, userGeschosse) {
+  if (!product || !product.bgf) return 0;
+  // Module mit explizitem Footprint (Stack u. Ä.): eigener Wert, ignoriert User-Slider
+  if (product.footprint != null && product.footprint > 0) return product.footprint;
+  // Normale Module: verteilen sich auf vom User gewünschte Anzahl Geschosse
+  return product.bgf / Math.max(1, userGeschosse || 1);
+}
+
+function calcMindestflaeche({ totalFootprint }) {
+  if (totalFootprint <= 0) return { gebaeudeflaeche: 0, mindestGrundstueck: 0 };
+  const gebaeudeflaeche = Math.ceil(totalFootprint);
   const mindestGrundstueck = Math.ceil(gebaeudeflaeche / BEBAUUNGSGRAD);
   return { gebaeudeflaeche, mindestGrundstueck };
 }
@@ -529,14 +543,12 @@ function calcMindestflaecheFuerModule({ modulAnzahl, geschosse }) {
 //   - Kleine Add 12/24 → trotzdem 1 Einheit (passt nicht enger)
 function calcModulEinheiten(product) {
   if (!product || !product.bgf) return 1;
-  // CoMod Double ist ein einzelnes großes Modul (wie Live) — zählt für Flächenbedarf als 1 Einheit,
-  // obwohl die BGF (40 m²) rechnerisch knapp über der Standard-Modulgröße liegt (Feedback V4)
+  // CoMod Double ist ein einzelnes großes Modul (wie Live) — zählt für Flächenbedarf als 1 Einheit
   if (product.family === 'double') return 1;
-  // Stack/Stapelung: BGF ist die Gesamtfläche über alle Geschosse, aber für den Flächenbedarf
-  // am Grund zählt nur das Erdgeschoss → Footprint-BGF = BGF / Anzahl Geschosse
-  const geschosse = product.geschosse && product.geschosse > 1 ? product.geschosse : 1;
-  const footprintBGF = product.bgf / geschosse;
-  return Math.max(1, Math.ceil(footprintBGF / ZIEL_MODUL_BGF));
+  // Stellplatz-Einheiten basieren auf der EG-Grundfläche (footprint), nicht auf der Gesamt-BGF.
+  // Bei Stack: 72 m² Footprint → 2 Einheiten (nicht 130/36 = 4).
+  const footprint = (product.footprint != null && product.footprint > 0) ? product.footprint : product.bgf;
+  return Math.max(1, Math.ceil(footprint / ZIEL_MODUL_BGF));
 }
 
 function defaultGeschossVerteilung(zielwert, geschosse) {
@@ -737,20 +749,23 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
       : countTotal;
   const rabattPct = getRabatt(rabattBasis) + (project ? project.projektrabatt : 0);
   const nextStaffel = getNextRabattSchwelle(rabattBasis);
-  // Mindestfläche-Berechnung:
-  // - Gewerbekunden im Such-Modus (suche_selbst/sucht_fuer_mich): aus gewünschter Modulanzahl, damit der Wert auch ohne Modulauswahl an uns übermittelt wird
+  // Mindestfläche-Berechnung — pro Modul den Footprint summieren (berücksichtigt Stack-Stapelung)
+  // - Gewerbekunden im Such-Modus: aus gewünschter Modulanzahl
   // - Gewerbekunden mit eigener Fläche: aus tatsächlicher Auswahl
-  // - Privatkunden ohne Projekt (eigenes Grundstück): default 1 Geschoss (häufigster Fall: Tiny-House-Ansatz)
+  // - Privatkunden ohne Projekt (eigenes Grundstück): default 1 Geschoss, Stack stapelt sich aber selbst
   let mindestflaeche = null;
   if (gewerbConfig) {
     const istSuchModus = gewerbConfig.flaecheStatus === 'suche_selbst' || gewerbConfig.flaecheStatus === 'sucht_fuer_mich';
     if (istSuchModus && gewerbConfig.gewuenschteModulAnzahl > 0 && gewerbConfig.geschosse > 0) {
       mindestflaeche = calcMindestflaecheFuerModule({ modulAnzahl: gewerbConfig.gewuenschteModulAnzahl, geschosse: gewerbConfig.geschosse });
     } else if (gesamtBGF > 0) {
-      mindestflaeche = calcMindestflaeche({ totalBGF: gesamtBGF, geschosse: gewerbConfig.geschosse || 2 });
+      const userGeschosse = gewerbConfig.geschosse || 2;
+      const totalFootprint = lineItems.reduce((s, x) => s + x.count * calcFootprintProModul(x, userGeschosse), 0);
+      mindestflaeche = calcMindestflaeche({ totalFootprint });
     }
   } else if (!project && gesamtBGF > 0) {
-    mindestflaeche = calcMindestflaeche({ totalBGF: gesamtBGF, geschosse: 1 });
+    const totalFootprint = lineItems.reduce((s, x) => s + x.count * calcFootprintProModul(x, 1), 0);
+    mindestflaeche = calcMindestflaeche({ totalFootprint });
   }
 
   let einmaligGesamtBrutto = 0;
@@ -1498,7 +1513,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                 <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] mb-3">Mindestflächenbedarf</p>
                 <div className="space-y-3 mb-4">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-body text-sm text-[#6B6961]">Reine Gebäudefläche</span>
+                    <span className="font-body text-sm text-[#6B6961]">Gebäude-Grundfläche (EG)</span>
                     <span className="font-display text-xl num text-[#1C1C1A]">{fmtNum(mindestflaecheData.gebaeudeflaeche)} m²</span>
                   </div>
                   <div className="flex items-baseline justify-between gap-3 pt-3 border-t border-[#7B2D8E]/20">
@@ -2504,7 +2519,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] mb-2 flex items-center gap-1.5"><MapPin className="w-3 h-3" strokeWidth={2}/> Mindestflächenbedarf</p>
                     <p className="font-display text-2xl num">{fmtNum(totals.mindestflaeche.mindestGrundstueck)} m²</p>
                     <p className="font-body text-xs text-[#6B6961] mt-1">
-                      Gebäudefläche {fmtNum(totals.mindestflaeche.gebaeudeflaeche)} m² ÷ {Math.round(BEBAUUNGSGRAD * 100)} % Bebauungsgrad
+                      Gebäude-Grundfläche {fmtNum(totals.mindestflaeche.gebaeudeflaeche)} m² ÷ {Math.round(BEBAUUNGSGRAD * 100)} % Bebauungsgrad
                     </p>
                   </div>
                 )}
@@ -3604,6 +3619,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
     kombi_richtung: 'einzel',
     nuf: null,
     bgf: null,
+    footprint_m2: null,
     groesse_label: null,
     geschosse: 1,
     herst_preis: 0,
@@ -3819,6 +3835,12 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
                 <input type="number" value={form.bgf ?? ''} onChange={update('bgf')} step="0.01"
                   className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Bei Stapelung: Gesamt-BGF über alle Geschosse</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Footprint (m²)</label>
+                <input type="number" value={form.footprint_m2 ?? ''} onChange={update('footprint_m2')} step="0.01"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">EG-Grundfläche für Stellplatz. Bei 1-geschossigen Modulen = BGF</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Anzahl Geschosse</label>
@@ -5233,7 +5255,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.41</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.43</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
