@@ -99,8 +99,8 @@ const FAMILY_LABELS = {
 // Add ist die einzige Familie, die je nach Auswahl privat oder gewerblich werden kann
 const ADD_FAMILY_PAIR = { privat: 'add', business: 'addb' };
 
-const FAMILIES_PRIVAT = ['live', 'home', 'add'];
-const FAMILIES_BUSINESS = ['liveb', 'studio', 'stay', 'double', 'gym', 'music', 'wellness', 'cowork', 'community', 'addb', 'pool'];
+const FAMILIES_PRIVAT = ['live', 'home', 'add', 'stack'];
+const FAMILIES_BUSINESS = ['liveb', 'studio', 'stay', 'double', 'gym', 'music', 'wellness', 'cowork', 'community', 'addb', 'pool', 'stack'];
 
 // ⚠️ PLATZHALTER — alle Werte später Admin-pflegbar im Backend
 // Plausibilitäts-Anmerkungen (Stand Oct 2025):
@@ -266,6 +266,9 @@ function mapDbModuleToFrontend(db) {
     bgf: db.bgf != null ? Number(db.bgf) : undefined,
     herst: db.herst_preis,
     marge: Number(db.marge),
+    // Anzahl Geschosse — Standard 1, für Stack-Module ggf. 2 oder 3 (Stapelung)
+    // Wirkt sich auf Flächenbedarf (Footprint) aus
+    geschosse: db.geschosse != null ? Number(db.geschosse) : 1,
   };
   // Optionale Felder nur setzen wenn vorhanden (Frontend prüft mit `in` oder undefined)
   if (db.display_name && db.display_name !== db.kuerzel) base.displayName = db.display_name;
@@ -528,7 +531,11 @@ function calcModulEinheiten(product) {
   // CoMod Double ist ein einzelnes großes Modul (wie Live) — zählt für Flächenbedarf als 1 Einheit,
   // obwohl die BGF (40 m²) rechnerisch knapp über der Standard-Modulgröße liegt (Feedback V4)
   if (product.family === 'double') return 1;
-  return Math.ceil(product.bgf / ZIEL_MODUL_BGF);
+  // Stack/Stapelung: BGF ist die Gesamtfläche über alle Geschosse, aber für den Flächenbedarf
+  // am Grund zählt nur das Erdgeschoss → Footprint-BGF = BGF / Anzahl Geschosse
+  const geschosse = product.geschosse && product.geschosse > 1 ? product.geschosse : 1;
+  const footprintBGF = product.bgf / geschosse;
+  return Math.max(1, Math.ceil(footprintBGF / ZIEL_MODUL_BGF));
 }
 
 function defaultGeschossVerteilung(zielwert, geschosse) {
@@ -3596,6 +3603,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
     nuf: null,
     bgf: null,
     groesse_label: null,
+    geschosse: 1,
     herst_preis: 0,
     marge: 0.15,
     einnahmen_indikation: null,
@@ -3808,6 +3816,13 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">BGF (m²)</label>
                 <input type="number" value={form.bgf ?? ''} onChange={update('bgf')} step="0.01"
                   className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Bei Stapelung: Gesamt-BGF über alle Geschosse</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Anzahl Geschosse</label>
+                <input type="number" min="1" max="5" value={form.geschosse ?? 1} onChange={update('geschosse')}
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Standard 1, für Stack/Stapelung &gt; 1</p>
               </div>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="is_kombi" checked={form.is_kombimodul} onChange={update('is_kombimodul')} />
@@ -5216,7 +5231,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.39</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.40</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
