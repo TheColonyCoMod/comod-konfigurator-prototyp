@@ -342,6 +342,7 @@ function mapDbProjectToFrontend(db) {
     location: db.location || '',
     description: db.description_de || '',
     description2: db.description2_de || '',
+    heroImageUrl: db.hero_image_url || null,
     projektrabatt: Number(db.projektrabatt || 0),
     umlageProModulEinmalig: db.umlage_pro_modul_einmalig || 0,
     pachtJahr: db.pacht_jahr || 0,
@@ -1185,43 +1186,64 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
         {PROJECTS_TEMPLATES.map(p => {
           const mengenrabatt = getRabatt(p.zielModulAnzahl || 0);
           const gesamtrabatt = mengenrabatt + (p.projektrabatt || 0);
+          const isSelected = selectedProject?.id === p.id;
           return (
           <button key={p.id} onClick={() => onSelect(p)}
-            className={`text-left bg-white border p-8 transition-all duration-300 ${selectedProject?.id === p.id ? 'border-[#D2563E] shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]' : 'border-[#1C1C1A]/10 hover:border-[#D2563E]/50'}`}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
+            className={`text-left bg-white border transition-all duration-300 overflow-hidden flex flex-col ${isSelected ? 'border-[#D2563E] shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]' : 'border-[#1C1C1A]/10 hover:border-[#D2563E]/50'}`}>
+            {/* Hero-Image im Querformat 3:2, mit Fallback */}
+            <div className="relative bg-[#F8F5F0] overflow-hidden" style={{ aspectRatio: '3 / 2' }}>
+              {p.heroImageUrl ? (
+                <img src={p.heroImageUrl} alt={p.name}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  loading="lazy"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              ) : (
+                // Platzhalter: dezenter monochromer Hintergrund mit Projekt-Initiale
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#F0EDE5] to-[#E8E3D6]">
+                  <span className="font-display text-7xl text-[#A87DAE]/40">{p.name?.[0] || '?'}</span>
+                </div>
+              )}
+              {isSelected && (
+                <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#D2563E] flex items-center justify-center shadow-md">
+                  <Check className="w-4 h-4 text-white" />
+                </div>
+              )}
+            </div>
+
+            {/* Textteil */}
+            <div className="p-8 flex-1 flex flex-col">
+              <div className="mb-4">
                 <h3 className="font-display text-2xl mb-1">{p.name}</h3>
                 <p className="font-body text-sm text-[#6B6961]">{p.location}</p>
               </div>
-              {selectedProject?.id === p.id && <div className="w-6 h-6 rounded-full bg-[#D2563E] flex items-center justify-center"><Check className="w-3.5 h-3.5 text-[#F8F5F0]" /></div>}
-            </div>
-            <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-3">{p.description}</p>
-            <p className="font-body text-xs text-[#7B2D8E] leading-relaxed mb-4 italic">{p.description2}</p>
-            <div className="flex gap-4 mb-4 font-body text-xs text-[#6B6961]">
-              <span><span className="num text-[#1C1C1A]">{p.zielModulAnzahl}</span> Module Zielgröße</span>
-              <span className="opacity-50">·</span>
-              <span>max. <span className="num text-[#1C1C1A]">{p.maxModulAnzahl}</span> möglich</span>
-            </div>
-            <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#1C1C1A]/10">
-              <div>
-                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Projektkosten</p>
-                <p className="font-display text-base num">{fmtEUR(p.umlageProModulEinmalig)}</p>
-                <p className="font-body text-[10px] text-[#6B6961]">/Modul einm.</p>
+              <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-3">{p.description}</p>
+              {p.description2 && <p className="font-body text-xs text-[#7B2D8E] leading-relaxed mb-4 italic">{p.description2}</p>}
+              <div className="flex gap-4 mb-4 font-body text-xs text-[#6B6961]">
+                <span><span className="num text-[#1C1C1A]">{p.zielModulAnzahl}</span> Module Zielgröße</span>
+                <span className="opacity-50">·</span>
+                <span>max. <span className="num text-[#1C1C1A]">{p.maxModulAnzahl}</span> möglich</span>
               </div>
-              <div>
-                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Rabatt gesamt</p>
-                <p className="font-display text-base num text-[#D2563E]">{fmtPct(gesamtrabatt)}</p>
-                <p className="font-body text-[10px] text-[#6B6961]">{fmtPct(mengenrabatt)} Menge + {fmtPct(p.projektrabatt)} Projekt</p>
-              </div>
-              <div>
-                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Pacht-Umlage</p>
-                {p.pachtJahr > 0 ? (
-                  <>
-                    <p className="font-display text-base num">{fmtEUR2(p.pachtJahr / (p.zielModulAnzahl || 1) / ZIEL_MODUL_NUF / 12)}</p>
+              <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#1C1C1A]/10 mt-auto">
+                <div>
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Projektkosten</p>
+                  <p className="font-display text-base num">{fmtEUR(p.umlageProModulEinmalig)}</p>
+                  <p className="font-body text-[10px] text-[#6B6961]">/Modul einm.</p>
+                </div>
+                <div>
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Rabatt gesamt</p>
+                  <p className="font-display text-base num text-[#D2563E]">{fmtPct(gesamtrabatt)}</p>
+                  <p className="font-body text-[10px] text-[#6B6961]">{fmtPct(mengenrabatt)} Menge + {fmtPct(p.projektrabatt)} Projekt</p>
+                </div>
+                <div>
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Pacht-Umlage</p>
+                  {p.pachtJahr > 0 ? (
+                    <>
+                      <p className="font-display text-base num">{fmtEUR2(p.pachtJahr / (p.zielModulAnzahl || 1) / ZIEL_MODUL_NUF / 12)}</p>
                     <p className="font-body text-[10px] text-[#6B6961]">/m²/Mt. netto{p.pachtGewerblich ? ' (+19 % bei privat)' : ''}</p>
                   </>
                 ) : <p className="font-display text-base num">—</p>}
               </div>
+            </div>
             </div>
           </button>
           );
@@ -4253,6 +4275,32 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
           </section>
 
           <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Visual</p>
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-4 items-start">
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Hero-Image-URL</label>
+                <input type="text" value={form.hero_image_url ?? ''} onChange={update('hero_image_url')}
+                  placeholder="z. B. /projects/voelk.jpg oder https://…"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <p className="font-body text-[10px] text-[#6B6961] mt-1">
+                  Querformat 3:2 empfohlen (z. B. 900×600 px). Bilder im GitHub-Repo unter <span className="font-mono">/public/projects/</span> ablegen, dann hier den Pfad <span className="font-mono">/projects/dateiname.jpg</span> eintragen. Leer = Platzhalter mit Projekt-Initiale.
+                </p>
+              </div>
+              <div className="bg-[#F8F5F0] border border-[#1C1C1A]/10 overflow-hidden" style={{ aspectRatio: '3 / 2' }}>
+                {form.hero_image_url ? (
+                  <img src={form.hero_image_url} alt="Vorschau"
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#F0EDE5] to-[#E8E3D6]">
+                    <span className="font-display text-4xl text-[#A87DAE]/40">{form.name?.[0] || '?'}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Dimensionierung</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
@@ -5255,7 +5303,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.43</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.44</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
