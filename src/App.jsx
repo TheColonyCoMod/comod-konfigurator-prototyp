@@ -3575,7 +3575,7 @@ const MODULE_USAGE = [
   { key: 'beides', label: 'Beides' },
 ];
 
-function AdminModuleEdit({ module, onClose, onSaved }) {
+function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) {
   // Neu-anlegen: module ist null → leerer Default
   const isNew = !module;
   const [form, setForm] = useState(() => ({
@@ -3623,6 +3623,37 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
   const [margeStr, setMargeStr] = useState(() => pctToStr(form.marge));
   const [feeStr,   setFeeStr]   = useState(() => pctToStr(form.fee));
 
+  // Modul-Sichtbarkeit: Welche Workspaces haben dieses Modul ausgeblendet?
+  // Set von workspace-IDs. Wird beim Mount geladen (nur wenn Modul existiert) und beim Save gespeichert.
+  const [hiddenInWorkspaces, setHiddenInWorkspaces] = useState(new Set());
+  const [hiddenInWorkspacesOrig, setHiddenInWorkspacesOrig] = useState(new Set());
+  useEffect(() => {
+    if (!module?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('module_visibility')
+        .select('scope_id')
+        .eq('module_id', module.id)
+        .eq('scope_type', 'workspace')
+        .eq('hidden', true);
+      if (cancelled) return;
+      const set = new Set((data || []).map(r => r.scope_id));
+      setHiddenInWorkspaces(set);
+      setHiddenInWorkspacesOrig(new Set(set));
+    })();
+    return () => { cancelled = true; };
+  }, [module?.id]);
+
+  function toggleWorkspaceHidden(workspaceId) {
+    setHiddenInWorkspaces(prev => {
+      const next = new Set(prev);
+      if (next.has(workspaceId)) next.delete(workspaceId);
+      else next.add(workspaceId);
+      return next;
+    });
+  }
+
   const update = (key) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked
             : e.target.type === 'number' ? (e.target.value === '' ? null : Number(e.target.value))
@@ -3644,6 +3675,26 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
       res = await supabase.from('modules').update(payload).eq('id', module.id).select('*').single();
     }
     if (res.error) { setError(res.error.message); setSaving(false); return; }
+
+    // Modul-Sichtbarkeit: Diff zwischen orig und current state
+    const moduleId = res.data.id;
+    const toAdd = [...hiddenInWorkspaces].filter(ws => !hiddenInWorkspacesOrig.has(ws));
+    const toRemove = [...hiddenInWorkspacesOrig].filter(ws => !hiddenInWorkspaces.has(ws));
+    if (toAdd.length > 0) {
+      const inserts = toAdd.map(ws => ({ module_id: moduleId, scope_type: 'workspace', scope_id: ws, hidden: true }));
+      const { error: e } = await supabase.from('module_visibility').insert(inserts);
+      if (e) { setError('Sichtbarkeit speichern fehlgeschlagen: ' + e.message); setSaving(false); return; }
+    }
+    if (toRemove.length > 0) {
+      const { error: e } = await supabase.from('module_visibility')
+        .delete()
+        .eq('module_id', moduleId)
+        .eq('scope_type', 'workspace')
+        .in('scope_id', toRemove);
+      if (e) { setError('Sichtbarkeit löschen fehlgeschlagen: ' + e.message); setSaving(false); return; }
+    }
+    setHiddenInWorkspacesOrig(new Set(hiddenInWorkspaces));
+
     setSaved(true); setSaving(false);
     setTimeout(() => { onSaved(res.data); }, 600);
   }
@@ -3841,6 +3892,41 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
             </div>
           </section>
 
+          {/* Sichtbarkeit pro Workspace — nur für Master-Admin und nur bei bestehenden Modulen */}
+          {authProfile?.role === 'master_admin' && !isNew && (
+            <section className="border-l-4 border-[#7B2D8E]/30 pl-4 -ml-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E]">Sichtbarkeit pro Workspace</p>
+                <p className="font-body text-[10px] text-[#6B6961]">Global aktive Module für einzelne Partner ausblenden</p>
+              </div>
+              {workspaces.length === 0 ? (
+                <div className="bg-[#F4ECF6]/30 p-4 font-body text-xs text-[#6B6961]">
+                  Aktuell keine Partner-Workspaces angelegt. Wenn Partner-Makler-Workspaces eingerichtet werden, kannst Du hier festlegen, welche Module für sie sichtbar sind.
+                </div>
+              ) : (
+                <div className="bg-[#F8F5F0]/40 p-3 space-y-2">
+                  <p className="font-body text-[11px] text-[#6B6961] mb-2">
+                    Aktivierte Workspaces zeigen dieses Modul <strong>nicht</strong> im Konfigurator (Modul muss global aktiv bleiben).
+                  </p>
+                  {workspaces.map(ws => (
+                    <label key={ws.id} className="flex items-center gap-3 py-1 cursor-pointer hover:bg-white/40 px-2 -mx-2">
+                      <input type="checkbox"
+                        checked={hiddenInWorkspaces.has(ws.id)}
+                        onChange={() => toggleWorkspaceHidden(ws.id)} />
+                      <span className="font-body text-sm">
+                        {ws.name}
+                        <span className="text-[10px] text-[#6B6961] ml-2 font-mono">{ws.slug}</span>
+                      </span>
+                      {hiddenInWorkspaces.has(ws.id) && (
+                        <span className="ml-auto font-body text-[10px] text-[#7B2D8E] uppercase tracking-wider">ausgeblendet</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
           {error && <div className="p-3 bg-[#FAE5E2] border border-[#C5392E]/30 font-body text-sm text-[#C5392E]">Fehler: {error}</div>}
         </div>
 
@@ -3854,8 +3940,9 @@ function AdminModuleEdit({ module, onClose, onSaved }) {
   );
 }
 
-function AdminModulesView() {
+function AdminModulesView({ authProfile }) {
   const [modules, setModules] = useState([]);
+  const [workspaces, setWorkspaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
@@ -3865,9 +3952,14 @@ function AdminModulesView() {
 
   async function loadModules() {
     setLoading(true); setError(null);
-    const { data, error } = await supabase.from('modules').select('*').is('deleted_at', null).order('sort_order', { ascending: true });
-    if (error) setError(error.message);
-    else setModules(data || []);
+    const [mRes, wRes] = await Promise.all([
+      supabase.from('modules').select('*').is('deleted_at', null).order('sort_order', { ascending: true }),
+      // Workspaces für Sichtbarkeits-UI laden (alle außer dem CoMod-Default-Workspace)
+      supabase.from('workspaces').select('id, slug, name').neq('id', '00000000-0000-0000-0000-000000000001').order('name'),
+    ]);
+    if (mRes.error) setError(mRes.error.message);
+    else setModules(mRes.data || []);
+    if (!wRes.error) setWorkspaces(wRes.data || []);
     setLoading(false);
   }
 
@@ -3962,7 +4054,7 @@ function AdminModulesView() {
         </div>
       )}
 
-      {editing !== undefined && <AdminModuleEdit module={editing} onClose={() => setEditing(undefined)} onSaved={handleSaved} />}
+      {editing !== undefined && <AdminModuleEdit module={editing} workspaces={workspaces} authProfile={authProfile} onClose={() => setEditing(undefined)} onSaved={handleSaved} />}
     </div>
   );
 }
@@ -4779,7 +4871,7 @@ function AdminPanel({ authUser, authProfile }) {
       </div>
 
       {tab === 'leads'    && <AdminLeadsView authUser={authUser} authProfile={authProfile} />}
-      {tab === 'modules'  && <AdminModulesView />}
+      {tab === 'modules'  && <AdminModulesView authProfile={authProfile} />}
       {tab === 'projects' && <AdminProjectsView />}
       {tab === 'settings' && <AdminSettingsView />}
     </div>
@@ -5124,7 +5216,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.38</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.39</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
