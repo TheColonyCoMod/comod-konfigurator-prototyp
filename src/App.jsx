@@ -94,6 +94,7 @@ const FAMILY_LABELS = {
   community: { label: 'CoMod Community',desc: 'Versammlungsmodul, 32 / 64 / 96 m²' },
   addb:      { label: 'CoMod Add B',    desc: 'Ergänzungsmodul gewerblich, leer' },
   pool:      { label: 'Container-Pool', desc: 'Pool mit Strömungsanlage' },
+  stack:     { label: 'CoMod Family',   desc: 'Gestapelte Modul-Kombination, 2 Geschosse + Dachterrasse' },
 };
 
 // Add ist die einzige Familie, die je nach Auswahl privat oder gewerblich werden kann
@@ -1985,7 +1986,8 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 
 // FamilyCard – Standard für alle anderen Familien
 function FamilyCard({ familyId, products, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState }) {
-  const fam = FAMILY_LABELS[familyId];
+  // Defensive: Falls für eine Family kein Label hinterlegt ist, mit Defaults weitermachen statt zu crashen
+  const fam = FAMILY_LABELS[familyId] || { label: products[0]?.kuerzel || familyId, desc: '' };
   const defaultVariant = useMemo(() => {
     const first = products[0];
     return {
@@ -5231,7 +5233,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.40</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.41</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
