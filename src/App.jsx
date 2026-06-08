@@ -3535,8 +3535,11 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
 
   const modulesArr = lead.modules_snapshot?.items || [];
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto py-10" onClick={onClose}>
-      <div className="bg-white max-w-4xl w-full mx-4 my-4" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 sm:py-10" onClick={onClose}>
+      <div
+        className="bg-white max-w-4xl w-full"
+        onClick={e => e.stopPropagation()}
+        style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', overflowX: 'hidden' }}>
         <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
           <div>
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Lead</p>
@@ -4012,8 +4015,11 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
   // würde bei jedem Render neu erzeugt → Inputs verlieren den Fokus beim Tippen.
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto py-8" onClick={onClose}>
-      <div className="bg-white max-w-5xl w-full mx-4" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 sm:py-8" onClick={onClose}>
+      <div
+        className="bg-white max-w-5xl w-full"
+        onClick={e => e.stopPropagation()}
+        style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', overflowX: 'hidden' }}>
         <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
           <div>
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">{isNew ? 'Neues Modul' : 'Modul bearbeiten'}</p>
@@ -4470,8 +4476,11 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto py-8" onClick={onClose}>
-      <div className="bg-white max-w-5xl w-full mx-4" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 sm:py-8" onClick={onClose}>
+      <div
+        className="bg-white max-w-5xl w-full"
+        onClick={e => e.stopPropagation()}
+        style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', overflowX: 'hidden' }}>
         <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
           <div>
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">{isNew ? 'Neues Projekt' : 'Projekt bearbeiten'}</p>
@@ -5720,7 +5729,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.59</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.60</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
