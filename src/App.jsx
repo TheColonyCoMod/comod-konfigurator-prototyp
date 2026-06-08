@@ -30,21 +30,21 @@ const PRODUCTS_PRIVAT_RAW = [
   { kuerzel: 'CoMod Live (D,M)',        family: 'live', kueche: 'Ohne Küche',  moebliert: true,  beschr: 'Duschbad, möbliert',                   cat: 'wohnen',     nuf: 32, bgf: 36, herst: 134000, marge: 0.125 },
   { kuerzel: 'CoMod Live (D)',          family: 'live', kueche: 'Ohne Küche',  moebliert: false, beschr: 'Duschbad',                             cat: 'wohnen',     nuf: 32, bgf: 36, herst: 129000, marge: 0.125 },
   // CoMod Home — Einfamilien-Setup aus 2 oder 3 Modulen kombiniert
-  // Home 48 = 2× mittlere Module (24 m²), Home 64 = 2× große (32 m²), Home 72 = 3× mittlere, Home 96 = 3× große
-  { kuerzel: 'CoMod Home 48 (UK,D,1Z)', family: 'home', groesse: 48, kueche: 'U-Küche', zimmer: 1, beschr: '2× 24 m² · U-Küche, Dusche, 1 Zimmer',  cat: 'wohnen', nuf: 48, bgf: 56, herst: 189000, marge: 0.15 },
-  { kuerzel: 'CoMod Home 48 (LK,D,2Z)', family: 'home', groesse: 48, kueche: 'L-Küche', zimmer: 2, beschr: '2× 24 m² · L-Küche, Dusche, 2 Zimmer',  cat: 'wohnen', nuf: 48, bgf: 56, herst: 189000, marge: 0.15 },
+  // Home 44 = 2× mittlere Module (22 m²), Home 64 = 2× große (32 m²), Home 66 = 3× mittlere, Home 96 = 3× große
+  { kuerzel: 'CoMod Home 44 (UK,D,1Z)', family: 'home', groesse: 44, kueche: 'U-Küche', zimmer: 1, beschr: '2× 22 m² · U-Küche, Dusche, 1 Zimmer',  cat: 'wohnen', nuf: 44, bgf: 52, herst: 189000, marge: 0.15 },
+  { kuerzel: 'CoMod Home 44 (LK,D,2Z)', family: 'home', groesse: 44, kueche: 'L-Küche', zimmer: 2, beschr: '2× 22 m² · L-Küche, Dusche, 2 Zimmer',  cat: 'wohnen', nuf: 44, bgf: 52, herst: 189000, marge: 0.15 },
   { kuerzel: 'CoMod Home 64 (UK,D,2Z)', family: 'home', groesse: 64, kueche: 'U-Küche', zimmer: 2, beschr: '2× 32 m² · U-Küche, Dusche, 2 Zimmer',  cat: 'wohnen', nuf: 64, bgf: 72, herst: 219000, marge: 0.15 },
   { kuerzel: 'CoMod Home 64 (LK,D,2Z)', family: 'home', groesse: 64, kueche: 'L-Küche', zimmer: 2, beschr: '2× 32 m² · L-Küche, Dusche, 2 Zimmer',  cat: 'wohnen', nuf: 64, bgf: 72, herst: 219000, marge: 0.15 },
   { kuerzel: 'CoMod Home 64 (D,2Z)',    family: 'home', groesse: 64, kueche: 'Ohne Küche', zimmer: 2, beschr: '2× 32 m² · ohne Küche, 2 Zimmer',     cat: 'wohnen', nuf: 64, bgf: 72, herst: 209000, marge: 0.15 },
   { kuerzel: 'CoMod Home 64 (D,4Z)',    family: 'home', groesse: 64, kueche: 'Ohne Küche', zimmer: 4, beschr: '2× 32 m² · ohne Küche, 4 Zimmer (WG)', cat: 'wohnen', nuf: 64, bgf: 72, herst: 209000, marge: 0.15 },
-  { kuerzel: 'CoMod Home 72 (UK,D,1Z)', family: 'home', groesse: 72, kueche: 'U-Küche', zimmer: 1, beschr: '3× 24 m² · U-Küche, Dusche, 1 Zimmer',  cat: 'wohnen', nuf: 72, bgf: 84, herst: 249000, marge: 0.15 },
-  { kuerzel: 'CoMod Home 72 (LK,D,2Z)', family: 'home', groesse: 72, kueche: 'L-Küche', zimmer: 2, beschr: '3× 24 m² · L-Küche, Dusche, 2 Zimmer',  cat: 'wohnen', nuf: 72, bgf: 84, herst: 249000, marge: 0.15 },
-  { kuerzel: 'CoMod Home 72 (D,3Z)',    family: 'home', groesse: 72, kueche: 'Ohne Küche', zimmer: 3, beschr: '3× 24 m² · ohne Küche, 3 Zimmer',     cat: 'wohnen', nuf: 72, bgf: 84, herst: 239000, marge: 0.15 },
+  { kuerzel: 'CoMod Home 66 (UK,D,1Z)', family: 'home', groesse: 66, kueche: 'U-Küche', zimmer: 1, beschr: '3× 22 m² · U-Küche, Dusche, 1 Zimmer',  cat: 'wohnen', nuf: 66, bgf: 78, herst: 249000, marge: 0.15 },
+  { kuerzel: 'CoMod Home 66 (LK,D,2Z)', family: 'home', groesse: 66, kueche: 'L-Küche', zimmer: 2, beschr: '3× 22 m² · L-Küche, Dusche, 2 Zimmer',  cat: 'wohnen', nuf: 66, bgf: 78, herst: 249000, marge: 0.15 },
+  { kuerzel: 'CoMod Home 66 (D,3Z)',    family: 'home', groesse: 66, kueche: 'Ohne Küche', zimmer: 3, beschr: '3× 22 m² · ohne Küche, 3 Zimmer',     cat: 'wohnen', nuf: 66, bgf: 78, herst: 239000, marge: 0.15 },
   { kuerzel: 'CoMod Home 96 (UK,D,3Z)', family: 'home', groesse: 96, kueche: 'U-Küche', zimmer: 3, beschr: '3× 32 m² · U-Küche, Dusche, 3 Zimmer',  cat: 'wohnen', nuf: 96, bgf: 108, herst: 289000, marge: 0.15 },
   { kuerzel: 'CoMod Home 96 (LK,D,3Z)', family: 'home', groesse: 96, kueche: 'L-Küche', zimmer: 3, beschr: '3× 32 m² · L-Küche, Dusche, 3 Zimmer',  cat: 'wohnen', nuf: 96, bgf: 108, herst: 289000, marge: 0.15 },
   { kuerzel: 'CoMod Home 96 (D,3Z)',    family: 'home', groesse: 96, kueche: 'Ohne Küche', zimmer: 3, beschr: '3× 32 m² · ohne Küche, 3 Zimmer',     cat: 'wohnen', nuf: 96, bgf: 108, herst: 279000, marge: 0.15 },
   { kuerzel: 'CoMod Add 32',            family: 'add',  groesse: 32, beschr: 'Leer, groß (32 m²)',                                  cat: 'ergaenzung', nuf: 32, bgf: 36, herst: 39000,  marge: 0.075 },
-  { kuerzel: 'CoMod Add 24',            family: 'add',  groesse: 24, beschr: 'Leer, mittel (24 m²)',                                cat: 'ergaenzung', nuf: 24, bgf: 28, herst: 35000,  marge: 0.075 },
+  { kuerzel: 'CoMod Add 22',            family: 'add',  groesse: 22, beschr: 'Leer, mittel (22 m²)',                                cat: 'ergaenzung', nuf: 22, bgf: 26, herst: 35000,  marge: 0.075 },
   { kuerzel: 'CoMod Add 12',            family: 'add',  groesse: 12, beschr: 'Leer, klein (12 m²)',                                 cat: 'ergaenzung', nuf: 12, bgf: 14, herst: 29000,  marge: 0.075 },
 ];
 
@@ -69,7 +69,7 @@ const PRODUCTS_GEWERB_RAW = [
   { kuerzel: 'CoMod Community 64',    family: 'community', groesse: 64, beschr: 'Versammlung 64 m², mit WC',                                    cat: 'arbeit',     nuf: 64, bgf: 72, herst: 89000,  marge: 0.10,  einnahmen: 0,    fee: 0    },
   { kuerzel: 'CoMod Community 96',    family: 'community', groesse: 96, beschr: 'Versammlung 96 m², mit WC',                                    cat: 'arbeit',     nuf: 96, bgf: 108,herst: 99000,  marge: 0.10,  einnahmen: 0,    fee: 0    },
   { kuerzel: 'CoMod Add B 32',          family: 'addb',    groesse: 32, beschr: 'Leer, groß (32 m²)',                                              cat: 'ergaenzung', nuf: 32, bgf: 36, herst: 39000,  marge: 0.075, einnahmen: 0,    fee: 0    },
-  { kuerzel: 'CoMod Add B 24',          family: 'addb',    groesse: 24, beschr: 'Leer, mittel (24 m²)',                                            cat: 'ergaenzung', nuf: 24, bgf: 28, herst: 35000,  marge: 0.075, einnahmen: 0,    fee: 0    },
+  { kuerzel: 'CoMod Add B 22',          family: 'addb',    groesse: 22, beschr: 'Leer, mittel (22 m²)',                                            cat: 'ergaenzung', nuf: 22, bgf: 26, herst: 35000,  marge: 0.075, einnahmen: 0,    fee: 0    },
   { kuerzel: 'CoMod Add B 12',          family: 'addb',    groesse: 12, beschr: 'Leer, klein (12 m²)',                                             cat: 'ergaenzung', nuf: 12, bgf: 14, herst: 29000,  marge: 0.075, einnahmen: 0,    fee: 0    },
   { kuerzel: 'Container-Pool',          family: 'pool',    beschr: 'Pool mit Strömungsanlage, Terrassen, Filter',                                  cat: 'erlebnis',   nuf: 32, bgf: 36, herst: 59000,  marge: 0.075, einnahmen: 0,    fee: 0    },
 ];
@@ -81,11 +81,11 @@ let ANZ_PCT = 0.35;
 
 const FAMILY_LABELS = {
   live:      { label: 'CoMod Live',     desc: 'Wohnmodul, 32 m² NUF' },
-  home:      { label: 'CoMod Home',     desc: 'Wohnkombi aus 2-3 Modulen, 48 / 64 / 72 / 96 m² NUF' },
-  add:       { label: 'CoMod Add',      desc: 'Ergänzungsmodul leer, 12 / 24 / 32 m²' },
+  home:      { label: 'CoMod Home',     desc: 'Wohnkombi aus 2-3 Modulen, 44 / 64 / 66 / 96 m² NUF' },
+  add:       { label: 'CoMod Add',      desc: 'Ergänzungsmodul leer, 12 / 22 / 32 m²' },
   liveb:     { label: 'CoMod Live',     desc: 'Wohnmodul gewerblich, 32 m²' },
   studio:    { label: 'CoMod Studio',   desc: 'Ferienwohnung, 32 m² NUF, möbliert' },
-  stay:      { label: 'CoMod Stay',     desc: 'Hotel/KZW-Modul, 24 m² NUF, möbliert' },
+  stay:      { label: 'CoMod Stay',     desc: 'Hotel/KZW-Modul, 22 m² NUF, möbliert' },
   double:    { label: 'CoMod Double',   desc: 'Doppelwohnmodul, 36 m² NUF, möbliert' },
   gym:       { label: 'CoMod Gym',      desc: 'Volldigitales Gym mit Duschen' },
   music:     { label: 'CoMod Music',    desc: 'Schalloptimierter Probe-/Musikraum' },
@@ -196,25 +196,26 @@ const ICON_MAP = {
   'CoMod Live (PK,D)':       'comod_live_pkdm.png',
   'CoMod Live (D,M)':        'comod_live_dm.png',
   'CoMod Live (D)':          'comod_live_dm.png',
-  // Home — exakte Mapping nach Größe & Variante
-  'CoMod Home 48 (UK,D,1Z)': 'comod_home48_ukd1z.png',
-  'CoMod Home 48 (LK,D,2Z)': 'comod_home48_lkd2z.png',
+  // Home — exakte Mapping nach Größe & Variante (Dateinamen behalten alte Bezeichnung,
+  // damit Icon-Dateien im /public/icons/ Ordner nicht umbenannt werden müssen)
+  'CoMod Home 44 (UK,D,1Z)': 'comod_home48_ukd1z.png',
+  'CoMod Home 44 (LK,D,2Z)': 'comod_home48_lkd2z.png',
   'CoMod Home 64 (UK,D,2Z)': 'comod_home64_ukd2z.png',
   'CoMod Home 64 (LK,D,2Z)': 'comod_home64_lkd2z.png',
   'CoMod Home 64 (D,2Z)':    'comod_home64_d2z.png',
   'CoMod Home 64 (D,4Z)':    'comod_home64_d4z.png',
-  'CoMod Home 72 (UK,D,1Z)': 'comod_home72_ukd1z.png',
-  'CoMod Home 72 (LK,D,2Z)': 'comod_home72_lkd2z.png',
-  'CoMod Home 72 (D,3Z)':    'comod_home72_d3z.png',
+  'CoMod Home 66 (UK,D,1Z)': 'comod_home72_ukd1z.png',
+  'CoMod Home 66 (LK,D,2Z)': 'comod_home72_lkd2z.png',
+  'CoMod Home 66 (D,3Z)':    'comod_home72_d3z.png',
   'CoMod Home 96 (UK,D,3Z)': 'comod_home96_ukd3z.png',
   'CoMod Home 96 (LK,D,3Z)': 'comod_home96_lkd3z.png',
   'CoMod Home 96 (D,3Z)':    'comod_home96_d3z.png',
   // Add (Ergänzungsmodule, leer)
   'CoMod Add 12':            'comod_add12_leer.png',
-  'CoMod Add 24':            'comod_add24_leer.png',
+  'CoMod Add 22':            'comod_add24_leer.png',
   'CoMod Add 32':            'comod_add32_leer.png',
   'CoMod Add B 12':          'comod_add12_leer.png',
-  'CoMod Add B 24':          'comod_add24_leer.png',
+  'CoMod Add B 22':          'comod_add24_leer.png',
   'CoMod Add B 32':          'comod_add32_leer.png',
   // Gewerblich
   'CoMod Live B (UK,D,M)':   'comod_live_ukdm.png',
@@ -580,7 +581,7 @@ function calcMindestflaecheFuerModule({ modulAnzahl, geschosse }) {
 // 1 Einheit = 36 m² BGF = Standard-Stellplatz im Konfigurator
 // Größere Module belegen entsprechend mehr Stellplätze:
 //   - CoMod Live (36 m²) → 1 Einheit
-//   - CoMod Home 48 (52 m²) → 2 Einheiten
+//   - CoMod Home 44 (52 m²) → 2 Einheiten
 //   - CoMod CoWork 96 (100 m²) → 3 Einheiten
 //   - Kleine Add 12/24 → trotzdem 1 Einheit (passt nicht enger)
 function calcModulEinheiten(product) {
@@ -5696,7 +5697,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.55</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.56</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
