@@ -1947,7 +1947,7 @@ function findVariantProduct(products, variant) {
 }
 
 // AddFamilyCard – für die zusammengeführte Add-Karte im 'Beides'-Modus
-function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProjectOrConfig, addUsageState, setAddUsageState }) {
+function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProjectOrConfig, addUsageState, setAddUsageState, isPureGewerb }) {
   // addUsageState = 'p' | 'g' (für die ganze Add-Karte)
   const usageState = addUsageState || 'g'; // Default gewerblich (Hauptanwendungsfall)
   const familyId = usageState === 'p' ? 'add' : 'addb';
@@ -2005,7 +2005,8 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
   // Modulpreis bleibt STABIL — anteilige Projektkosten werden NICHT eingerechnet,
   // weil sie sich mit jeder Modulanzahl-Änderung ändern und dadurch Preissprünge erzeugen würden
   // (Feedback V7). Projektkosten stehen separat in der Sidebar als eigener Block.
-  const effectivePrice = product.brutto;
+  // Im rein gewerblichen Pfad: netto-Preise (Hinweis steht im Sidebar-Banner)
+  const effectivePrice = isPureGewerb ? product.netto : product.brutto;
 
   return (
     <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${familyTotal > 0 ? 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
@@ -2064,7 +2065,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
             <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
             <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
             <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
-            <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis brutto</p>
+            <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis</p>
           </div>
           <div className="flex items-center gap-2">
             {count > 0 ? (
@@ -2108,7 +2109,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 }
 
 // FamilyCard – Standard für alle anderen Familien
-function FamilyCard({ familyId, products, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState }) {
+function FamilyCard({ familyId, products, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb }) {
   // Defensive: Falls für eine Family kein Label hinterlegt ist, mit Defaults weitermachen statt zu crashen
   const fam = FAMILY_LABELS[familyId] || { label: products[0]?.kuerzel || familyId, desc: '' };
   const defaultVariant = useMemo(() => {
@@ -2155,7 +2156,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
   // Modulpreis bleibt STABIL — anteilige Projektkosten werden NICHT eingerechnet,
   // weil sie sich mit jeder Modulanzahl-Änderung ändern und dadurch Preissprünge erzeugen würden
   // (Feedback V7). Projektkosten stehen separat in der Sidebar als eigener Block.
-  const effectivePrice = product.brutto;
+  const effectivePrice = isPureGewerb ? product.netto : product.brutto;
   const showsIncome = isModeToggleable(product) && mode === 'einnahmen';
 
   return (
@@ -2197,7 +2198,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
               {calcModulEinheiten(product) > 1 && <><span>·</span><span className="text-[#7B2D8E]">{calcModulEinheiten(product)} Einheiten</span></>}
             </div>
             <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
-            <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis brutto</p>
+            <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis</p>
           </div>
           <div className="flex items-center gap-2">
             {count > 0 ? (
@@ -2388,12 +2389,14 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       selections={selections} setSelections={setSelections}
                       modes={modes} setModes={setModes}
                       einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
-                      variantState={variantState} setVariantState={setVariantState} />
+                      variantState={variantState} setVariantState={setVariantState}
+                      isPureGewerb={isPureGewerb} />
                   ))}
                   {catId === 'ergaenzung' && showAddInCat && (
                     <AddFamilyCard selections={selections} setSelections={setSelections}
                       einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
-                      addUsageState={addUsageState} setAddUsageState={setAddUsageState} />
+                      addUsageState={addUsageState} setAddUsageState={setAddUsageState}
+                      isPureGewerb={isPureGewerb} />
                   )}
                 </div>
               </div>
@@ -2408,7 +2411,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 <div className="grid md:grid-cols-2 gap-4">
                   <AddFamilyCard selections={selections} setSelections={setSelections}
                     einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
-                    addUsageState={addUsageState} setAddUsageState={setAddUsageState} />
+                    addUsageState={addUsageState} setAddUsageState={setAddUsageState}
+                    isPureGewerb={isPureGewerb} />
                 </div>
               </div>
             )}
@@ -5712,7 +5716,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.57</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.58</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
