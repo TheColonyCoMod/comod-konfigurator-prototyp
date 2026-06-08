@@ -3370,7 +3370,7 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
             </div>
           </div>
         </div>
-        <aside>
+        <aside style={{ alignSelf: 'start' }}>
           <div className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-7"
             style={{
               position: 'sticky',
@@ -5623,7 +5623,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.53</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.54</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
