@@ -3322,7 +3322,7 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
           </div>
         </div>
         <aside>
-          <div className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-7 sticky top-24">
+          <div className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-7 sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Zusammenfassung</p>
             <h3 className="font-display text-xl mb-5">Dein Setup</h3>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Typ</p>
@@ -5567,7 +5567,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.49</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.50</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
