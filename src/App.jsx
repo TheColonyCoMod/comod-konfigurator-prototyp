@@ -2993,14 +2993,21 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
       {aktiv && (
         <div className="mt-5 space-y-5">
           <Slider label="Unternehmenssteuer (Annahme)" value={financing.plattform.steuer} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, steuer: v}}))} min={0.15} max={0.40} step={0.01} format={fmtPct} hint="GewSt + KSt + Soli für GmbH meist 28–32 %" />
-          {/* IAB-Slider — beeinflusst nur die steuerliche Wirkung, NICHT die Finanzierungs-Rate */}
+          {/* IAB-Slider + Eingabefeld — beeinflusst nur die steuerliche Wirkung, NICHT die Finanzierungs-Rate */}
           <div>
             <div className="flex justify-between items-baseline mb-2 gap-2">
               <FieldLabel required={false} hint="Bis zu 50 % der geplanten Investition können vorab steuerlich abgezogen werden (§ 7g EStG)">Investitionsabzugsbetrag (IAB)</FieldLabel>
             </div>
-            <div className="flex items-baseline justify-between mb-2">
-              <span className="font-display text-base num text-[#7B2D8E]">{fmtEUR(iabClamped)}</span>
-              <span className="font-body text-xs text-[#6B6961]">max. 50 % · {fmtEUR(iabMax)}</span>
+            <div className="flex items-center gap-3 mb-2">
+              <input type="number" min={0} max={iabMax} step={1000}
+                value={iabClamped}
+                onChange={e => {
+                  const v = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                  setIabBetrag(Math.max(0, Math.min(iabMax, isNaN(v) ? 0 : v)));
+                }}
+                className="w-32 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-display text-base text-[#7B2D8E] focus:outline-none focus:border-[#D2563E] num [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+              <span className="font-body text-sm text-[#6B6961]">€</span>
+              <span className="font-body text-xs text-[#6B6961] ml-auto">max. 50 % · {fmtEUR(iabMax)}</span>
             </div>
             <input type="range" min={0} max={iabMax} step={1000} value={iabClamped}
               onChange={e => setIabBetrag(parseInt(e.target.value, 10))} className="w-full" />
@@ -3605,6 +3612,69 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
                 {fin.vermietungDurchUns && (
                   <p className="sm:col-span-2 lg:col-span-3 text-[#7B2D8E]">↗ Vermietung durch CoMod</p>
                 )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Einmalige Posten — Detail-Snapshot aller Pflicht-, Optionen- und Planungs-Kosten */}
+        {(() => {
+          const detail = lead.finanzen_snapshot?.einmaligDetail;
+          if (!detail?.posten?.length) return null;
+          const pflicht = detail.posten.filter(p => p.typ === 'pflicht' && !['arch', 'eing', 'pm'].includes(p.id));
+          const optionen = detail.posten.filter(p => p.typ === 'option' || p.typ === 'schaetzung');
+          const planung = detail.posten.filter(p => p.typ === 'planung' || ['arch', 'eing', 'pm'].includes(p.id));
+          return (
+            <div className="px-8 pb-4">
+              <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Einmalige Posten — Detail</p>
+              <div className="bg-[#F8F5F0] p-4 space-y-3 font-body text-xs">
+                {pflicht.length > 0 && (
+                  <div>
+                    <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1.5">Modul-Pflichtkosten</p>
+                    <div className="space-y-1">
+                      {pflicht.map(p => (
+                        <div key={p.id} className="flex justify-between">
+                          <span className="text-[#1C1C1A]">{p.label}{p.detail && <span className="text-[#6B6961] italic ml-1.5">({p.detail})</span>}</span>
+                          <span className="num text-[#1C1C1A]">{fmtEUR(p.brutto)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {optionen.length > 0 && (
+                  <div className="pt-2 border-t border-[#1C1C1A]/8">
+                    <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1.5">Optionen / Grundstück</p>
+                    <div className="space-y-1">
+                      {optionen.map(p => (
+                        <div key={p.id} className="flex justify-between">
+                          <span className="text-[#1C1C1A]">
+                            {p.label}
+                            {p.typ === 'schaetzung' && <span className="text-[#6B6961] italic ml-1.5">(Schätzung)</span>}
+                            {p.detail && <span className="text-[#6B6961] italic ml-1.5">({p.detail})</span>}
+                          </span>
+                          <span className="num text-[#1C1C1A]">{fmtEUR(p.brutto)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {planung.length > 0 && (
+                  <div className="pt-2 border-t border-[#1C1C1A]/8">
+                    <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1.5">Planung &amp; Bauleitung</p>
+                    <div className="space-y-1">
+                      {planung.map(p => (
+                        <div key={p.id} className="flex justify-between">
+                          <span className="text-[#1C1C1A]">{p.label}</span>
+                          <span className="num text-[#1C1C1A]">{fmtEUR(p.brutto)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="pt-2 border-t border-[#1C1C1A]/15 flex justify-between font-display">
+                  <span className="text-[#1C1C1A]">Summe einmalig</span>
+                  <span className="num text-[#1C1C1A]">{fmtEUR(detail.summeBrutto)}</span>
+                </div>
               </div>
             </div>
           );
@@ -5518,6 +5588,9 @@ export default function App() {
         mitarbeiterAnzahl: totals.eigennutzungGewerbCount > 0 ? totals.eigennutzungGewerbCount : null,
         iabBetrag: iabBetrag > 0 ? iabBetrag : null,
         privatOptionen: Object.entries(privatOptionen).filter(([_, v]) => v).map(([k]) => k),
+        // Detail-Snapshot aller Einmal-Posten (Fundament, Terrasse, Treppen, Grundstück, Planung, Baugenehmigung)
+        // Wird im Admin-Lead-Modal angezeigt für vollständige Nachvollziehbarkeit
+        einmaligDetail: totals.einmaligDetail || null,
       },
     };
     try {
@@ -5623,7 +5696,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.54</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.55</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
