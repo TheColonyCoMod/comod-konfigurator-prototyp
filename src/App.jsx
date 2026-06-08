@@ -2630,8 +2630,15 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 )}
 
                 {totals.einmaligGesamtBrutto > 0 && (
-                  <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10">
-                    <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalige Projektkosten</p>
+                  <details className="pb-4 mb-4 border-b border-[#1C1C1A]/10 group">
+                    <summary className="cursor-pointer list-none flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalige Projektkosten</p>
+                        <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto)}</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
+                    </summary>
+                    <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
                     {project ? (
                       // Projekt-Beitritt: Umlage stabil pro Modul (fixer Projekt-Tarif)
                       <>
@@ -2723,7 +2730,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         ? 'Pflicht — fallen unabhängig von uns an (Planung, Erschließung, Außenanlagen, Behörde).'
                         : 'Behördliche Gebühr — regional unterschiedlich. Weitere Kosten (Planung, Erschließung) hängen vom konkreten Bauprojekt ab.'}
                     </p>
-                  </div>
+                    </div>
+                  </details>
                 )}
 
                 {/* INVESTMENT — als Detail, nicht als Hero */}
@@ -5615,7 +5623,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.52</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.53</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
