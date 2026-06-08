@@ -429,6 +429,24 @@ async function loadSettingsFromDb() {
         });
     }
 
+    // Grundstücks-Optionen (Array) — nur netto + label sind vom Admin editierbar.
+    // bezug/anteil/schaetzungsfaehig sind Logik-Felder; wir nehmen sie aus DB, falls vorhanden,
+    // sonst aus den Code-Defaults (Sicherheitsnetz).
+    if (Array.isArray(map.GRDST_OPTIONEN) && map.GRDST_OPTIONEN.length > 0) {
+      const codeDefaults = Object.fromEntries(GRDST_OPTIONEN.map(o => [o.id, o]));
+      GRDST_OPTIONEN = map.GRDST_OPTIONEN.map(s => {
+        const def = codeDefaults[s.id] || {};
+        return {
+          id: s.id,
+          label: s.label || def.label || s.id,
+          netto: Number(s.netto) || 0,
+          bezug: s.bezug || def.bezug || 'grundstueck',
+          anteil: s.anteil != null ? Number(s.anteil) : def.anteil,
+          schaetzungsfaehig: s.schaetzungsfaehig != null ? !!s.schaetzungsfaehig : !!def.schaetzungsfaehig,
+        };
+      });
+    }
+
     // Finanzierungs-Defaults aus mehreren Settings zusammenbauen
     FIN_DEFAULTS = {
       kfw: {
@@ -482,7 +500,8 @@ let PROJEKTKOSTEN_STAFFEL = [
   { maxMod: null, arch: 35000, eing: 59000, pm: 120000 },
 ];
 
-const GRDST_OPTIONEN = [
+// Grundstücksbezogene Optionen — wird beim App-Start aus DB überschrieben
+let GRDST_OPTIONEN = [
   { id: 'abriss', label: 'Abriss vorhandener Bebauung',          netto: 50,  bezug: 'grundstueck', schaetzungsfaehig: false },
   { id: 'erschl', label: 'Erschließung (Strom/Wasser/Abwasser)', netto: 100, bezug: 'grundstueck', schaetzungsfaehig: true },
   { id: 'wege',   label: 'Wege, Schotter, Pflaster',              netto: 75,  bezug: 'freiflaeche', anteil: 0.3, schaetzungsfaehig: true },
@@ -4749,6 +4768,7 @@ const SETTING_CATEGORIES = [
   { key: 'provision',     label: 'Provisionen & Steuern' },
   { key: 'rabatt',        label: 'Mengen-Rabatt' },
   { key: 'projektkosten', label: 'Projektkostenstaffel' },
+  { key: 'grundstueck',   label: 'Grundstückskosten' },
   { key: 'finanz',        label: 'Finanzierung' },
   { key: 'kosten_lfd',    label: 'Kosten laufend' },
   { key: 'kosten_einmal', label: 'Kosten einmalig' },
@@ -5032,7 +5052,65 @@ function AdminSettingsView() {
     );
   }
 
-  const activeDefs = (activeCat === 'rabatt' || activeCat === 'projektkosten') ? [] : SETTING_DEFS.filter(d => d.cat === activeCat);
+  // Grundstücks-Optionen: 4 Posten (Abriss, Erschließung, Wege, Begrünung).
+  // Master-Admin kann Label und Netto-Wert ändern. bezug/anteil sind Logik-Felder (read-only Anzeige).
+  function renderGrundstueckskosten() {
+    const list = Array.isArray(settings.GRDST_OPTIONEN) ? settings.GRDST_OPTIONEN : [];
+    const orig = original.GRDST_OPTIONEN;
+    const changed = JSON.stringify(list) !== JSON.stringify(orig);
+
+    function updateRow(i, field, val) {
+      const next = [...list];
+      next[i] = { ...next[i], [field]: val };
+      updateSetting('GRDST_OPTIONEN', next);
+    }
+
+    return (
+      <div className="bg-white border border-[#1C1C1A]/10 p-6">
+        <div className="flex items-end justify-between mb-4 gap-4 flex-wrap">
+          <div>
+            <p className="font-body text-base text-[#1C1C1A] mb-1">Grundstückskosten</p>
+            <p className="font-body text-xs text-[#6B6961] max-w-2xl">
+              Die vier kundenseitig wählbaren Posten. Werte sind <strong>netto in € pro m²</strong>. Bezug auf <em>Grundstück</em> = volle Grundstücksfläche, Bezug auf <em>Freifläche</em> = Grundstück minus Gebäudefläche (anteilig auf Wege und Begrünung verteilt, üblicherweise 30 / 70).
+            </p>
+          </div>
+          {changed && <span className="font-body text-[10px] text-[#7B2D8E] uppercase tracking-wider whitespace-nowrap">geändert</span>}
+        </div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 px-2 font-body text-[10px] tracking-wider uppercase text-[#6B6961]">
+            <div>Bezeichnung</div>
+            <div>Netto € / m²</div>
+            <div>Bezug</div>
+            <div>Anteil</div>
+          </div>
+          {list.map((row, i) => (
+            <div key={row.id || i} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 items-center">
+              <input type="text" value={row.label ?? ''}
+                onChange={e => updateRow(i, 'label', e.target.value)}
+                className="bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+              <div className="flex items-center gap-2">
+                <input type="number" value={row.netto ?? 0}
+                  onChange={e => updateRow(i, 'netto', Number(e.target.value) || 0)}
+                  className={`flex-1 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+                <span className="font-body text-xs text-[#6B6961]">€/m²</span>
+              </div>
+              <div className="font-body text-xs text-[#6B6961]">
+                {row.bezug === 'grundstueck' ? 'Grundstücksfläche' : 'Freifläche'}
+              </div>
+              <div className="font-body text-xs text-[#6B6961] num">
+                {row.bezug === 'freiflaeche' && row.anteil != null ? `${Math.round(row.anteil * 100)} %` : '100 %'}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 pt-4 border-t border-[#1C1C1A]/10 font-body text-[11px] text-[#6B6961] italic">
+          Hinweis: Bezug und Anteil sind Logik-Felder und werden über die DB gepflegt (z. B. bei Bedarf via SQL). Im Konfigurator werden die Posten als Checkboxen angeboten, die Berechnung erfolgt anhand der Grundstücks- und Gebäudefläche.
+        </div>
+      </div>
+    );
+  }
+
+  const activeDefs = (activeCat === 'rabatt' || activeCat === 'projektkosten' || activeCat === 'grundstueck') ? [] : SETTING_DEFS.filter(d => d.cat === activeCat);
 
   return (
     <div>
@@ -5072,6 +5150,8 @@ function AdminSettingsView() {
             ? (JSON.stringify(settings.RABATT_STAFFEL) !== JSON.stringify(original.RABATT_STAFFEL))
             : c.key === 'projektkosten'
             ? (JSON.stringify(settings.PROJEKTKOSTEN_STAFFEL) !== JSON.stringify(original.PROJEKTKOSTEN_STAFFEL))
+            : c.key === 'grundstueck'
+            ? (JSON.stringify(settings.GRDST_OPTIONEN) !== JSON.stringify(original.GRDST_OPTIONEN))
             : SETTING_DEFS.filter(d => d.cat === c.key).some(d => JSON.stringify(settings[d.key]) !== JSON.stringify(original[d.key]));
           return (
             <button key={c.key} onClick={() => setActiveCat(c.key)}
@@ -5091,6 +5171,8 @@ function AdminSettingsView() {
         renderRabattStaffel()
       ) : activeCat === 'projektkosten' ? (
         renderProjektkostenStaffel()
+      ) : activeCat === 'grundstueck' ? (
+        renderGrundstueckskosten()
       ) : (
         <div className="bg-white border border-[#1C1C1A]/10 p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5">
@@ -5485,7 +5567,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.48</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.49</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
