@@ -512,7 +512,7 @@ let GRDST_OPTIONEN = [
 let FIN_DEFAULTS = {
   kfw: { foerderhoehe: 150000, zins: 0.02, laufzeit: 25, tilgungsnachlass: 0.15 },
   gls: { zins: 0.05, laufzeit: 10 }, // Laufzeit fix
-  plattform: { zins: 0.055, laufzeit: 10, steuer: 0.30, afaJahre: 8, restwertPct: 0 }, // Laufzeit max 10
+  plattform: { zins: 0.055, laufzeit: 10, steuer: 0.30, afaJahre: 10, restwertPct: 0 }, // Laufzeit max 10, AfA wie Container (nicht Tiny House)
 };
 
 /* ============================================================================
@@ -3585,32 +3585,36 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
         {(() => {
           const fin = lead.finanzen_snapshot || {};
           const fp = fin.financingParams || {};
+          const mod = lead.modules_snapshot || {};
+          // Pfad-Erkennung: rein privat / rein gewerblich / gemischt
+          const hasPrivatLead = (mod.countPrivat ?? 0) > 0;
+          const hasGewerbLead = (mod.countGewerb ?? 0) > 0;
           const hasFinDetails = (fin.ekPrivat > 0 || fin.ekGewerb > 0 || fin.iabBetrag != null || fp.kfw || fp.gls || fp.plattform);
           if (!hasFinDetails) return null;
           return (
             <div className="px-8 pb-4">
               <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Finanzierungs-Eingaben des Kunden</p>
               <div className="bg-[#F8F5F0] p-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 font-body text-xs">
-                {fin.ekPrivat > 0 && (
+                {fin.ekPrivat > 0 && hasPrivatLead && (
                   <p><span className="text-[#6B6961]">Eigenkapital privat:</span> <span className="num text-[#1C1C1A]">{fmtEUR(fin.ekPrivat)}</span></p>
                 )}
-                {fin.ekGewerb > 0 && (
+                {fin.ekGewerb > 0 && hasGewerbLead && (
                   <p><span className="text-[#6B6961]">Eigenkapital gewerblich:</span> <span className="num text-[#1C1C1A]">{fmtEUR(fin.ekGewerb)}</span></p>
                 )}
-                {fp.kfw && (
+                {fp.kfw && hasPrivatLead && (
                   <>
                     <p><span className="text-[#6B6961]">KfW Zins:</span> <span className="num">{(fp.kfw.zins * 100).toFixed(2)} %</span></p>
                     <p><span className="text-[#6B6961]">KfW Laufzeit:</span> <span className="num">{fp.kfw.laufzeit} Jahre</span></p>
                     <p><span className="text-[#6B6961]">KfW Tilgungsnachlass:</span> <span className="num">{(fp.kfw.tilgungsnachlass * 100).toFixed(0)} %</span></p>
                   </>
                 )}
-                {fp.gls && (
+                {fp.gls && hasPrivatLead && (
                   <>
                     <p><span className="text-[#6B6961]">GLS Zins:</span> <span className="num">{(fp.gls.zins * 100).toFixed(2)} %</span></p>
                     <p><span className="text-[#6B6961]">GLS Laufzeit:</span> <span className="num">{fp.gls.laufzeit} Jahre</span></p>
                   </>
                 )}
-                {fp.plattform && (
+                {fp.plattform && hasGewerbLead && (
                   <>
                     <p><span className="text-[#6B6961]">Plattform Zins:</span> <span className="num">{(fp.plattform.zins * 100).toFixed(2)} %</span></p>
                     <p><span className="text-[#6B6961]">Plattform Laufzeit:</span> <span className="num">{fp.plattform.laufzeit} Jahre</span></p>
@@ -3623,7 +3627,7 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
                     )}
                   </>
                 )}
-                {fin.iabBetrag != null && fin.iabBetrag > 0 && (
+                {fin.iabBetrag != null && fin.iabBetrag > 0 && hasGewerbLead && (
                   <p><span className="text-[#6B6961]">IAB beantragt:</span> <span className="num text-[#7B2D8E]">{fmtEUR(fin.iabBetrag)}</span></p>
                 )}
                 {fin.anzahlung != null && (
@@ -5716,7 +5720,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.58</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.59</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
