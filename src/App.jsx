@@ -619,7 +619,9 @@ function validateGeschossVerteilung(verteilung, zielwert) {
 function calcEinmaligeProjektkosten({ modulAnzahl, grundstueckGroesse, geschosse, activeOptionen, hasGrundstueck, useEstimates, totalBGF, geschossVerteilung, pvAnteil, projektTotalBGF, projektModulAnzahl }) {
   const staffel = getProjektkostenStaffel(modulAnzahl);
   const gAnzahl = geschosse || 2;
-  const belegteFlaeche = (totalBGF || 0) > 0 ? Math.ceil(totalBGF / gAnzahl) : Math.ceil((modulAnzahl * 36) / gAnzahl);
+  // Belegte Fläche für Grundstücks-Berechnung: basiert auf der GEPLANTEN Modulanzahl × Standard-BGF / Geschosse
+  // (nicht auf der bisherigen User-Auswahl — sonst springt der Wert bei jedem Klick und wird kleiner je mehr Module gewählt)
+  const belegteFlaeche = Math.ceil((modulAnzahl * ZIEL_MODUL_BGF) / gAnzahl);
   const tatsaechlicheGrdst = grundstueckGroesse || (useEstimates ? Math.ceil(belegteFlaeche / BEBAUUNGSGRAD) : 0);
   const freiflaeche = Math.max(0, tatsaechlicheGrdst - belegteFlaeche);
   const posten = [
@@ -2640,12 +2642,51 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
                       </>
                     ) : gewerbConfig ? (
-                      // Gewerbliche Konfig: Gesamtsumme prominent (Pro-Modul-Wert wäre instabil)
+                      // Gewerblich: Detail-Posten analog Privat, aber mit zusätzlichem Block für Optionen/Schätzungen
+                      // Posten-Typen aus calcEinmaligeProjektkosten: 'pflicht' (Module-bezogen) | 'option' / 'schaetzung' (Grundstück, PV) | wir behandeln Arch/Eing/PM als 'pflicht' aber separieren sie unten
                       <>
-                        <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">Planung, Genehmigung, Bauleitung</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
-                        {totals.baugenehmigungEinzeln > 0 && (
-                          <p className="font-body text-[10px] text-[#6B6961] mt-1">davon Baugenehmigung {fmtEUR(totals.baugenehmigungEinzeln)} (Richtwert NRW)</p>
+                        {totals.einmaligDetail?.posten?.filter(p => p.typ === 'pflicht' && !['arch', 'eing', 'pm'].includes(p.id)).map(p => (
+                          <div key={p.id} className="flex justify-between text-sm font-body mt-1">
+                            <dt className="text-[#6B6961]">{p.label}</dt>
+                            <dd className="num">{fmtEUR(p.brutto)}</dd>
+                          </div>
+                        ))}
+
+                        {/* Grundstücks-Optionen + PV/Dachbegrünung */}
+                        {totals.einmaligDetail?.posten?.some(p => p.typ === 'option' || p.typ === 'schaetzung') && (
+                          <div className="mt-3 pt-3 border-t border-dashed border-[#1C1C1A]/15">
+                            <p className="font-body text-[11px] text-[#6B6961] mb-1.5">Optionen / Grundstück</p>
+                            {totals.einmaligDetail.posten.filter(p => p.typ === 'option' || p.typ === 'schaetzung').map(p => (
+                              <div key={p.id} className="flex justify-between text-xs font-body text-[#6B6961] mt-0.5">
+                                <dt>
+                                  {p.label}
+                                  {p.typ === 'schaetzung' && <span className="text-[10px] italic ml-1">(Schätzung)</span>}
+                                </dt>
+                                <dd className="num">{fmtEUR(p.brutto)}</dd>
+                              </div>
+                            ))}
+                          </div>
                         )}
+
+                        {/* Planungs-Block analog Privat */}
+                        {totals.einmaligDetail?.posten?.some(p => ['arch', 'eing', 'pm'].includes(p.id)) && (
+                          <div className="mt-3 pt-3 border-t border-dashed border-[#1C1C1A]/15">
+                            <p className="font-body text-[11px] text-[#6B6961] italic mb-1.5 leading-snug">
+                              Planung & Bauleitung (Pflicht, gestaffelt nach Ziel-Modulanzahl):
+                            </p>
+                            {totals.einmaligDetail.posten.filter(p => ['arch', 'eing', 'pm'].includes(p.id)).map(p => (
+                              <div key={p.id} className="flex justify-between text-xs font-body text-[#6B6961] mt-0.5">
+                                <dt>{p.label}</dt>
+                                <dd className="num">{fmtEUR(p.brutto)}</dd>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8">
+                          <dt className="text-[#1C1C1A]">Summe einmalig</dt>
+                          <dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto)}</dd>
+                        </div>
                       </>
                     ) : (
                       // Privat eigenes Grundstück: zwei Sub-Blöcke
@@ -3322,7 +3363,7 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
           </div>
         </div>
         <aside>
-          <div className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-7 sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
+          <div className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-7 sticky top-24 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 7rem)' }}>
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Zusammenfassung</p>
             <h3 className="font-display text-xl mb-5">Dein Setup</h3>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Typ</p>
@@ -5567,7 +5608,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.50</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.51</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
