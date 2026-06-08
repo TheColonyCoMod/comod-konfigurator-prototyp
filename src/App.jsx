@@ -413,6 +413,22 @@ async function loadSettingsFromDb() {
         .sort((a, b) => a.ab - b.ab);
     }
 
+    // Projektkosten-Staffel (Array) — Sortierung: Stufen mit maxMod=null/Infinity ans Ende
+    if (Array.isArray(map.PROJEKTKOSTEN_STAFFEL) && map.PROJEKTKOSTEN_STAFFEL.length > 0) {
+      PROJEKTKOSTEN_STAFFEL = [...map.PROJEKTKOSTEN_STAFFEL]
+        .map(s => ({
+          maxMod: (s.maxMod == null || s.maxMod === 'unbegrenzt') ? null : Number(s.maxMod),
+          arch: Number(s.arch) || 0,
+          eing: Number(s.eing) || 0,
+          pm:   Number(s.pm)   || 0,
+        }))
+        .sort((a, b) => {
+          if (a.maxMod == null) return 1;
+          if (b.maxMod == null) return -1;
+          return a.maxMod - b.maxMod;
+        });
+    }
+
     // Finanzierungs-Defaults aus mehreren Settings zusammenbauen
     FIN_DEFAULTS = {
       kfw: {
@@ -457,11 +473,13 @@ async function loadSettingsFromDb() {
   }
 }
 
-const PROJEKTKOSTEN_STAFFEL = [
-  { maxMod: 10,       arch: 7500,  eing: 12500, pm: 36000  },
-  { maxMod: 25,       arch: 15000, eing: 25000, pm: 60000  },
-  { maxMod: 50,       arch: 25000, eing: 39000, pm: 90000  },
-  { maxMod: Infinity, arch: 35000, eing: 59000, pm: 120000 },
+// Projektkosten-Staffel — Pflicht-Posten, die unabhängig von der Modulanzahl anfallen.
+// `maxMod: null` bedeutet "unbegrenzt" (höchste Stufe). Wird beim App-Start aus DB überschrieben.
+let PROJEKTKOSTEN_STAFFEL = [
+  { maxMod: 10,   arch: 7500,  eing: 12500, pm: 36000  },
+  { maxMod: 25,   arch: 15000, eing: 25000, pm: 60000  },
+  { maxMod: 50,   arch: 25000, eing: 39000, pm: 90000  },
+  { maxMod: null, arch: 35000, eing: 59000, pm: 120000 },
 ];
 
 const GRDST_OPTIONEN = [
@@ -492,7 +510,9 @@ function pmt(annualRate, years, principal) {
 }
 function getProjektkostenStaffel(modulAnzahl) {
   if (modulAnzahl <= 0) return { arch: 0, eing: 0, pm: 0, netto: 0, brutto: 0 };
-  const t = PROJEKTKOSTEN_STAFFEL.find(s => modulAnzahl <= s.maxMod);
+  // maxMod === null bedeutet "unbegrenzt" — gilt für alle Anzahlen oberhalb der vorletzten Stufe
+  const t = PROJEKTKOSTEN_STAFFEL.find(s => s.maxMod == null || modulAnzahl <= s.maxMod)
+         || PROJEKTKOSTEN_STAFFEL[PROJEKTKOSTEN_STAFFEL.length - 1];
   const netto = t.arch + t.eing + t.pm;
   return { arch: t.arch, eing: t.eing, pm: t.pm, netto, brutto: netto * (1 + UST) };
 }
@@ -4726,12 +4746,13 @@ const SETTING_DEFS = [
 ];
 
 const SETTING_CATEGORIES = [
-  { key: 'provision',    label: 'Provisionen & Steuern' },
-  { key: 'rabatt',       label: 'Mengen-Rabatt' },
-  { key: 'finanz',       label: 'Finanzierung' },
-  { key: 'kosten_lfd',   label: 'Kosten laufend' },
-  { key: 'kosten_einmal',label: 'Kosten einmalig' },
-  { key: 'geometrie',    label: 'Geometrie & Baugenehmigung' },
+  { key: 'provision',     label: 'Provisionen & Steuern' },
+  { key: 'rabatt',        label: 'Mengen-Rabatt' },
+  { key: 'projektkosten', label: 'Projektkostenstaffel' },
+  { key: 'finanz',        label: 'Finanzierung' },
+  { key: 'kosten_lfd',    label: 'Kosten laufend' },
+  { key: 'kosten_einmal', label: 'Kosten einmalig' },
+  { key: 'geometrie',     label: 'Geometrie & Baugenehmigung' },
 ];
 
 function AdminSettingsView() {
@@ -4925,7 +4946,93 @@ function AdminSettingsView() {
     );
   }
 
-  const activeDefs = activeCat === 'rabatt' ? [] : SETTING_DEFS.filter(d => d.cat === activeCat);
+  // Projektkosten-Staffel: Pflicht-Posten Architektur / Eingabeplanung / Projektmanagement
+  // Pro Stufe: bis X Module → arch/eing/pm Beträge in € netto
+  function renderProjektkostenStaffel() {
+    const list = Array.isArray(settings.PROJEKTKOSTEN_STAFFEL) ? settings.PROJEKTKOSTEN_STAFFEL : [];
+    const orig = original.PROJEKTKOSTEN_STAFFEL;
+    const changed = JSON.stringify(list) !== JSON.stringify(orig);
+
+    function updateRow(i, field, val) {
+      const next = [...list];
+      next[i] = { ...next[i], [field]: val };
+      updateSetting('PROJEKTKOSTEN_STAFFEL', next);
+    }
+    function removeRow(i) {
+      updateSetting('PROJEKTKOSTEN_STAFFEL', list.filter((_, idx) => idx !== i));
+    }
+    function addRow() {
+      updateSetting('PROJEKTKOSTEN_STAFFEL', [...list, { maxMod: 0, arch: 0, eing: 0, pm: 0 }]);
+    }
+    function sortByMax() {
+      // Stufen mit maxMod=null ans Ende
+      const sorted = [...list].sort((a, b) => {
+        if (a.maxMod == null) return 1;
+        if (b.maxMod == null) return -1;
+        return Number(a.maxMod) - Number(b.maxMod);
+      });
+      updateSetting('PROJEKTKOSTEN_STAFFEL', sorted);
+    }
+
+    return (
+      <div className="bg-white border border-[#1C1C1A]/10 p-6">
+        <div className="flex items-end justify-between mb-4 gap-4 flex-wrap">
+          <div>
+            <p className="font-body text-base text-[#1C1C1A] mb-1">Projektkostenstaffel</p>
+            <p className="font-body text-xs text-[#6B6961] max-w-2xl">
+              Pflichtkosten für Architektur / Eingabeplanung / Projektmanagement. Pro Stufe gilt: bis zur angegebenen Modulanzahl wird der jeweilige Pauschalbetrag verrechnet. Die letzte Stufe (mit leerer Modulanzahl = „unbegrenzt") gilt für alle Anzahlen oberhalb der vorletzten Stufe. Werte sind netto in €.
+            </p>
+          </div>
+          {changed && <span className="font-body text-[10px] text-[#7B2D8E] uppercase tracking-wider whitespace-nowrap">geändert</span>}
+        </div>
+        <div className="space-y-2">
+          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 px-2 font-body text-[10px] tracking-wider uppercase text-[#6B6961]">
+            <div>Bis Modulanzahl</div>
+            <div>Architektur (€)</div>
+            <div>Eingabeplanung (€)</div>
+            <div>Projektmgmt. (€)</div>
+            <div></div>
+          </div>
+          {list.map((row, i) => (
+            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 items-center">
+              <input type="number" value={row.maxMod ?? ''}
+                placeholder="unbegrenzt"
+                onChange={e => updateRow(i, 'maxMod', e.target.value === '' ? null : Number(e.target.value))}
+                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+              <input type="number" value={row.arch ?? 0}
+                onChange={e => updateRow(i, 'arch', Number(e.target.value) || 0)}
+                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+              <input type="number" value={row.eing ?? 0}
+                onChange={e => updateRow(i, 'eing', Number(e.target.value) || 0)}
+                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+              <input type="number" value={row.pm ?? 0}
+                onChange={e => updateRow(i, 'pm', Number(e.target.value) || 0)}
+                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+              <button onClick={() => removeRow(i)} title="Zeile entfernen"
+                className="text-[#C5392E]/60 hover:text-[#C5392E] p-1.5">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 mt-4">
+          <button onClick={addRow} className="font-body text-xs tracking-wider uppercase border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A] hover:border-[#1C1C1A]/30 px-3 py-1.5 flex items-center gap-1.5">
+            <Plus className="w-3.5 h-3.5" /> Stufe hinzufügen
+          </button>
+          {list.length > 1 && (
+            <button onClick={sortByMax} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-2 py-1.5">
+              Nach Modulanzahl sortieren
+            </button>
+          )}
+        </div>
+        <div className="mt-4 pt-4 border-t border-[#1C1C1A]/10 font-body text-[11px] text-[#6B6961] italic">
+          Tipp: Die letzte Stufe (leeres Feld „Bis Modulanzahl") wirkt als „über alle Schwellen hinaus". Wenn keine offene Stufe vorhanden ist, gilt die höchste begrenzte Stufe als Maximum.
+        </div>
+      </div>
+    );
+  }
+
+  const activeDefs = (activeCat === 'rabatt' || activeCat === 'projektkosten') ? [] : SETTING_DEFS.filter(d => d.cat === activeCat);
 
   return (
     <div>
@@ -4963,6 +5070,8 @@ function AdminSettingsView() {
         {SETTING_CATEGORIES.map(c => {
           const catDirty = c.key === 'rabatt'
             ? (JSON.stringify(settings.RABATT_STAFFEL) !== JSON.stringify(original.RABATT_STAFFEL))
+            : c.key === 'projektkosten'
+            ? (JSON.stringify(settings.PROJEKTKOSTEN_STAFFEL) !== JSON.stringify(original.PROJEKTKOSTEN_STAFFEL))
             : SETTING_DEFS.filter(d => d.cat === c.key).some(d => JSON.stringify(settings[d.key]) !== JSON.stringify(original[d.key]));
           return (
             <button key={c.key} onClick={() => setActiveCat(c.key)}
@@ -4980,6 +5089,8 @@ function AdminSettingsView() {
         <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Settings …</div>
       ) : activeCat === 'rabatt' ? (
         renderRabattStaffel()
+      ) : activeCat === 'projektkosten' ? (
+        renderProjektkostenStaffel()
       ) : (
         <div className="bg-white border border-[#1C1C1A]/10 p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5">
@@ -5374,7 +5485,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.47</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.48</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
