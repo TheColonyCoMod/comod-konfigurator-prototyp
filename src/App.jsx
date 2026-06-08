@@ -1019,6 +1019,8 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     iabClamped, iabSteuerersparnis, iabEntlastungMonat,
     finanzierungMonat, monatlichGesamt, monatlichInklNebenkosten, anzahlung,
     bruttoGesamt: effPrivat + effGewerbBrutto,
+    nettoGesamt: (effPrivat / (1 + UST)) + effGewerbNetto,
+    einmaligGesamtNetto: (einmaligDetail?.summeNetto != null ? einmaligDetail.summeNetto : einmaligGesamtBrutto / (1 + UST)),
     monthlyIncomeBrutto, monthlyIncomeNetto, feeAbzug,
     cashflowNetto, cashflowPositive, hasIncome: incomeItems.length > 0,
     monatlichGesamtNachIab, effektiveBelastung, belastungProMA, iabEntlastungProMA,
@@ -2253,6 +2255,12 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
 function ModulesStep({ customerType, modulart, project, gewerbConfig, selections, setSelections, modes, setModes, totals, onNext, onBack, addUsageState, setAddUsageState }) {
   const [variantState, setVariantState] = useState({});
 
+  // Reiner Gewerbe-Pfad: alle Beträge netto anzeigen (Vorsteuer-Abzug möglich)
+  const isPureGewerb = customerType === 'gewerblich';
+  const priceMode = isPureGewerb ? 'netto' : 'brutto';
+  // Helper: nimmt einen Posten mit { brutto, netto } und gibt den anzuzeigenden Wert
+  const showPrice = (item) => isPureGewerb && item?.netto != null ? item.netto : (item?.brutto ?? item);
+
   // Welche Familien sollen gezeigt werden?
   const familyIdsToShow = useMemo(() => {
     if (modulart === 'privat') return FAMILIES_PRIVAT;
@@ -2411,6 +2419,13 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
           <div className="lg:sticky lg:top-24 bg-white border border-[#1C1C1A]/10 p-7">
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Dein unverbindliches Angebot</p>
             <h3 className="font-display text-2xl mb-6">Übersicht</h3>
+            {isPureGewerb && (
+              <div className="mb-5 -mx-7 px-7 py-2 bg-[#7B2D8E]/8 border-y border-[#7B2D8E]/15">
+                <p className="font-body text-[11px] text-[#7B2D8E] flex items-center gap-1.5">
+                  <Info className="w-3 h-3" strokeWidth={2} /> Alle Beträge netto, exkl. 19 % USt
+                </p>
+              </div>
+            )}
             {totals.countTotal === 0 ? (
               <p className="font-body text-sm text-[#6B6961] py-8 text-center border-y border-[#1C1C1A]/10">
                 Noch keine Module gewählt<span className="opacity-50"> …</span>
@@ -2634,8 +2649,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   <details className="pb-4 mb-4 border-b border-[#1C1C1A]/10 group">
                     <summary className="cursor-pointer list-none flex items-center justify-between">
                       <div className="flex-1">
-                        <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalige Projektkosten</p>
-                        <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto)}</p>
+                        <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalige Projektkosten {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</p>
+                        <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.einmaligGesamtNetto : totals.einmaligGesamtBrutto)}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
                     </summary>
@@ -2656,7 +2671,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         {totals.einmaligDetail?.posten?.filter(p => p.typ === 'pflicht' && !['arch', 'eing', 'pm'].includes(p.id)).map(p => (
                           <div key={p.id} className="flex justify-between text-sm font-body mt-1">
                             <dt className="text-[#6B6961]">{p.label}</dt>
-                            <dd className="num">{fmtEUR(p.brutto)}</dd>
+                            <dd className="num">{fmtEUR(isPureGewerb ? p.netto : p.brutto)}</dd>
                           </div>
                         ))}
 
@@ -2670,7 +2685,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                                   {p.label}
                                   {p.typ === 'schaetzung' && <span className="text-[10px] italic ml-1">(Schätzung)</span>}
                                 </dt>
-                                <dd className="num">{fmtEUR(p.brutto)}</dd>
+                                <dd className="num">{fmtEUR(isPureGewerb ? p.netto : p.brutto)}</dd>
                               </div>
                             ))}
                           </div>
@@ -2685,7 +2700,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                             {totals.einmaligDetail.posten.filter(p => ['arch', 'eing', 'pm'].includes(p.id)).map(p => (
                               <div key={p.id} className="flex justify-between text-xs font-body text-[#6B6961] mt-0.5">
                                 <dt>{p.label}</dt>
-                                <dd className="num">{fmtEUR(p.brutto)}</dd>
+                                <dd className="num">{fmtEUR(isPureGewerb ? p.netto : p.brutto)}</dd>
                               </div>
                             ))}
                           </div>
@@ -2693,7 +2708,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
 
                         <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8">
                           <dt className="text-[#1C1C1A]">Summe einmalig</dt>
-                          <dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto)}</dd>
+                          <dd className="num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.einmaligGesamtNetto : totals.einmaligGesamtBrutto)}</dd>
                         </div>
                       </>
                     ) : (
@@ -2738,24 +2753,24 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 {/* INVESTMENT — als Detail, nicht als Hero */}
                 <details className="mb-4 pb-4 border-b border-[#1C1C1A]/10 group">
                   <summary className="font-body text-xs uppercase tracking-wider text-[#6B6961] cursor-pointer hover:text-[#1C1C1A] flex items-center justify-between gap-2 list-none">
-                    <span className="flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Investmentsumme anzeigen</span>
+                    <span className="flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Investmentsumme anzeigen {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</span>
                     <ChevronRight className="w-3 h-3 transition-transform group-open:rotate-90" strokeWidth={2} />
                   </summary>
                   <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8 space-y-1.5">
                     <div className="flex justify-between text-sm font-body">
                       <span className="text-[#6B6961]">Anschaffung gesamt</span>
-                      <span className="num text-[#1C1C1A]">{fmtEUR(totals.bruttoGesamt)}</span>
+                      <span className="num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.nettoGesamt : totals.bruttoGesamt)}</span>
                     </div>
                     <div className="flex justify-between text-sm font-body">
                       <span className="text-[#6B6961]">Anzahlung ca.</span>
-                      <span className="num text-[#1C1C1A]">{fmtEUR(totals.anzahlung)}</span>
+                      <span className="num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.anzahlung / (1 + UST) : totals.anzahlung)}</span>
                     </div>
                     {totals.lineItems.length > 0 && (
                       <div className="pt-2 mt-2 border-t border-[#1C1C1A]/8 space-y-1">
                         {totals.lineItems.map(it => (
                           <div key={it.kuerzel} className="flex justify-between text-[11px] font-body text-[#6B6961]">
                             <span>{it.count}× {getDisplayName(it)}</span>
-                            <span className="num">{fmtEUR(it.count * it.brutto)}</span>
+                            <span className="num">{fmtEUR(it.count * (isPureGewerb ? it.netto : it.brutto))}</span>
                           </div>
                         ))}
                       </div>
@@ -5697,7 +5712,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.56</p>
+              <p>CoMod Konfigurator — Prototyp v0.9.57</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
