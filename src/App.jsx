@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.61';
+const APP_VERSION = '0.9.62';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1170,9 +1170,9 @@ function ModuleIcon({ nuf }) {
 
 function WelcomeStep({ onSelect }) {
   const options = [
-    { id: 'privat', icon: Home, title: 'Privat', subtitle: 'Eigenes Wohnen, optional gewerbliche Erweiterung',
+    { id: 'privat', icon: Home, image: '/headers/header_privat.jpg', title: 'Privat', subtitle: 'Eigenes Wohnen, optional gewerbliche Erweiterung',
       desc: 'Module für die private Nutzung — auf Deinem eigenen Grundstück oder als Teil eines unserer Projekte. Auch gewerbliche Module möglich (z. B. Praxis, Büro).' },
-    { id: 'gewerblich', icon: Building2, title: 'Gewerblich', subtitle: 'Tourismus, Mitarbeiter, Investment',
+    { id: 'gewerblich', icon: Building2, image: '/headers/header_gewerbe.jpg', title: 'Gewerblich', subtitle: 'Tourismus, Mitarbeiter, Investment',
       desc: 'Du hast bereits eine Fläche oder suchst noch? Wir berechnen den Mindestflächenbedarf — oder die volle Wirtschaftlichkeit, wenn Du Deine Fläche kennst.' },
   ];
   return (
@@ -1192,15 +1192,33 @@ function WelcomeStep({ onSelect }) {
           const Icon = o.icon;
           return (
             <button key={o.id} onClick={() => onSelect(o.id)}
-              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#D2563E] p-10 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
-              <div className="w-14 h-14 rounded-full bg-[#D2563E]/5 group-hover:bg-[#D2563E]/10 flex items-center justify-center mb-6 transition-colors">
-                <Icon className="w-6 h-6 text-[#D2563E]" strokeWidth={1.5} />
+              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#D2563E] overflow-hidden flex flex-col transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
+              {/* Header-Visual im Querformat 3:2, mit Icon-Fallback */}
+              <div className="relative bg-[#F8F5F0] overflow-hidden" style={{ aspectRatio: '3 / 2' }}>
+                {o.image ? (
+                  <img src={o.image} alt={o.title}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    loading="lazy"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#F0EDE5] to-[#E8E3D6]">
+                    <Icon className="w-12 h-12 text-[#A87DAE]/40" strokeWidth={1.5} />
+                  </div>
+                )}
               </div>
-              <h3 className="font-display text-3xl mb-2">{o.title}</h3>
-              <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-4">{o.subtitle}</p>
-              <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-6">{o.desc}</p>
-              <div className="flex items-center gap-2 font-body text-sm text-[#D2563E] opacity-0 group-hover:opacity-100 transition-opacity">
-                Weiter <ArrowRight className="w-4 h-4" />
+              {/* Textteil */}
+              <div className="p-8 flex-1 flex flex-col">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-11 h-11 rounded-full bg-[#D2563E]/5 group-hover:bg-[#D2563E]/10 flex items-center justify-center transition-colors shrink-0">
+                    <Icon className="w-5 h-5 text-[#D2563E]" strokeWidth={1.5} />
+                  </div>
+                  <h3 className="font-display text-3xl">{o.title}</h3>
+                </div>
+                <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-4">{o.subtitle}</p>
+                <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-6">{o.desc}</p>
+                <div className="flex items-center gap-2 font-body text-sm text-[#D2563E] opacity-0 group-hover:opacity-100 transition-opacity mt-auto">
+                  Weiter <ArrowRight className="w-4 h-4" />
+                </div>
               </div>
             </button>
           );
