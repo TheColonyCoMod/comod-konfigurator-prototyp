@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.62';
+const APP_VERSION = '0.9.63';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -5552,6 +5552,196 @@ function AdminBackupsView({ authUser, authProfile }) {
   );
 }
 
+/* ============================================================================
+   ADMIN · TEXTE (content_blocks-Editor, Ebene A: CRUD)
+   Pflegt die Text-Blöcke in der DB. Hinweis: Die Texte werden derzeit noch
+   nicht automatisch in der App ausgespielt — das ist die separate Verdrahtung.
+   ============================================================================ */
+
+function AdminContentBlockEdit({ block, authUser, onClose, onSaved, onDeleted }) {
+  const isNew = !block;
+  const [form, setForm] = useState(() => ({
+    key: '', description: '', content_de: '', content_en: '', workspace_id: null,
+    ...(block || {}),
+  }));
+  const [saving, setSaving]   = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError]     = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const update = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }));
+  const inputCls = 'w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[#D2563E]';
+
+  async function save() {
+    setError(null);
+    if (!form.key || !form.key.trim()) { setError('Der Schlüssel (key) darf nicht leer sein.'); return; }
+    setSaving(true);
+    const payload = {
+      key: form.key.trim(),
+      description: form.description?.trim() || null,
+      content_de: form.content_de ?? null,
+      content_en: (form.content_en && form.content_en.trim()) ? form.content_en : null,
+      workspace_id: form.workspace_id ?? null,
+      updated_at: new Date().toISOString(),
+      updated_by: authUser?.id || null,
+    };
+    let res;
+    if (isNew) res = await supabase.from('content_blocks').insert(payload).select('*').single();
+    else       res = await supabase.from('content_blocks').update(payload).eq('id', block.id).select('*').single();
+    if (res.error) { setError(res.error.message); setSaving(false); return; }
+    setSaving(false);
+    onSaved(res.data);
+  }
+
+  async function del() {
+    if (!block) return;
+    setDeleting(true); setError(null);
+    const { error } = await supabase.from('content_blocks').delete().eq('id', block.id);
+    if (error) { setError(error.message); setDeleting(false); return; }
+    onDeleted(block.id);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 sm:py-8" onClick={onClose}>
+      <div className="bg-white max-w-3xl w-full" onClick={e => e.stopPropagation()}
+        style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', overflowX: 'hidden' }}>
+        <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
+          <div>
+            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">{isNew ? 'Neuer Textblock' : 'Textblock bearbeiten'}</p>
+            <h2 className="font-display text-3xl tracking-tight font-mono">{form.key || 'neu'}</h2>
+          </div>
+          <button onClick={onClose} className="text-[#6B6961] hover:text-[#1C1C1A] p-2"><Plus className="w-5 h-5 rotate-45" /></button>
+        </div>
+
+        <div className="p-8 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Schlüssel (key)</label>
+              <input type="text" value={form.key ?? ''} onChange={update('key')} className={`${inputCls} font-mono`} placeholder="z. B. footer_disclaimer" />
+              <p className="font-body text-[10px] text-[#6B6961] mt-1">Eindeutiger Bezeichner — wird später im Code referenziert. Bei bestehenden Blöcken nur ändern, wenn nötig.</p>
+            </div>
+            <div>
+              <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Beschreibung (intern)</label>
+              <input type="text" value={form.description ?? ''} onChange={update('description')} className={inputCls} placeholder="Wo/wofür wird der Text verwendet?" />
+            </div>
+          </div>
+
+          <div>
+            <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Inhalt (Deutsch)</label>
+            <textarea value={form.content_de ?? ''} onChange={update('content_de')} rows={7} className={`${inputCls} leading-relaxed resize-y`} />
+          </div>
+
+          <div>
+            <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Inhalt (Englisch) — optional</label>
+            <textarea value={form.content_en ?? ''} onChange={update('content_en')} rows={4} className={`${inputCls} leading-relaxed resize-y`} placeholder="Noch nicht gepflegt — leer lassen, falls nicht benötigt." />
+          </div>
+
+          {error && <div className="bg-[#C5392E]/5 border border-[#C5392E]/30 p-3"><p className="font-body text-sm text-[#C5392E]">{error}</p></div>}
+        </div>
+
+        <div className="flex items-center justify-between p-8 border-t border-[#1C1C1A]/10 gap-4 flex-wrap">
+          <div>
+            {!isNew && (
+              confirmDelete ? (
+                <div className="flex items-center gap-2">
+                  <span className="font-body text-xs text-[#C5392E]">Wirklich löschen?</span>
+                  <button onClick={del} disabled={deleting} className="font-body text-xs tracking-wider uppercase bg-[#C5392E] text-white px-3 py-2 disabled:opacity-50">{deleting ? 'Lösche …' : 'Ja, löschen'}</button>
+                  <button onClick={() => setConfirmDelete(false)} className="font-body text-xs tracking-wider uppercase text-[#6B6961] px-3 py-2">Abbrechen</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDelete(true)} className="font-body text-xs tracking-wider uppercase text-[#C5392E] hover:text-[#A12C23] px-3 py-2 flex items-center gap-1.5"><Trash2 className="w-3.5 h-3.5" /> Löschen</button>
+              )
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-4 py-2.5">Abbrechen</button>
+            <button onClick={save} disabled={saving} className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] disabled:opacity-50 text-white px-5 py-2.5 flex items-center gap-2"><Check className="w-3.5 h-3.5" /> {saving ? 'Speichere …' : 'Speichern'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminContentBlocksView({ authUser, authProfile }) {
+  const [blocks, setBlocks]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+  const [editing, setEditing] = useState(undefined); // undefined = zu, null = neu, Objekt = bearbeiten
+  const isMaster = authProfile?.role === 'master_admin';
+
+  async function loadAll() {
+    setLoading(true); setError(null);
+    const { data, error } = await supabase.from('content_blocks').select('*').order('key', { ascending: true });
+    if (error) { setError(error.message); setLoading(false); return; }
+    setBlocks(data || []);
+    setLoading(false);
+  }
+  useEffect(() => { loadAll(); }, []);
+
+  function handleSaved(row) {
+    setBlocks(prev => {
+      const exists = prev.some(b => b.id === row.id);
+      const next = exists ? prev.map(b => b.id === row.id ? row : b) : [...prev, row];
+      return next.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
+    });
+    setEditing(undefined);
+  }
+  function handleDeleted(id) { setBlocks(prev => prev.filter(b => b.id !== id)); setEditing(undefined); }
+
+  const fmtDate = (s) => { try { return new Date(s).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; } };
+  const preview = (t) => { const s = (t || '').trim(); return s.length > 160 ? s.slice(0, 160) + ' …' : s; };
+
+  if (!isMaster) {
+    return <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Der Texte-Editor ist nur für Master-Admins verfügbar.</div>;
+  }
+
+  return (
+    <div>
+      <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display text-4xl tracking-tight mb-2">Texte</h1>
+          <p className="font-body text-sm text-[#6B6961]">{blocks.length} {blocks.length === 1 ? 'Textblock' : 'Textblöcke'}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={loadAll} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
+          <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neuer Block</button>
+        </div>
+      </div>
+
+      <div className="bg-[#A87DAE]/5 border border-[#A87DAE]/30 p-4 mb-6">
+        <p className="font-body text-[12px] leading-relaxed text-[#6B6961]">
+          Hinweis: Diese Texte werden aktuell noch <span className="text-[#1C1C1A]">nicht automatisch</span> in der App ausgespielt — die entsprechenden Stellen nutzen vorerst weiter die fest hinterlegten Texte. Das Ausspielen (Verdrahtung) ist der nächste, separate Schritt.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Textblöcke …</div>
+      ) : error ? (
+        <div className="bg-white border border-[#C5392E]/30 p-8"><p className="font-body text-sm text-[#C5392E]">Fehler: {error}</p></div>
+      ) : blocks.length === 0 ? (
+        <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center"><p className="font-display text-xl text-[#6B6961]">Noch keine Textblöcke<span className="opacity-50"> …</span></p></div>
+      ) : (
+        <div className="bg-white border border-[#1C1C1A]/10">
+          {blocks.map((b, idx) => (
+            <button key={b.id} onClick={() => setEditing(b)}
+              className={`w-full text-left px-5 py-4 ${idx !== blocks.length - 1 ? 'border-b border-[#1C1C1A]/5' : ''} hover:bg-[#F8F5F0]/50 transition-colors`}>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="font-mono text-sm text-[#1C1C1A]">{b.key}</span>
+                {b.description && <span className="font-body text-xs text-[#6B6961]">· {b.description}</span>}
+              </div>
+              <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed">{preview(b.content_de)}</p>
+              <p className="font-body text-[10px] text-[#6B6961]/70 mt-1.5">{b.content_en ? 'DE + EN' : 'nur DE'}{b.updated_at ? ` · zuletzt ${fmtDate(b.updated_at)}` : ''}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {editing !== undefined && <AdminContentBlockEdit block={editing} authUser={authUser} onClose={() => setEditing(undefined)} onSaved={handleSaved} onDeleted={handleDeleted} />}
+    </div>
+  );
+}
+
 function AdminPanel({ authUser, authProfile }) {
   const [tab, setTab] = useState('leads'); // 'leads' | 'modules' | 'projects' | 'settings' | 'backups'
   async function logout() { await supabase.auth.signOut(); }
@@ -5560,7 +5750,7 @@ function AdminPanel({ authUser, authProfile }) {
     { key: 'modules',  label: 'Module' },
     { key: 'projects', label: 'Projekte' },
     { key: 'settings', label: 'Settings' },
-    ...(authProfile?.role === 'master_admin' ? [{ key: 'backups', label: 'Backups' }] : []),
+    ...(authProfile?.role === 'master_admin' ? [{ key: 'texte', label: 'Texte' }, { key: 'backups', label: 'Backups' }] : []),
   ];
   return (
     <div className="max-w-7xl mx-auto px-8 py-12">
@@ -5586,6 +5776,7 @@ function AdminPanel({ authUser, authProfile }) {
       {tab === 'projects' && <AdminProjectsView />}
       {tab === 'settings' && <AdminSettingsView />}
       {tab === 'backups'  && <AdminBackupsView authUser={authUser} authProfile={authProfile} />}
+      {tab === 'texte'    && <AdminContentBlocksView authUser={authUser} authProfile={authProfile} />}
     </div>
   );
 }
