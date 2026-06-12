@@ -9,6 +9,8 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const APP_VERSION = '0.9.61';
+
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
    ============================================================================ */
@@ -5352,14 +5354,195 @@ function AdminSettingsView() {
   );
 }
 
+/* ============================================================================
+   ADMIN · BACKUPS (Config-Snapshots, Phase 1: erstellen · auflisten · exportieren)
+   Snapshot = JSON-Abzug der 6 Konfig-Tabellen. Kundendaten (leads etc.) bleiben aussen vor.
+   In-App-Restore folgt in Phase 2; vorerst exportiert man das JSON und stellt manuell wieder her.
+   ============================================================================ */
+
+const SNAPSHOT_TABLES = ['settings', 'projects', 'modules', 'module_visibility', 'fassaden_varianten', 'content_blocks'];
+const SNAPSHOT_TABLE_LABELS = {
+  settings: 'Settings', projects: 'Projekte', modules: 'Module',
+  module_visibility: 'Sichtbarkeiten', fassaden_varianten: 'Fassaden', content_blocks: 'Texte',
+};
+
+function AdminBackupsView({ authUser, authProfile }) {
+  const [snapshots, setSnapshots] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
+  const [creating, setCreating]   = useState(false);
+  const [label, setLabel]         = useState('');
+  const [exportingId, setExportingId] = useState(null);
+
+  const isMaster = authProfile?.role === 'master_admin';
+
+  // Liste OHNE payload laden (payload kann gross sein) — payload wird erst beim Export nachgeholt.
+  async function loadAll() {
+    setLoading(true); setError(null);
+    const { data, error } = await supabase
+      .from('config_snapshots')
+      .select('id, label, created_at, created_by_email, app_version, counts')
+      .order('created_at', { ascending: false });
+    if (error) { setError(error.message); setLoading(false); return; }
+    setSnapshots(data || []);
+    setLoading(false);
+  }
+  useEffect(() => { loadAll(); }, []);
+
+  async function createSnapshot() {
+    setCreating(true); setError(null);
+    try {
+      const results = await Promise.all(SNAPSHOT_TABLES.map(t => supabase.from(t).select('*')));
+      const errIdx = results.findIndex(r => r.error);
+      if (errIdx !== -1) {
+        setError(`Tabelle „${SNAPSHOT_TABLES[errIdx]}" konnte nicht gelesen werden: ${results[errIdx].error.message}`);
+        setCreating(false); return;
+      }
+      const payload = {};
+      const counts = {};
+      SNAPSHOT_TABLES.forEach((t, i) => {
+        const rows = results[i].data || [];
+        payload[t] = rows;
+        counts[t] = rows.length;
+      });
+      const ins = await supabase.from('config_snapshots').insert({
+        label: label.trim() || null,
+        app_version: APP_VERSION,
+        created_by_email: authUser?.email || null,
+        counts,
+        payload,
+      }).select('id, label, created_at, created_by_email, app_version, counts').single();
+      if (ins.error) { setError(`Snapshot konnte nicht gespeichert werden: ${ins.error.message}`); setCreating(false); return; }
+      setLabel('');
+      setSnapshots(prev => [ins.data, ...prev]);
+      setCreating(false);
+    } catch (e) {
+      setError(e.message || 'Unbekannter Fehler'); setCreating(false);
+    }
+  }
+
+  async function exportSnapshot(snap) {
+    setExportingId(snap.id); setError(null);
+    const { data, error } = await supabase.from('config_snapshots').select('*').eq('id', snap.id).single();
+    if (error) { setError('Export fehlgeschlagen: ' + error.message); setExportingId(null); return; }
+    try {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const d = new Date(data.created_at);
+      const p2 = (n) => String(n).padStart(2, '0');
+      const stamp = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}`;
+      const safeLabel = (data.label || 'snapshot').replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'snapshot';
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `comod-config_${stamp}_${safeLabel}.json`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      setError('Export fehlgeschlagen: ' + (e.message || 'Unbekannter Fehler'));
+    }
+    setExportingId(null);
+  }
+
+  const fmtDateTime = (s) => { try { return new Date(s).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }); } catch { return s; } };
+  const countsSummary = (counts) => {
+    if (!counts || typeof counts !== 'object') return '';
+    return SNAPSHOT_TABLES.filter(t => counts[t] != null).map(t => `${counts[t]} ${SNAPSHOT_TABLE_LABELS[t]}`).join(' · ');
+  };
+  const countsTotal = (counts) => {
+    if (!counts || typeof counts !== 'object') return 0;
+    return SNAPSHOT_TABLES.reduce((sum, t) => sum + (Number(counts[t]) || 0), 0);
+  };
+
+  if (!isMaster) {
+    return (
+      <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">
+        Backups sind nur für Master-Admins verfügbar.
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
+        <div>
+          <h1 className="font-display text-4xl tracking-tight mb-2">Backups</h1>
+          <p className="font-body text-sm text-[#6B6961]">
+            Konfigurations-Snapshots als Wiederherstellungspunkt — {snapshots.length} {snapshots.length === 1 ? 'Snapshot' : 'Snapshots'}
+          </p>
+        </div>
+        <button onClick={loadAll} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
+      </div>
+
+      {/* Snapshot erstellen */}
+      <div className="bg-white border border-[#1C1C1A]/10 p-6 mb-6">
+        <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Neuen Snapshot erstellen</p>
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+          <input
+            type="text" value={label} onChange={e => setLabel(e.target.value)}
+            placeholder="Bezeichnung (optional, z. B. „vor Rabattstaffel-Umbau“)"
+            maxLength={120}
+            className="flex-1 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+          <button
+            onClick={createSnapshot} disabled={creating}
+            className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 flex items-center justify-center gap-2 shrink-0">
+            <Cloud className="w-3.5 h-3.5" /> {creating ? 'Sichere …' : 'Snapshot erstellen'}
+          </button>
+        </div>
+        <p className="font-body text-[11px] leading-relaxed text-[#6B6961] mt-3">
+          Sichert den aktuellen Stand von <span className="font-mono">{SNAPSHOT_TABLES.join(', ')}</span>. Kundendaten (Leads) sind bewusst nicht enthalten.
+          Wiederherstellen erfolgt vorerst manuell über den JSON-Export — die In-App-Wiederherstellung kommt in einem späteren Schritt.
+        </p>
+      </div>
+
+      {error && (
+        <div className="bg-white border border-[#C5392E]/30 p-4 mb-6"><p className="font-body text-sm text-[#C5392E]">{error}</p></div>
+      )}
+
+      {loading ? (
+        <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Snapshots …</div>
+      ) : snapshots.length === 0 ? (
+        <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center">
+          <p className="font-display text-xl text-[#6B6961]">Noch keine Snapshots<span className="opacity-50"> …</span></p>
+          <p className="font-body text-sm text-[#6B6961] mt-2">Erstelle oben deinen ersten Wiederherstellungspunkt.</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-[#1C1C1A]/10">
+          {snapshots.map((s, idx) => (
+            <div key={s.id} className={`flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4 ${idx !== snapshots.length - 1 ? 'border-b border-[#1C1C1A]/5' : ''}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-body text-sm text-[#1C1C1A]">{s.label || <span className="text-[#6B6961] italic">ohne Bezeichnung</span>}</p>
+                  {s.app_version && <span className="font-mono text-[10px] text-[#6B6961] border border-[#1C1C1A]/10 px-1.5 py-0.5">v{s.app_version}</span>}
+                </div>
+                <p className="font-body text-xs text-[#6B6961] mt-1">
+                  {fmtDateTime(s.created_at)}{s.created_by_email ? ` · ${s.created_by_email}` : ''}
+                </p>
+                <p className="font-body text-[11px] text-[#6B6961]/80 mt-0.5">
+                  <span className="num">{countsTotal(s.counts)}</span> Zeilen — {countsSummary(s.counts)}
+                </p>
+              </div>
+              <button
+                onClick={() => exportSnapshot(s)} disabled={exportingId === s.id}
+                className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30 disabled:opacity-50 shrink-0 flex items-center gap-1.5 self-start sm:self-auto">
+                <FolderOpen className="w-3.5 h-3.5" /> {exportingId === s.id ? 'Export …' : 'JSON exportieren'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminPanel({ authUser, authProfile }) {
-  const [tab, setTab] = useState('leads'); // 'leads' | 'modules' | 'projects' | 'settings'
+  const [tab, setTab] = useState('leads'); // 'leads' | 'modules' | 'projects' | 'settings' | 'backups'
   async function logout() { await supabase.auth.signOut(); }
   const tabs = [
     { key: 'leads',    label: 'Leads' },
     { key: 'modules',  label: 'Module' },
     { key: 'projects', label: 'Projekte' },
     { key: 'settings', label: 'Settings' },
+    ...(authProfile?.role === 'master_admin' ? [{ key: 'backups', label: 'Backups' }] : []),
   ];
   return (
     <div className="max-w-7xl mx-auto px-8 py-12">
@@ -5384,6 +5567,7 @@ function AdminPanel({ authUser, authProfile }) {
       {tab === 'modules'  && <AdminModulesView authProfile={authProfile} />}
       {tab === 'projects' && <AdminProjectsView />}
       {tab === 'settings' && <AdminSettingsView />}
+      {tab === 'backups'  && <AdminBackupsView authUser={authUser} authProfile={authProfile} />}
     </div>
   );
 }
@@ -5729,7 +5913,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-8 py-8 font-body text-xs text-[#6B6961]">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <p>CoMod Konfigurator — Prototyp v0.9.60</p>
+              <p>CoMod Konfigurator — Prototyp v{APP_VERSION}</p>
               {/* DB-Status: dezenter Indikator, nur sichtbar wenn Fallback-Modus */}
               {dbStatus === 'fallback' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-[#A87DAE]" title="DB nicht erreichbar — Tool nutzt lokale Backup-Daten">
