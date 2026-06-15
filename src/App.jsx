@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.67';
+const APP_VERSION = '0.9.69';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -369,6 +369,9 @@ function mapDbProjectToFrontend(db) {
     transportProModul: Number(db.transport_pro_modul || 0),
     aufstellungProModul: Number(db.aufstellung_pro_modul || 0),
     umlageProModulEinmalig: db.umlage_pro_modul_einmalig || 0,
+    geschossVerteilung: Array.isArray(db.geschoss_verteilung) ? db.geschoss_verteilung : [],
+    einmalkostenOptionen: (db.einmalkosten_optionen && typeof db.einmalkosten_optionen === 'object') ? db.einmalkosten_optionen : {},
+    pvAnteil: db.pv_anteil == null ? 0 : Number(db.pv_anteil),
     pachtJahr: db.pacht_jahr || 0,
     pachtGewerblich: !!db.pacht_gewerblich,
     zielModulAnzahl: db.ziel_modul_anzahl,
@@ -764,6 +767,30 @@ function calcEinmaligeProjektkosten({ modulAnzahl, grundstueckGroesse, geschosse
   const summeBrutto = posten.reduce((s, p) => s + p.brutto, 0);
   return { posten, summeNetto, summeBrutto, belegteFlaeche, freiflaeche, tatsaechlicheGrdst };
 }
+
+// Solidar-Umlage pro Modul (P1): ALLE einmaligen Projektkosten — Planung/PM (gestaffelt nach Ziel),
+// Baugenehmigung (auf die Gesamt-BGF des Projekts hochgerechnet), Treppen/Fundamente/Terrassen/PV
+// (aus der Geschoss-Verteilung) und die gewählten Grundstücks-/Erschließungs-Optionen — geteilt durch
+// die Ziel-Modulanzahl. Liefert den Brutto-Wert pro Modul (Gewerb-Pfad rechnet daraus netto zurück).
+function calcProjektUmlageProModul(project) {
+  const ziel = project?.zielModulAnzahl || 0;
+  if (ziel <= 0) return 0;
+  const verteilung = (Array.isArray(project.geschossVerteilung) && project.geschossVerteilung.length > 0)
+    ? project.geschossVerteilung
+    : defaultGeschossVerteilung(ziel, 2);
+  const detail = calcEinmaligeProjektkosten({
+    modulAnzahl: ziel,
+    grundstueckGroesse: project.grundstueckGroesse || 0,
+    geschosse: verteilung.length || 2,
+    activeOptionen: project.einmalkostenOptionen || {},
+    hasGrundstueck: (project.grundstueckGroesse || 0) > 0,
+    useEstimates: false,
+    totalBGF: ziel * ZIEL_MODUL_BGF,
+    geschossVerteilung: verteilung,
+    pvAnteil: project.pvAnteil || 0,
+  });
+  return detail.summeBrutto / ziel;
+}
 function calcNebenkosten({ hasPacht, pachtJahr, pachtGewerblich, gesamtNUF, nufPrivat, nufGewerb, zielModulAnzahl }) {
   // Pacht-Berechnung:
   // - Wenn Projekt (zielModulAnzahl > 0): Umlage = pachtJahr / Ziel-Module / 32 m² / 12
@@ -875,15 +902,15 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   let einmaligGesamtBrutto = 0;
   let einmaligDetail = null;
   let baugenehmigungEinzeln = 0; // separate Tracking-Variable für Anzeige in Privat-Pfaden
+  let umlageProModulProjekt = 0; // effektive Umlage/Modul im Projekt (berechnet oder Override)
   if (project) {
-    // Projekt-Beitritt: Umlage pro Modul + anteilige Baugenehmigung auf Projekt-Zielwert
-    const projektZiel = project.zielModulAnzahl || countTotal;
-    // Annahme: Projekt-Standardmodul = 36 m² BGF (Standard-Live/Add)
-    const projektTotalBGF = projektZiel * 36;
-    const gesamtBaugenehmigung = calcBaugenehmigung(projektTotalBGF);
-    const anteil = gesamtBaugenehmigung * (countTotal / projektZiel);
-    baugenehmigungEinzeln = Math.ceil(anteil / GEBUEHR_RUNDUNG) * GEBUEHR_RUNDUNG;
-    einmaligGesamtBrutto = countTotal * (project.umlageProModulEinmalig || 0) + baugenehmigungEinzeln;
+    // Projekt-Beitritt (Solidar-Umlage): ALLE einmaligen Projektkosten inkl. Baugenehmigung
+    // (auf Projekt-Gesamt-BGF) ÷ Ziel-Module. Manuelles Feld wirkt als Override.
+    umlageProModulProjekt = (project.umlageProModulEinmalig > 0)
+      ? project.umlageProModulEinmalig
+      : calcProjektUmlageProModul(project);
+    einmaligGesamtBrutto = countTotal * umlageProModulProjekt;
+    baugenehmigungEinzeln = 0; // in der Umlage enthalten — keine separate Position im Projekt-Pfad
   } else if (gewerbConfig) {
     einmaligDetail = calcEinmaligeProjektkosten({
       modulAnzahl: gewerbConfig.zielModulAnzahl || countTotal,
@@ -1081,7 +1108,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     privatFinanzierungMonat, gewerblichRateNachSteuer, belastungFinanzierungEff,
     hatPrivatAnteil, hatGewerbEigen, hatGewerbVermietet, hatGewerbModule, istInvestor, istMAWohnen,
     nebenkosten, nebenkostenMonatGesamt, laufendeKostenMonat, verbrauchskostenMonat,
-    einmaligGesamtBrutto, einmaligProModul, einmaligDetail, baugenehmigungEinzeln,
+    einmaligGesamtBrutto, einmaligProModul, einmaligDetail, baugenehmigungEinzeln, umlageProModul: umlageProModulProjekt,
     mindestflaeche,
   };
 }
@@ -2740,7 +2767,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     {project ? (
                       // Projekt-Beitritt: Umlage stabil pro Modul (fixer Projekt-Tarif)
                       <>
-                        <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">{fmtEUR(project.umlageProModulEinmalig)}/Modul × {totals.countTotal} Module</dt><dd className="num">{fmtEUR(totals.countTotal * project.umlageProModulEinmalig)}</dd></div>
+                        <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">{fmtEUR(totals.umlageProModul)}/Modul × {totals.countTotal} Module</dt><dd className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</dd></div>
                         {totals.baugenehmigungEinzeln > 0 && (
                           <div className="flex justify-between text-sm font-body mt-1"><dt className="text-[#6B6961]">+ Baugenehmigung (anteilig)</dt><dd className="num">{fmtEUR(totals.baugenehmigungEinzeln)}</dd></div>
                         )}
@@ -3633,9 +3660,22 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
               <p><span className="text-[#6B6961]">Module gesamt:</span> <span className="num">{lead.modulanzahl_gesamt}</span></p>
               <p><span className="text-[#6B6961]">NUF:</span> <span className="num">{Number(lead.nuf_gesamt || 0).toFixed(1)} m²</span></p>
               <div className="pt-2 mt-2 border-t border-[#1C1C1A]/10 space-y-1">
-                {modulesArr.map((it, i) => (
-                  <div key={i} className="text-xs"><span className="num">{it.count}×</span> {it.kuerzel}</div>
-                ))}
+                {modulesArr.map((it, i) => {
+                  const liste = it.brutto != null ? it.count * it.brutto : null;
+                  const eff = it.brutto_effektiv != null ? it.count * it.brutto_effektiv : liste;
+                  const abweichend = liste != null && eff != null && Math.round(liste) !== Math.round(eff);
+                  return (
+                    <div key={i} className="text-xs flex justify-between gap-2">
+                      <span><span className="num">{it.count}×</span> {it.kuerzel}</span>
+                      {eff != null && (
+                        <span className="num text-right whitespace-nowrap">
+                          {fmtEUR(eff)}
+                          {abweichend && <span className="text-[#6B6961] line-through ml-1.5">{fmtEUR(liste)}</span>}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -4490,6 +4530,9 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     transport_pro_modul: 0,
     aufstellung_pro_modul: 0,
     umlage_pro_modul_einmalig: 0,
+    geschoss_verteilung: [],
+    einmalkosten_optionen: {},
+    pv_anteil: 0,
     pacht_jahr: 0,
     pacht_gewerblich: false,
     provision_pct: null,
@@ -4518,6 +4561,28 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
   const [faktorStr,     setFaktorStr]     = useState(() => pctToStr(form.einnahmen_faktor == null ? 1 : form.einnahmen_faktor));
   // Berechnungshilfe: temporäre Geschoss-Wahl, nicht persistiert
   const [geschosseHilfe, setGeschosseHilfe] = useState(2);
+
+  // P1 — Einmalkosten-Umlage (Solidarmodell)
+  const projFloorName = (i, n) => i === 0 ? 'EG' : (i === n - 1 ? 'DG' : `OG${i}`);
+  const pVerteilung = Array.isArray(form.geschoss_verteilung) ? form.geschoss_verteilung : [];
+  const pOptionen = (form.einmalkosten_optionen && typeof form.einmalkosten_optionen === 'object') ? form.einmalkosten_optionen : {};
+  const setGeschossCount = (n) => setForm(f => ({ ...f, geschoss_verteilung: defaultGeschossVerteilung(f.ziel_modul_anzahl || 0, n) }));
+  const setVerteilungWert = (idx, v) => setForm(f => {
+    const neu = [...(Array.isArray(f.geschoss_verteilung) ? f.geschoss_verteilung : [])];
+    neu[idx] = Math.max(0, Math.floor(Number(v) || 0));
+    return { ...f, geschoss_verteilung: neu };
+  });
+  const toggleOption = (id) => setForm(f => ({ ...f, einmalkosten_optionen: { ...((f.einmalkosten_optionen && typeof f.einmalkosten_optionen === 'object') ? f.einmalkosten_optionen : {}), [id]: !(((f.einmalkosten_optionen || {})[id])) } }));
+  const pVerteilungSumme = pVerteilung.reduce((s, n) => s + (Number(n) || 0), 0);
+  const pVerteilungValid = validateGeschossVerteilung(pVerteilung, form.ziel_modul_anzahl || 0);
+  const pComputedUmlage = calcProjektUmlageProModul({
+    zielModulAnzahl: form.ziel_modul_anzahl || 0,
+    grundstueckGroesse: form.grundstueck_groesse || 0,
+    geschossVerteilung: pVerteilung,
+    einmalkostenOptionen: pOptionen,
+    pvAnteil: form.pv_anteil || 0,
+  });
+  const pUmlageAktiv = (form.umlage_pro_modul_einmalig > 0) ? form.umlage_pro_modul_einmalig : pComputedUmlage;
 
   const update = (key) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked
@@ -4735,6 +4800,80 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
           })()}
 
           <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Einmalkosten-Umlage (Solidarmodell)</p>
+            <p className="font-body text-[11px] text-[#6B6961] mb-4 leading-relaxed">
+              Alle einmaligen Projektkosten (Planung, PM, Baugenehmigung auf Projekt-Gesamt-BGF, Treppen/Fundamente/Terrassen/PV, Erschließung) werden auf die Ziel-Modulanzahl umgelegt. Basis: Grundstück {form.grundstueck_groesse ? `${fmtNum(form.grundstueck_groesse)} m²` : '—'} · Ziel {form.ziel_modul_anzahl || 0} Module.
+            </p>
+
+            {/* Grundstücks-/Erschließungs-Optionen */}
+            <div className="mb-5">
+              <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-2">Grundstücks- & Erschließungs-Optionen</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {GRDST_OPTIONEN.map(opt => (
+                  <label key={opt.id} className="flex items-center gap-2 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 cursor-pointer">
+                    <input type="checkbox" checked={!!pOptionen[opt.id]} onChange={() => toggleOption(opt.id)} />
+                    <span className="font-body text-sm">{opt.label}</span>
+                    <span className="font-body text-[10px] text-[#6B6961] ml-auto num">{opt.netto} €/m²</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Geschoss-Verteilung */}
+            <div className="mb-5">
+              <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-2">Geschoss-Verteilung der Ziel-Module (Regel: EG ≥ OG ≥ DG)</label>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="font-body text-xs text-[#6B6961]">Geschosse:</span>
+                {[1, 2, 3].map(g => (
+                  <button key={g} type="button" onClick={() => setGeschossCount(g)}
+                    className={`px-3 py-1 font-body text-xs border transition-colors num ${pVerteilung.length === g ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>{g}</button>
+                ))}
+                <span className="font-body text-[10px] text-[#6B6961] ml-2">leer = Auto (2 Geschosse)</span>
+              </div>
+              {pVerteilung.length > 0 && (
+                <>
+                  <div className={`grid gap-2 ${pVerteilung.length === 1 ? 'grid-cols-1' : pVerteilung.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                    {pVerteilung.map((wert, idx) => (
+                      <div key={idx} className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-2">
+                        <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">{projFloorName(idx, pVerteilung.length)}</p>
+                        <input type="number" value={wert ?? 0} onChange={e => setVerteilungWert(idx, e.target.value)}
+                          className={`w-full px-2 py-1 bg-white border border-[#1C1C1A]/15 font-display text-base focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center mt-2 font-body text-xs">
+                    <span className="text-[#6B6961]">Summe: <span className="num text-[#1C1C1A]">{pVerteilungSumme}</span> / {form.ziel_modul_anzahl || 0}</span>
+                    {pVerteilungValid.valid
+                      ? <span className="text-[#7FB069]">gültig</span>
+                      : <span className="text-[#C5392E]">{pVerteilungValid.error}</span>}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* PV-Anteil + berechnete Umlage */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-2">PV-Anteil oberstes Geschoss</label>
+                <div className="flex gap-2">
+                  {[0, 0.5, 1].map(p => (
+                    <button key={p} type="button" onClick={() => setForm(f => ({ ...f, pv_anteil: p }))}
+                      className={`px-3 py-1.5 font-body text-xs border transition-colors num ${(form.pv_anteil || 0) === p ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>{Math.round(p * 100)} %</button>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-[#7B2D8E]/5 border border-[#7B2D8E]/20 p-3">
+                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Berechnete Umlage / Modul (brutto)</p>
+                <p className="font-display text-2xl num text-[#7B2D8E]">{fmtEUR(pComputedUmlage)}</p>
+                <p className="font-body text-[10px] text-[#6B6961] mt-1">
+                  Gesamt einmalig: {fmtEUR(pComputedUmlage * (form.ziel_modul_anzahl || 0))} auf {form.ziel_modul_anzahl || 0} Module
+                  {form.umlage_pro_modul_einmalig > 0 && <span className="text-[#D2563E]"> · Override aktiv: {fmtEUR(form.umlage_pro_modul_einmalig)}/Modul</span>}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Finanzielles</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
               <div>
@@ -4745,10 +4884,11 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">zusätzlich zur Mengenstaffel</p>
               </div>
               <div>
-                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Umlage / Modul einmalig (€)</label>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Umlage / Modul — Override (€)</label>
                 <input type="number" value={form.umlage_pro_modul_einmalig ?? ''} onChange={update('umlage_pro_modul_einmalig')}
+                  placeholder="leer = berechnet"
                   className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
-                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Erschließung, gemeinsame Flächen, etc.</p>
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">leer/0 = berechnete Solidar-Umlage; Wert = manuell überschreiben</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Pacht / Jahr (€)</label>
@@ -6054,19 +6194,26 @@ export default function App() {
 
       // MODULE & FLÄCHEN
       module: {
-        items: totals.lineItems.map(it => ({
-          kuerzel: it.kuerzel,
-          family: it.family,
-          count: it.count,
-          modulEinheiten: calcModulEinheiten(it),
-          mode: it.mode,
-          usage: it.usage,
-          einnahmen: it.einnahmen,
-          fee: it.fee,
-          herst: it.herst,
-          netto: it.netto,
-          brutto: it.brutto,
-        })),
+        items: totals.lineItems.map(it => {
+          // Effektiver Preis = tatsächlich angewandter Rabatt (Projekt/Menge) + ggf. Projekt-Marge.
+          // Listenpreis (netto/brutto) bleibt unverändert für die Nachvollziehbarkeit.
+          const _eff = calcRabattiertePreise(it, totals.rabattPct || 0, (project && project.projektMarge != null) ? project.projektMarge : undefined);
+          return {
+            kuerzel: it.kuerzel,
+            family: it.family,
+            count: it.count,
+            modulEinheiten: calcModulEinheiten(it),
+            mode: it.mode,
+            usage: it.usage,
+            einnahmen: it.einnahmen,
+            fee: it.fee,
+            herst: it.herst,
+            netto: it.netto,
+            brutto: it.brutto,
+            netto_effektiv: _eff.netto,
+            brutto_effektiv: _eff.brutto,
+          };
+        }),
         countTotal: totals.countTotal,
         countPrivat: totals.countPrivat,
         countGewerb: totals.countGewerb,
