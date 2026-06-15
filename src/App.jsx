@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.65';
+const APP_VERSION = '0.9.66';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -188,6 +188,17 @@ function calcRabattiertePreise(product, rabattPct, margeOverride) {
   const brutto = netto * (1 + UST);
   const baseNetto = product.herst * (1 + marge + PROV); // ungerabattete Referenz mit eff. Marge
   return { netto, brutto, rabattEUR: baseNetto - netto };
+}
+
+// Effektiver Modulpreis für die Karten-Anzeige.
+// priceCtx gesetzt (Projekt-Beitritt) → mit Projekt-Rabatt (auf Ziel-Modulanzahl, stabil) + ggf. Projekt-Marge.
+// Sonst Listenpreis wie bisher. Einmalige Projektkosten bleiben weiterhin AUSSEN vor (Feedback V7).
+function effectiveModulPreis(product, isPureGewerb, priceCtx) {
+  if (priceCtx) {
+    const r = calcRabattiertePreise(product, priceCtx.rabattPct || 0, priceCtx.projMarge);
+    return isPureGewerb ? r.netto : r.brutto;
+  }
+  return isPureGewerb ? product.netto : product.brutto;
 }
 
 // Mapping: Modul-Kürzel → Grundriss-Icon (PNG im public/icons-Verzeichnis)
@@ -2008,7 +2019,7 @@ function findVariantProduct(products, variant) {
 }
 
 // AddFamilyCard – für die zusammengeführte Add-Karte im 'Beides'-Modus
-function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProjectOrConfig, addUsageState, setAddUsageState, isPureGewerb }) {
+function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProjectOrConfig, addUsageState, setAddUsageState, isPureGewerb, priceCtx }) {
   // addUsageState = 'p' | 'g' (für die ganze Add-Karte)
   const usageState = addUsageState || 'g'; // Default gewerblich (Hauptanwendungsfall)
   const familyId = usageState === 'p' ? 'add' : 'addb';
@@ -2063,11 +2074,11 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
     return total;
   }, [selections, usageState]);
 
-  // Modulpreis bleibt STABIL — anteilige Projektkosten werden NICHT eingerechnet,
-  // weil sie sich mit jeder Modulanzahl-Änderung ändern und dadurch Preissprünge erzeugen würden
-  // (Feedback V7). Projektkosten stehen separat in der Sidebar als eigener Block.
+  // Modulpreis: im Projekt-Beitritt der effektive Preis (Projekt-Rabatt + ggf. Projekt-Marge), sonst Listenpreis.
+  // Einmalige anteilige Projektkosten bleiben bewusst AUSSEN vor (Feedback V7) — sonst Preissprünge bei jeder
+  // Modulanzahl-Änderung. Projekt-Rabatt/-Marge sind dagegen stabil (auf Ziel-Modulanzahl bzw. fix).
   // Im rein gewerblichen Pfad: netto-Preise (Hinweis steht im Sidebar-Banner)
-  const effectivePrice = isPureGewerb ? product.netto : product.brutto;
+  const effectivePrice = effectiveModulPreis(product, isPureGewerb, priceCtx);
 
   return (
     <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${familyTotal > 0 ? 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
@@ -2170,7 +2181,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 }
 
 // FamilyCard – Standard für alle anderen Familien
-function FamilyCard({ familyId, products, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb }) {
+function FamilyCard({ familyId, products, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb, priceCtx }) {
   // Defensive: Falls für eine Family kein Label hinterlegt ist, mit Defaults weitermachen statt zu crashen
   const fam = FAMILY_LABELS[familyId] || { label: products[0]?.kuerzel || familyId, desc: '' };
   const defaultVariant = useMemo(() => {
@@ -2214,10 +2225,9 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
   }
   function setMode(m) { setModes(prev => ({ ...prev, [product.kuerzel]: m })); }
 
-  // Modulpreis bleibt STABIL — anteilige Projektkosten werden NICHT eingerechnet,
-  // weil sie sich mit jeder Modulanzahl-Änderung ändern und dadurch Preissprünge erzeugen würden
-  // (Feedback V7). Projektkosten stehen separat in der Sidebar als eigener Block.
-  const effectivePrice = isPureGewerb ? product.netto : product.brutto;
+  // Modulpreis: im Projekt-Beitritt der effektive Preis (Projekt-Rabatt + ggf. Projekt-Marge), sonst Listenpreis.
+  // Einmalige anteilige Projektkosten bleiben bewusst AUSSEN vor (Feedback V7); Projekt-Rabatt/-Marge sind stabil.
+  const effectivePrice = effectiveModulPreis(product, isPureGewerb, priceCtx);
   const showsIncome = isModeToggleable(product) && mode === 'einnahmen';
 
   return (
@@ -2373,6 +2383,11 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
   const showAddInCat = showAddCombined && (catFilter === 'alle' || catFilter === 'ergaenzung');
 
   const hasProjectOrConfig = !!(project || gewerbConfig);
+  // Projektbezogene Modulpreise auf den Karten: nur bei Projekt-Beitritt, mit stabilem Projekt-Rabatt
+  // (totals.rabattPct basiert im Projekt auf der Ziel-Modulanzahl) und ggf. Projekt-Marge.
+  const priceCtx = project
+    ? { rabattPct: totals.rabattPct || 0, projMarge: (project.projektMarge != null ? project.projektMarge : undefined) }
+    : null;
   // Mindestflächenbedarf anzeigen wenn:
   // - Gewerbekunde ohne eigene Fläche (suche selbst / sucht für mich)
   // - Privatkunde mit eigenem Grundstück (kein Projekt-Beitritt)
@@ -2451,13 +2466,13 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       modes={modes} setModes={setModes}
                       einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
                       variantState={variantState} setVariantState={setVariantState}
-                      isPureGewerb={isPureGewerb} />
+                      isPureGewerb={isPureGewerb} priceCtx={priceCtx} />
                   ))}
                   {catId === 'ergaenzung' && showAddInCat && (
                     <AddFamilyCard selections={selections} setSelections={setSelections}
                       einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
                       addUsageState={addUsageState} setAddUsageState={setAddUsageState}
-                      isPureGewerb={isPureGewerb} />
+                      isPureGewerb={isPureGewerb} priceCtx={priceCtx} />
                   )}
                 </div>
               </div>
@@ -2473,7 +2488,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   <AddFamilyCard selections={selections} setSelections={setSelections}
                     einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
                     addUsageState={addUsageState} setAddUsageState={setAddUsageState}
-                    isPureGewerb={isPureGewerb} />
+                    isPureGewerb={isPureGewerb} priceCtx={priceCtx} />
                 </div>
               </div>
             )}
