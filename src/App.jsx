@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.69';
+const APP_VERSION = '0.9.70';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4559,8 +4559,6 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
   const [provisionStr,  setProvisionStr]  = useState(() => pctToStr(form.provision_pct));
   const [margeStr,      setMargeStr]      = useState(() => pctToStr(form.projekt_marge));
   const [faktorStr,     setFaktorStr]     = useState(() => pctToStr(form.einnahmen_faktor == null ? 1 : form.einnahmen_faktor));
-  // Berechnungshilfe: temporäre Geschoss-Wahl, nicht persistiert
-  const [geschosseHilfe, setGeschosseHilfe] = useState(2);
 
   // P1 — Einmalkosten-Umlage (Solidarmodell)
   const projFloorName = (i, n) => i === 0 ? 'EG' : (i === n - 1 ? 'DG' : `OG${i}`);
@@ -4600,7 +4598,18 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     const margeNum     = strToPct(margeStr);          // null = Modul-Marge gilt
     const faktorNum    = strToPct(faktorStr) ?? 1;    // 1 = 100 % (unverändert)
     const { id, created_at, updated_at, deleted_at, project: _p, ...rest } = form;
-    const payload = { ...rest, projektrabatt: rabattNum, provision_pct: provisionNum, projekt_marge: margeNum, einnahmen_faktor: faktorNum };
+    const payload = {
+      ...rest,
+      projektrabatt: rabattNum,
+      provision_pct: provisionNum,
+      projekt_marge: margeNum,
+      einnahmen_faktor: faktorNum,
+      // NOT-NULL-Spalten: leere Eingabe → 0 (0 = berechnete Umlage / kein Aufschlag)
+      umlage_pro_modul_einmalig: Number(form.umlage_pro_modul_einmalig) || 0,
+      transport_pro_modul: Number(form.transport_pro_modul) || 0,
+      aufstellung_pro_modul: Number(form.aufstellung_pro_modul) || 0,
+      pv_anteil: Number(form.pv_anteil) || 0,
+    };
     let res;
     if (isNew) {
       res = await supabase.from('projects').insert(payload).select('*').single();
@@ -4712,13 +4721,14 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
           </section>
 
           <section>
-            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Dimensionierung</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Dimensionierung &amp; Einmalkosten-Umlage</p>
+
+            {/* 1. Grundstück + Obergrenze */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
               <div>
-                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Ziel-Modulanzahl</label>
-                <input type="number" value={form.ziel_modul_anzahl ?? ''} onChange={update('ziel_modul_anzahl')}
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Grundstück (m²)</label>
+                <input type="number" value={form.grundstueck_groesse ?? ''} onChange={update('grundstueck_groesse')}
                   className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
-                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Wird benötigt, um Projekt freizugeben</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Max. Modulanzahl</label>
@@ -4726,88 +4736,85 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                   className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Obergrenze, wieviele Module wirklich gebaut werden</p>
               </div>
-              <div>
-                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Grundstück (m²)</label>
-                <input type="number" value={form.grundstueck_groesse ?? ''} onChange={update('grundstueck_groesse')}
-                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+            </div>
+
+            {/* 2. Geschosse — steuert Empfehlung UND Verteilung (eine Quelle) */}
+            <div className="mb-4">
+              <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1.5">Anzahl Geschosse</label>
+              <div className="flex gap-1.5">
+                {[1, 2, 3].map(g => (
+                  <button key={g} type="button" onClick={() => setGeschossCount(g)}
+                    className={`px-4 py-1.5 font-body text-xs border transition-colors num ${pVerteilung.length === g ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                    {g} {g === 1 ? 'Geschoss' : 'Geschosse'}
+                  </button>
+                ))}
               </div>
             </div>
-          </section>
 
-          {/* Berechnungshilfe — verwendet calcMaxModule + ZIEL_MODUL_BGF + BEBAUUNGSGRAD */}
-          {form.grundstueck_groesse > 0 && (() => {
-            const calc = (geschosse) => calcMaxModule({ grundstueckGroesse: form.grundstueck_groesse, geschosse });
-            const result = calc(geschosseHilfe);
-            const empfZiel = Math.round(result.maxGesamt * 0.8);
-            const empfMax  = result.maxGesamt;
-            // Pacht-Empfehlung: typisch 5-15 €/m² Grundstück und Jahr — Mitte 10
-            const pachtEmpf = Math.round((form.grundstueck_groesse || 0) * 10 / 1000) * 1000;
-            // Umlage/Modul: typisch 5.000-10.000 € Erschließung — Mitte 7.500
-            const umlageEmpf = 7500;
-            return (
-              <section className="border-l-4 border-[#7B2D8E]/30 pl-4 -ml-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E]">↺ Berechnungshilfe</p>
-                  <p className="font-body text-[10px] text-[#6B6961]">basierend auf Grundstück {fmtEUR(form.grundstueck_groesse).replace(' €','')} m² · 80 % bebaubar · Modul-BGF 36 m²</p>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1.5">Geplante Anzahl Geschosse (nur für Schätzung)</label>
-                    <div className="flex gap-1.5">
-                      {[1, 2, 3].map(g => (
-                        <button key={g} onClick={() => setGeschosseHilfe(g)}
-                          className={`px-4 py-1.5 font-body text-xs border transition-colors num ${geschosseHilfe === g ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-                          {g} {g === 1 ? 'Geschoss' : 'Geschosse'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="bg-[#F4ECF6]/40 p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="font-body text-sm">
-                      <p className="text-[#6B6961] text-xs mb-1">Maximal möglich auf diesem Grundstück</p>
-                      <p><span className="num text-[#1C1C1A]">{result.maxProGeschoss}</span> Module pro Geschoss · <span className="num text-[#7B2D8E]">{result.maxGesamt}</span> Module gesamt</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2 items-start sm:justify-end">
-                      <button onClick={() => setForm(f => ({...f, ziel_modul_anzahl: empfZiel, max_modul_anzahl: empfMax}))}
+            {/* 3. Empfehlung max. Module (Grundstück + Geschosse) */}
+            {form.grundstueck_groesse > 0 && (() => {
+              const geschosse = pVerteilung.length || 2;
+              const result = calcMaxModule({ grundstueckGroesse: form.grundstueck_groesse, geschosse });
+              const empfZiel = Math.round(result.maxGesamt * 0.8);
+              const empfMax = result.maxGesamt;
+              const pachtEmpf = Math.round((form.grundstueck_groesse || 0) * 10 / 1000) * 1000;
+              return (
+                <div className="bg-[#F4ECF6]/40 border-l-4 border-[#7B2D8E]/30 p-3 mb-5">
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#7B2D8E] mb-1.5">↺ Empfehlung · Grundstück {fmtNum(form.grundstueck_groesse)} m² · 80 % bebaubar · {geschosse} Gesch.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                    <p className="font-body text-sm"><span className="num text-[#1C1C1A]">{result.maxProGeschoss}</span> Module/Geschoss · <span className="num text-[#7B2D8E]">{result.maxGesamt}</span> gesamt</p>
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      <button type="button" onClick={() => setForm(f => ({ ...f, ziel_modul_anzahl: empfZiel, max_modul_anzahl: empfMax, geschoss_verteilung: defaultGeschossVerteilung(empfZiel, geschosse) }))}
                         className="font-body text-xs uppercase tracking-wider bg-[#7B2D8E]/10 text-[#7B2D8E] border border-[#7B2D8E]/40 hover:bg-[#7B2D8E]/20 px-3 py-1.5">
                         ↓ Ziel {empfZiel} · Max {empfMax} übernehmen
                       </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-body text-xs text-[#6B6961]">
-                    <div className="bg-[#F8F5F0]/60 p-3">
-                      <p className="uppercase tracking-wider mb-1.5">Umlage/Modul — Richtwert</p>
-                      <p>Typisch <span className="num text-[#1C1C1A]">5.000 – 10.000 €</span> pro Modul für Erschließung, Architektur, gemeinsame Flächen.</p>
-                      <button onClick={() => setForm(f => ({...f, umlage_pro_modul_einmalig: umlageEmpf}))}
-                        className="mt-2 text-[#7B2D8E] hover:text-[#5D2069] underline underline-offset-2">
-                        Mittelwert {fmtEUR(umlageEmpf)} übernehmen
-                      </button>
-                    </div>
-                    <div className="bg-[#F8F5F0]/60 p-3">
-                      <p className="uppercase tracking-wider mb-1.5">Pacht/Jahr — Richtwert</p>
-                      <p>Typisch <span className="num text-[#1C1C1A]">5 – 15 €/m²</span> Grundstück/Jahr. Stadtlage höher, Land niedriger.</p>
                       {pachtEmpf > 0 && (
-                        <button onClick={() => setForm(f => ({...f, pacht_jahr: pachtEmpf}))}
-                          className="mt-2 text-[#7B2D8E] hover:text-[#5D2069] underline underline-offset-2">
-                          Mittelwert {fmtEUR(pachtEmpf)}/Jahr übernehmen
+                        <button type="button" onClick={() => setForm(f => ({ ...f, pacht_jahr: pachtEmpf }))}
+                          className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] border border-[#7B2D8E]/40 hover:bg-[#7B2D8E]/10 px-3 py-1.5">
+                          Pacht {fmtEUR(pachtEmpf)}/Jahr
                         </button>
                       )}
                     </div>
                   </div>
                 </div>
-              </section>
-            );
-          })()}
+              );
+            })()}
 
-          <section>
-            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Einmalkosten-Umlage (Solidarmodell)</p>
-            <p className="font-body text-[11px] text-[#6B6961] mb-4 leading-relaxed">
-              Alle einmaligen Projektkosten (Planung, PM, Baugenehmigung auf Projekt-Gesamt-BGF, Treppen/Fundamente/Terrassen/PV, Erschließung) werden auf die Ziel-Modulanzahl umgelegt. Basis: Grundstück {form.grundstueck_groesse ? `${fmtNum(form.grundstueck_groesse)} m²` : '—'} · Ziel {form.ziel_modul_anzahl || 0} Module.
-            </p>
+            {/* 4. Ziel-Modulanzahl + Verteilung auf Geschosse */}
+            <div className="mb-4 max-w-xs">
+              <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Ziel-Modulanzahl</label>
+              <input type="number" value={form.ziel_modul_anzahl ?? ''} onChange={update('ziel_modul_anzahl')}
+                className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+              <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Wird benötigt, um Projekt freizugeben</p>
+            </div>
+            {pVerteilung.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961]">Verteilung auf Geschosse (Regel: EG ≥ OG ≥ DG)</label>
+                  <button type="button" onClick={() => setGeschossCount(pVerteilung.length)}
+                    className="font-body text-[10px] text-[#7B2D8E] hover:text-[#5D2069] underline underline-offset-2">↻ gleichmäßig verteilen</button>
+                </div>
+                <div className={`grid gap-2 ${pVerteilung.length === 1 ? 'grid-cols-1' : pVerteilung.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                  {pVerteilung.map((wert, idx) => (
+                    <div key={idx} className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-2">
+                      <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">{projFloorName(idx, pVerteilung.length)}</p>
+                      <input type="number" value={wert ?? 0} onChange={e => setVerteilungWert(idx, e.target.value)}
+                        className={`w-full px-2 py-1 bg-white border border-[#1C1C1A]/15 font-display text-base focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between items-center mt-2 font-body text-xs">
+                  <span className="text-[#6B6961]">Summe: <span className="num text-[#1C1C1A]">{pVerteilungSumme}</span> / {form.ziel_modul_anzahl || 0}</span>
+                  {pVerteilungValid.valid
+                    ? <span className="text-[#7FB069]">gültig</span>
+                    : <span className="text-[#C5392E]">{pVerteilungValid.error}</span>}
+                </div>
+              </div>
+            )}
 
-            {/* Grundstücks-/Erschließungs-Optionen */}
+            {/* 5. Grundstücks- & Erschließungs-Optionen */}
             <div className="mb-5">
-              <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-2">Grundstücks- & Erschließungs-Optionen</label>
+              <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-2">Grundstücks- &amp; Erschließungs-Optionen</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {GRDST_OPTIONEN.map(opt => (
                   <label key={opt.id} className="flex items-center gap-2 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 cursor-pointer">
@@ -4819,39 +4826,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
               </div>
             </div>
 
-            {/* Geschoss-Verteilung */}
-            <div className="mb-5">
-              <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-2">Geschoss-Verteilung der Ziel-Module (Regel: EG ≥ OG ≥ DG)</label>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="font-body text-xs text-[#6B6961]">Geschosse:</span>
-                {[1, 2, 3].map(g => (
-                  <button key={g} type="button" onClick={() => setGeschossCount(g)}
-                    className={`px-3 py-1 font-body text-xs border transition-colors num ${pVerteilung.length === g ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>{g}</button>
-                ))}
-                <span className="font-body text-[10px] text-[#6B6961] ml-2">leer = Auto (2 Geschosse)</span>
-              </div>
-              {pVerteilung.length > 0 && (
-                <>
-                  <div className={`grid gap-2 ${pVerteilung.length === 1 ? 'grid-cols-1' : pVerteilung.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                    {pVerteilung.map((wert, idx) => (
-                      <div key={idx} className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-2">
-                        <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">{projFloorName(idx, pVerteilung.length)}</p>
-                        <input type="number" value={wert ?? 0} onChange={e => setVerteilungWert(idx, e.target.value)}
-                          className={`w-full px-2 py-1 bg-white border border-[#1C1C1A]/15 font-display text-base focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-between items-center mt-2 font-body text-xs">
-                    <span className="text-[#6B6961]">Summe: <span className="num text-[#1C1C1A]">{pVerteilungSumme}</span> / {form.ziel_modul_anzahl || 0}</span>
-                    {pVerteilungValid.valid
-                      ? <span className="text-[#7FB069]">gültig</span>
-                      : <span className="text-[#C5392E]">{pVerteilungValid.error}</span>}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* PV-Anteil + berechnete Umlage */}
+            {/* 6. Kostenermittlung */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-2">PV-Anteil oberstes Geschoss</label>
