@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.66';
+const APP_VERSION = '0.9.67';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2630,7 +2630,9 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     </>
                   )}
                   <div className="flex justify-between"><dt>NUF</dt><dd className="num">{fmtNum(totals.gesamtNUF)} m²</dd></div>
-                  {totals.rabattPct > 0 && <div className="flex justify-between text-[#D2563E]"><dt>Rabatt gesamt</dt><dd className="num">−{fmtPct(totals.rabattPct)}</dd></div>}
+                  {totals.rabattPct > 0 && (priceCtx
+                    ? <div className="flex justify-between text-[#6B6961]"><dt>Projektrabatt</dt><dd className="num">inkl. {fmtPct(totals.rabattPct)}</dd></div>
+                    : <div className="flex justify-between text-[#D2563E]"><dt>Rabatt gesamt</dt><dd className="num">−{fmtPct(totals.rabattPct)}</dd></div>)}
                 </dl>
 
                 {/* Mismatch-Banner: 3 mögliche Zustände */}
@@ -2850,23 +2852,17 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         {totals.lineItems.map(it => (
                           <div key={it.kuerzel} className="flex justify-between text-[11px] font-body text-[#6B6961]">
                             <span>{it.count}× {getDisplayName(it)}</span>
-                            <span className="num">{fmtEUR(it.count * (isPureGewerb ? it.netto : it.brutto))}</span>
+                            <span className="num">{fmtEUR(it.count * effectiveModulPreis(it, isPureGewerb, priceCtx))}</span>
                           </div>
                         ))}
+                        {priceCtx && totals.rabattPct > 0 && (
+                          <p className="font-body text-[10px] text-[#6B6961] italic pt-1">inkl. {fmtPct(totals.rabattPct)} Projektrabatt</p>
+                        )}
                       </div>
                     )}
                   </div>
                 </details>
 
-                {hasProjectOrConfig && totals.verbrauchskostenMonat > 0 && totals.countTotal > 0 && (
-                  <div className="pb-3 mb-4 text-[#6B6961]">
-                    <div className="flex justify-between items-baseline">
-                      <span className="font-body text-[11px] uppercase tracking-wider flex items-center gap-1"><Repeat className="w-3 h-3" strokeWidth={1.5}/> Verbrauchskosten</span>
-                      <span className="font-body text-sm num">ca. {fmtEUR(totals.verbrauchskostenMonat / totals.countTotal)}/Modul/Mt.</span>
-                    </div>
-                    <p className="font-body text-[10px] mt-1 italic">Strom, Wasser, Heizung — variabel je nach Verbrauch, kommen on top</p>
-                  </div>
-                )}
                 <Button onClick={onNext} className="w-full" disabled={totals.countTotal === 0}>
                   Weiter zur Finanzierung <ChevronRight className="w-4 h-4" />
                 </Button>
