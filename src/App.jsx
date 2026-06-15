@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.63';
+const APP_VERSION = '0.9.64';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -372,6 +372,32 @@ async function loadProjectsFromDb() {
     return true;
   } catch (e) {
     console.warn('[Supabase] Projekt-Load Verbindungsfehler:', e.message);
+    return false;
+  }
+}
+
+// ===== Content-Blocks (editierbare Texte) =====
+// Modul-globaler Cache: { key: { de, en } }. Wird beim Start aus der DB befüllt.
+// getContentText() liefert den DB-Text, sonst den übergebenen Fallback (= aktueller Code-Text).
+let CONTENT_BLOCKS = {};
+function getContentText(key, fallback = '', lang = 'de') {
+  const b = CONTENT_BLOCKS[key];
+  if (!b) return fallback;
+  const val = lang === 'en' ? b.en : b.de;
+  return (val != null && String(val).trim() !== '') ? val : fallback;
+}
+async function loadContentBlocksFromDb() {
+  try {
+    const { data, error } = await supabase.from('content_blocks').select('key, content_de, content_en');
+    if (error) { console.warn('[Supabase] Content-Blocks-Load Fehler:', error.message); return false; }
+    if (!data || data.length === 0) { console.warn('[Supabase] Keine Content-Blocks in DB, Fallback aktiv'); return false; }
+    const map = {};
+    data.forEach(b => { if (b.key) map[b.key] = { de: b.content_de, en: b.content_en }; });
+    CONTENT_BLOCKS = map;
+    console.log(`[Supabase] ${Object.keys(CONTENT_BLOCKS).length} Content-Blocks aus DB geladen`);
+    return true;
+  } catch (e) {
+    console.warn('[Supabase] Content-Blocks-Load Verbindungsfehler:', e.message);
     return false;
   }
 }
@@ -1385,7 +1411,7 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
       <div className="mt-6 bg-[#FBF7EF] border border-[#7B2D8E]/30 p-4 flex gap-3 items-start">
         <Info className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} />
         <p className="font-body text-xs text-[#6B6961] leading-relaxed">
-          <span className="font-medium text-[#1C1C1A]">Alle Umlagen kalkuliert auf die Ziel-Modulanzahl.</span> Wir geben das Projekt erst frei, wenn die Ziel-Modulanzahl erreicht ist. Bei höherer tatsächlicher Auslastung verringern sich Deine Umlagen anteilig — schlechter werden sie nicht.
+          {getContentText('hinweis_projekt_umlage', 'Alle Umlagen kalkuliert auf die Ziel-Modulanzahl. Wir geben das Projekt erst frei, wenn die Ziel-Modulanzahl erreicht ist. Bei höherer tatsächlicher Auslastung verringern sich Deine Umlagen anteilig — schlechter werden sie nicht.')}
         </p>
       </div>
     </div>
@@ -3305,7 +3331,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1">Verbrauchskosten <span className="opacity-50">(variabel)</span></p>
                 <p className="font-display text-lg num opacity-70">ca. {fmtEUR(totals.verbrauchskostenMonat)}</p>
-                <p className="font-body text-[10px] opacity-50 mt-0.5">Strom, Wasser, Heizung — trägt der Bewohner</p>
+                <p className="font-body text-[10px] opacity-50 mt-0.5">{getContentText('tooltip_verbrauchskosten', 'Strom, Wasser, Heizung — trägt der Bewohner')}</p>
               </div>
             )}
 
@@ -5820,9 +5846,10 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     // Module + Projekte + Settings parallel laden — alle ersetzen Fallback-Daten bei Erfolg
-    Promise.all([loadProductsFromDb(), loadProjectsFromDb(), loadSettingsFromDb()]).then(([modOk, projOk, setOk]) => {
+    Promise.all([loadProductsFromDb(), loadProjectsFromDb(), loadSettingsFromDb(), loadContentBlocksFromDb()]).then(([modOk, projOk, setOk, cbOk]) => {
       if (cancelled) return;
-      // dbStatus = 'db' nur wenn alle drei geklappt haben (sonst zeigt der Footer 'fallback' an)
+      // dbStatus = 'db' nur wenn alle drei Kern-Loader geklappt haben (sonst zeigt der Footer 'fallback' an)
+      // cbOk bewusst NICHT einbezogen — Texte haben einen eigenen Fallback und sollen keinen DB-Warnhinweis auslösen
       setDbStatus((modOk && projOk && setOk) ? 'db' : 'fallback');
       // Re-Render in jedem Fall, damit zumindest die teilweise geladenen Daten sichtbar werden
       setProductsTick(t => t + 1);
@@ -6138,7 +6165,7 @@ export default function App() {
             <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
-            Alle dargestellten Preise, Mieten, Förderbeträge, Zinssätze, Steuervorteile, Nebenkosten und behördliche Gebühren sind unverbindliche Modellrechnungen auf Basis aktueller Marktdaten und allgemeiner Annahmen (Baugenehmigung: Richtwert NRW — kann regional abweichen). Verbindliche Aussagen erhältst Du erst im persönlichen Angebot.
+            {getContentText('footer_disclaimer', 'Alle dargestellten Preise, Mieten, Förderbeträge, Zinssätze, Steuervorteile, Nebenkosten und behördliche Gebühren sind unverbindliche Modellrechnungen auf Basis aktueller Marktdaten und allgemeiner Annahmen (Baugenehmigung: Richtwert NRW — kann regional abweichen). Verbindliche Aussagen erhältst Du erst im persönlichen Angebot.')}
           </p>
         </div>
       </footer>
