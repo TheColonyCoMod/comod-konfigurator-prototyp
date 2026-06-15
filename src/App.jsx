@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.64';
+const APP_VERSION = '0.9.65';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -78,6 +78,7 @@ const PRODUCTS_GEWERB_RAW = [
 
 // === SETTINGS — werden beim App-Start aus DB überschrieben (Fallback: Werte hier) ===
 let PROV = 0.035;
+let MARGE_STD = 0.125; // globale Standard-Marge (Settings 'MARGE'); nur Fallback, falls ein Modul keine eigene Marge hat
 let UST = 0.19;
 let ANZ_PCT = 0.35;
 
@@ -176,13 +177,17 @@ function withPrices(p) {
 // rabattierten Herstellpreis berechnet (Feedback V8). Damit profitiert der Kunde nicht
 // nur über den Herstellungspreis-Rabatt, sondern auch über die korrespondierende Reduktion
 // von Marge und Provision.
-function calcRabattiertePreise(product, rabattPct) {
+// margeOverride (optional): Projekt-Marge ersetzt im Projekt die Modul-Marge. null/undefined = Modul-Marge.
+function calcRabattiertePreise(product, rabattPct, margeOverride) {
+  const marge = (margeOverride != null) ? margeOverride
+              : (product.marge != null ? product.marge : MARGE_STD);
   const herstRabattiert = product.herst * (1 - rabattPct);
-  const grundpreis = herstRabattiert * product.marge;
+  const grundpreis = herstRabattiert * marge;
   const provision = herstRabattiert * PROV;
   const netto = herstRabattiert + grundpreis + provision;
   const brutto = netto * (1 + UST);
-  return { netto, brutto, rabattEUR: product.netto - netto };
+  const baseNetto = product.herst * (1 + marge + PROV); // ungerabattete Referenz mit eff. Marge
+  return { netto, brutto, rabattEUR: baseNetto - netto };
 }
 
 // Mapping: Modul-Kürzel → Grundriss-Icon (PNG im public/icons-Verzeichnis)
@@ -348,6 +353,10 @@ function mapDbProjectToFrontend(db) {
     description2: db.description2_de || '',
     heroImageUrl: db.hero_image_url || null,
     projektrabatt: Number(db.projektrabatt || 0),
+    projektMarge: (db.projekt_marge == null ? null : Number(db.projekt_marge)),
+    einnahmenFaktor: (db.einnahmen_faktor == null ? 1 : Number(db.einnahmen_faktor)),
+    transportProModul: Number(db.transport_pro_modul || 0),
+    aufstellungProModul: Number(db.aufstellung_pro_modul || 0),
     umlageProModulEinmalig: db.umlage_pro_modul_einmalig || 0,
     pachtJahr: db.pacht_jahr || 0,
     pachtGewerblich: !!db.pacht_gewerblich,
@@ -419,6 +428,7 @@ async function loadSettingsFromDb() {
 
     // Einfache Skalar-Settings
     if (map.PROV != null)             PROV = Number(map.PROV);
+    if (map.MARGE != null)            MARGE_STD = Number(map.MARGE);
     if (map.UST != null)              UST = Number(map.UST);
     if (map.ANZ_PCT != null)          ANZ_PCT = Number(map.ANZ_PCT);
     if (map.BEBAUUNGSGRAD != null)    BEBAUUNGSGRAD = Number(map.BEBAUUNGSGRAD);
@@ -827,6 +837,10 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
       ? project.zielModulAnzahl
       : countTotal;
   const rabattPct = getRabatt(rabattBasis) + (project ? project.projektrabatt : 0);
+  // Projekt-Overrides (Etappe 1): wirken nur im Projekt-Kontext, sonst neutral
+  const projMargeOverride = (project && project.projektMarge != null) ? project.projektMarge : undefined; // ersetzt Modul-Marge
+  const einnahmenFaktor   = project ? (project.einnahmenFaktor ?? 1) : 1;                                  // Faktor auf alle Vermietungs-Einnahmen
+  const tpaNettoProModul  = project ? ((Number(project.transportProModul) || 0) + (Number(project.aufstellungProModul) || 0)) : 0; // Transport + Aufstellung (netto, Durchleitung)
   const nextStaffel = getNextRabattSchwelle(rabattBasis);
   // Mindestfläche-Berechnung — pro Modul den Footprint summieren (berücksichtigt Stack-Stapelung)
   // - Gewerbekunden im Such-Modus: aus gewünschter Modulanzahl
@@ -904,15 +918,16 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   }
   const einmaligProModul = countTotal > 0 ? einmaligGesamtBrutto / countTotal : 0;
 
-  // Rabatt wirkt nur auf Herstellungskosten (siehe calcRabattiertePreise)
+  // Rabatt wirkt nur auf Herstellungskosten (siehe calcRabattiertePreise); Projekt-Marge ersetzt ggf. die Modul-Marge
   const rabattPreiseSum = (items) => items.reduce((acc, x) => {
-    const r = calcRabattiertePreise(x, rabattPct);
+    const r = calcRabattiertePreise(x, rabattPct, projMargeOverride);
     return { netto: acc.netto + x.count * r.netto, brutto: acc.brutto + x.count * r.brutto };
   }, { netto: 0, brutto: 0 });
   const privatSum = rabattPreiseSum(privatItems);
   const gewerbSum = rabattPreiseSum(gewerbItems);
-  const effPrivat = privatSum.brutto + countPrivat * einmaligProModul;
-  const effGewerbNetto = gewerbSum.netto + countGewerb * (einmaligProModul / (1 + UST));
+  // Transport & Aufstellung: netto, ohne Marge/Provision/Rabatt durchgereicht; privat brutto (+USt), gewerb netto
+  const effPrivat = privatSum.brutto + countPrivat * einmaligProModul + countPrivat * tpaNettoProModul * (1 + UST);
+  const effGewerbNetto = gewerbSum.netto + countGewerb * (einmaligProModul / (1 + UST)) + countGewerb * tpaNettoProModul;
   const effGewerbBrutto = effGewerbNetto * (1 + UST);
 
   const pachtSource = project ? { hasPacht: (project.pachtJahr || 0) > 0, pachtJahr: project.pachtJahr || 0, pachtGewerblich: project.pachtGewerblich, zielModulAnzahl: project.zielModulAnzahl || 0 }
@@ -995,8 +1010,8 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   // Gewerbliche Module in Eigennutzung — Basis für "Rate pro Mitarbeiter"-Logik
   const eigennutzungGewerbItems = lineItems.filter(x => x.usage === 'g' && x.mode === 'eigennutzung');
   const eigennutzungGewerbCount = eigennutzungGewerbItems.reduce((s, x) => s + x.count, 0);
-  const monthlyIncomeBrutto = incomeItems.reduce((s, x) => s + x.count * x.einnahmen, 0);
-  const feeAbzug = vermietungDurchCoMod ? incomeItems.reduce((s, x) => s + x.count * x.einnahmen * x.fee, 0) : 0;
+  const monthlyIncomeBrutto = incomeItems.reduce((s, x) => s + x.count * x.einnahmen * einnahmenFaktor, 0);
+  const feeAbzug = vermietungDurchCoMod ? incomeItems.reduce((s, x) => s + x.count * x.einnahmen * einnahmenFaktor * x.fee, 0) : 0;
   const monthlyIncomeNetto = monthlyIncomeBrutto - feeAbzug;
 
   // === Effektive monatliche Belastung (Feedback V5) ===
@@ -4459,6 +4474,10 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     max_modul_anzahl: 30,
     grundstueck_groesse: null,
     projektrabatt: 0,
+    projekt_marge: null,
+    einnahmen_faktor: 1,
+    transport_pro_modul: 0,
+    aufstellung_pro_modul: 0,
     umlage_pro_modul_einmalig: 0,
     pacht_jahr: 0,
     pacht_gewerblich: false,
@@ -4484,6 +4503,8 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
   };
   const [rabattStr,     setRabattStr]     = useState(() => pctToStr(form.projektrabatt));
   const [provisionStr,  setProvisionStr]  = useState(() => pctToStr(form.provision_pct));
+  const [margeStr,      setMargeStr]      = useState(() => pctToStr(form.projekt_marge));
+  const [faktorStr,     setFaktorStr]     = useState(() => pctToStr(form.einnahmen_faktor == null ? 1 : form.einnahmen_faktor));
   // Berechnungshilfe: temporäre Geschoss-Wahl, nicht persistiert
   const [geschosseHilfe, setGeschosseHilfe] = useState(2);
 
@@ -4500,8 +4521,10 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     setSaving(true); setError(null); setSaved(false);
     const rabattNum    = strToPct(rabattStr) ?? 0;
     const provisionNum = strToPct(provisionStr);
+    const margeNum     = strToPct(margeStr);          // null = Modul-Marge gilt
+    const faktorNum    = strToPct(faktorStr) ?? 1;    // 1 = 100 % (unverändert)
     const { id, created_at, updated_at, deleted_at, project: _p, ...rest } = form;
-    const payload = { ...rest, projektrabatt: rabattNum, provision_pct: provisionNum };
+    const payload = { ...rest, projektrabatt: rabattNum, provision_pct: provisionNum, projekt_marge: margeNum, einnahmen_faktor: faktorNum };
     let res;
     if (isNew) {
       res = await supabase.from('projects').insert(payload).select('*').single();
@@ -4729,6 +4752,32 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                   className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">leer = globaler Default 3,5 %</p>
               </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Projekt-Marge (%, Override)</label>
+                <input type="text" inputMode="decimal" value={margeStr} onChange={e => setMargeStr(e.target.value)}
+                  placeholder="leer = Modul-Marge"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">ersetzt die Modul-Marge (Pilotprojekte)</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Einnahmen-Faktor (%)</label>
+                <input type="text" inputMode="decimal" value={faktorStr} onChange={e => setFaktorStr(e.target.value)}
+                  placeholder="z. B. 50 oder 150"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">100 = unverändert · 50 = Hälfte · 150 = ×1,5</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Transport / Modul (€, netto)</label>
+                <input type="number" value={form.transport_pro_modul ?? ''} onChange={update('transport_pro_modul')}
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Durchleitung, ohne Marge/Provision</p>
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Aufstellung / Modul (€, netto)</label>
+                <input type="number" value={form.aufstellung_pro_modul ?? ''} onChange={update('aufstellung_pro_modul')}
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Aufbau & Anschluss, ohne Marge/Provision</p>
+              </div>
               <div className="flex items-center gap-2 pt-5">
                 <input type="checkbox" id="pacht_gewerb" checked={!!form.pacht_gewerblich} onChange={update('pacht_gewerblich')} />
                 <label htmlFor="pacht_gewerb" className="font-body text-sm">Gewerbliche Pacht (+19 % USt für Privat-Anteil)</label>
@@ -4924,6 +4973,7 @@ function AdminProjectsView() {
 const SETTING_DEFS = [
   // PROVISIONEN & STEUERN
   { key: 'PROV',           cat: 'provision', type: 'percent', label: 'Provisionssatz',                desc: 'Default-Provision auf den rabattierten Herstellpreis' },
+  { key: 'MARGE',          cat: 'provision', type: 'percent', label: 'Standard-Marge',                desc: 'Aufschlag auf Herstellungskosten — Fallback, falls ein Modul keine eigene Marge hat' },
   { key: 'UST',            cat: 'provision', type: 'percent', label: 'Umsatzsteuer',                  desc: 'Wird auf den Netto-Preis aufgeschlagen' },
   { key: 'ANZ_PCT',        cat: 'provision', type: 'percent', label: 'Anzahlung',                     desc: 'Anteil der Investmentsumme als Anzahlung' },
   { key: 'STEUER_GMBH',    cat: 'provision', type: 'percent', label: 'Steuerlast GmbH',               desc: 'GewSt + KSt + Soli (Annahme)' },
