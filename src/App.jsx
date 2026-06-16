@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, Plus, Minus, Check, Home, Building2, Settings, Trash2, Mail, ArrowRight, Sparkles, FolderOpen, Info, TrendingUp, Gift, Receipt, Repeat, Layers, MapPin, Briefcase, Users, Cloud, CloudOff } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, Minus, Check, Home, Building2, Settings, Trash2, Mail, ArrowRight, Sparkles, FolderOpen, Info, TrendingUp, Gift, Receipt, Repeat, Layers, MapPin, Briefcase, Users, Cloud, CloudOff, Upload } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 /* ============================================================================
@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.76';
+const APP_VERSION = '0.9.77';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -373,6 +373,7 @@ function mapDbProjectToFrontend(db) {
     einmalkostenOptionen: (db.einmalkosten_optionen && typeof db.einmalkosten_optionen === 'object') ? db.einmalkosten_optionen : {},
     pvAnteil: db.pv_anteil == null ? 0 : Number(db.pv_anteil),
     gemeinschaftsmodule: Array.isArray(db.gemeinschaftsmodule) ? db.gemeinschaftsmodule : [],
+    gemeinschaftBetriebskostenMonat: db.gemeinschaft_betriebskosten_monat == null ? 0 : Number(db.gemeinschaft_betriebskosten_monat),
     pachtJahr: db.pacht_jahr || 0,
     pachtGewerblich: !!db.pacht_gewerblich,
     zielModulAnzahl: db.ziel_modul_anzahl,
@@ -843,12 +844,15 @@ function calcGemeinschaftsmodule(project) {
     items.push({ kuerzel: p.kuerzel, displayName: p.displayName || p.kuerzel, anzahl, einnahmenBruttoMonat: eMonat, feeMonat: fMonat, betriebMonat: bMonat, mult });
   }
   const kostenBrutto = kostenNetto * (1 + UST);
-  const nettoCashflow = einnahmenMonat - feeMonat - betriebMonat;
+  // Optionaler manueller Betriebskosten-Betrag/Monat (Override); sonst Worst-Case aus Settings (oben berechnet)
+  const betriebFinal = (project.gemeinschaftBetriebskostenMonat > 0) ? Number(project.gemeinschaftBetriebskostenMonat) : betriebMonat;
+  const nettoCashflow = einnahmenMonat - feeMonat - betriebFinal;
   return {
     kostenGesamtBrutto: kostenBrutto,
     kostenProModulBrutto: kostenBrutto / verkaufbar,
     einnahmenBruttoMonat: einnahmenMonat,
-    feeMonat, betriebMonat,
+    feeMonat, betriebMonat: betriebFinal,
+    betriebManuell: (project.gemeinschaftBetriebskostenMonat > 0),
     nettoCashflowMonat: nettoCashflow,
     nettoProModulMonat: nettoCashflow / verkaufbar,
     gmCount: sumGemeinschaftsCount(project),
@@ -4671,6 +4675,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     einmalkosten_optionen: {},
     pv_anteil: 0,
     gemeinschaftsmodule: [],
+    gemeinschaft_betriebskosten_monat: 0,
     pacht_jahr: 0,
     pacht_gewerblich: false,
     provision_pct: null,
@@ -4748,8 +4753,33 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     projektMarge: (margeStr !== '' && form.projekt_marge != null) ? form.projekt_marge : null,
     einnahmenFaktor: form.einnahmen_faktor == null ? 1 : form.einnahmen_faktor,
     pachtJahr: pPachtJahr,
+    gemeinschaftBetriebskostenMonat: form.gemeinschaft_betriebskosten_monat,
     gemeinschaftsmodule: gmList,
   });
+
+  // Bild-Upload (Supabase Storage, Bucket 'visuals')
+  const [imgUploading, setImgUploading] = useState(false);
+  const [imgError, setImgError] = useState('');
+  const handleImageUpload = async (file) => {
+    if (!file) return;
+    setImgError('');
+    if (!file.type.startsWith('image/')) { setImgError('Bitte eine Bilddatei wählen.'); return; }
+    if (file.size > 8 * 1024 * 1024) { setImgError('Bild zu groß (max. 8 MB).'); return; }
+    setImgUploading(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const safeSlug = ((form.slug || 'projekt').replace(/[^a-z0-9-]/gi, '').toLowerCase()) || 'projekt';
+      const path = `projects/${safeSlug}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('visuals').upload(path, file, { upsert: true, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from('visuals').getPublicUrl(path);
+      setForm(f => ({ ...f, hero_image_url: data.publicUrl }));
+    } catch (e) {
+      setImgError(e?.message || 'Upload fehlgeschlagen.');
+    } finally {
+      setImgUploading(false);
+    }
+  };
 
   const update = (key) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked
@@ -4778,6 +4808,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
       transport_pro_modul: Number(form.transport_pro_modul) || 0,
       aufstellung_pro_modul: Number(form.aufstellung_pro_modul) || 0,
       pv_anteil: Number(form.pv_anteil) || 0,
+      gemeinschaft_betriebskosten_monat: Number(form.gemeinschaft_betriebskosten_monat) || 0,
     };
     let res;
     if (isNew) {
@@ -4871,8 +4902,21 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                 <input type="text" value={form.hero_image_url ?? ''} onChange={update('hero_image_url')}
                   placeholder="z. B. /projects/voelk.jpg oder https://…"
                   className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
-                <p className="font-body text-[10px] text-[#6B6961] mt-1">
-                  Querformat 3:2 empfohlen (z. B. 900×600 px). Bilder im GitHub-Repo unter <span className="font-mono">/public/projects/</span> ablegen, dann hier den Pfad <span className="font-mono">/projects/dateiname.jpg</span> eintragen. Leer = Platzhalter mit Projekt-Initiale.
+                <div className="flex items-center gap-3 mt-2">
+                  <label className={`inline-flex items-center gap-1.5 font-body text-xs uppercase tracking-wider border px-3 py-1.5 cursor-pointer transition-colors ${imgUploading ? 'opacity-50 pointer-events-none border-[#1C1C1A]/15 text-[#6B6961]' : 'border-[#7B2D8E]/40 text-[#7B2D8E] hover:bg-[#7B2D8E]/10'}`}>
+                    <Upload className="w-3.5 h-3.5" strokeWidth={2} />
+                    {imgUploading ? 'Lädt hoch …' : 'Bild hochladen'}
+                    <input type="file" accept="image/*" className="hidden" disabled={imgUploading}
+                      onChange={e => { const f = e.target.files?.[0]; handleImageUpload(f); e.target.value = ''; }} />
+                  </label>
+                  {form.hero_image_url && !imgUploading && (
+                    <button type="button" onClick={() => setForm(f => ({ ...f, hero_image_url: '' }))}
+                      className="font-body text-xs text-[#C5392E] hover:underline">entfernen</button>
+                  )}
+                </div>
+                {imgError && <p className="font-body text-[11px] text-[#C5392E] mt-1.5">{imgError}</p>}
+                <p className="font-body text-[10px] text-[#6B6961] mt-1.5">
+                  Querformat 3:2 empfohlen (z. B. 900×600 px). Per „Bild hochladen" direkt in den Storage laden — oder eine externe URL bzw. einen Repo-Pfad <span className="font-mono">/projects/datei.jpg</span> eintragen. Leer = Platzhalter mit Projekt-Initiale.
                 </p>
               </div>
               <div className="bg-[#F8F5F0] border border-[#1C1C1A]/10 overflow-hidden" style={{ aspectRatio: '3 / 2' }}>
@@ -5100,6 +5144,18 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {gmList.length > 0 && (
+              <div className="mb-4 max-w-xs">
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Betriebskosten / Monat — Override (€)</label>
+                <input type="number" value={form.gemeinschaft_betriebskosten_monat ?? ''} onChange={update('gemeinschaft_betriebskosten_monat')}
+                  placeholder="leer = aus Settings berechnet"
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">
+                  leer/0 = Worst Case aus Settings (Pacht + NK je m² × NUF){pGm.betriebManuell ? '' : ` ≈ ${fmtEUR(pGm.betriebMonat)}/Mt.`}; Wert = manuell überschreiben
+                </p>
               </div>
             )}
 
