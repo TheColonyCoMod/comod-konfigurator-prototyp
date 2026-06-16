@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.70';
+const APP_VERSION = '0.9.71';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4573,14 +4573,25 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
   const toggleOption = (id) => setForm(f => ({ ...f, einmalkosten_optionen: { ...((f.einmalkosten_optionen && typeof f.einmalkosten_optionen === 'object') ? f.einmalkosten_optionen : {}), [id]: !(((f.einmalkosten_optionen || {})[id])) } }));
   const pVerteilungSumme = pVerteilung.reduce((s, n) => s + (Number(n) || 0), 0);
   const pVerteilungValid = validateGeschossVerteilung(pVerteilung, form.ziel_modul_anzahl || 0);
-  const pComputedUmlage = calcProjektUmlageProModul({
-    zielModulAnzahl: form.ziel_modul_anzahl || 0,
-    grundstueckGroesse: form.grundstueck_groesse || 0,
-    geschossVerteilung: pVerteilung,
-    einmalkostenOptionen: pOptionen,
-    pvAnteil: form.pv_anteil || 0,
-  });
+  const pZiel = Number(form.ziel_modul_anzahl) || 0;
+  const pUmlageDetail = pZiel > 0 ? calcEinmaligeProjektkosten({
+    modulAnzahl: pZiel,
+    grundstueckGroesse: Number(form.grundstueck_groesse) || 0,
+    geschosse: pVerteilung.length || 2,
+    activeOptionen: pOptionen,
+    hasGrundstueck: (Number(form.grundstueck_groesse) || 0) > 0,
+    useEstimates: false,
+    totalBGF: pZiel * ZIEL_MODUL_BGF,
+    geschossVerteilung: pVerteilung.length ? pVerteilung : defaultGeschossVerteilung(pZiel, 2),
+    pvAnteil: Number(form.pv_anteil) || 0,
+  }) : { posten: [], summeBrutto: 0 };
+  const pComputedUmlage = pZiel > 0 ? pUmlageDetail.summeBrutto / pZiel : 0;
   const pUmlageAktiv = (form.umlage_pro_modul_einmalig > 0) ? form.umlage_pro_modul_einmalig : pComputedUmlage;
+  // Pacht-Vorschau (laufend): €/m² NUF / Monat netto, daraus pro Standardmodul (ZIEL_MODUL_NUF m²)
+  const pPachtJahr = Number(form.pacht_jahr) || 0;
+  const pPachtProM2Netto = (pZiel > 0 && pPachtJahr > 0) ? pPachtJahr / pZiel / ZIEL_MODUL_NUF / 12 : 0;
+  const pPachtProModulNetto = pPachtProM2Netto * ZIEL_MODUL_NUF;
+  const pPachtProModulPrivat = form.pacht_gewerblich ? pPachtProModulNetto * (1 + UST) : pPachtProModulNetto;
 
   const update = (key) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked
@@ -4771,7 +4782,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                       {pachtEmpf > 0 && (
                         <button type="button" onClick={() => setForm(f => ({ ...f, pacht_jahr: pachtEmpf }))}
                           className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] border border-[#7B2D8E]/40 hover:bg-[#7B2D8E]/10 px-3 py-1.5">
-                          Pacht {fmtEUR(pachtEmpf)}/Jahr
+                          ↓ Vorschlag Pacht {fmtEUR(pachtEmpf)}/Jahr
                         </button>
                       )}
                     </div>
@@ -4846,6 +4857,46 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                 </p>
               </div>
             </div>
+
+            {/* Aufschlüsselung der berechneten Umlage (Posten) */}
+            {pUmlageDetail.posten.length > 0 && (
+              <div className="mt-4 border border-[#1C1C1A]/10">
+                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] px-3 pt-3 pb-2">Aufschlüsselung Gesamt einmalig (Projekt, brutto) — abgeleitet aus Verteilung &amp; Optionen</p>
+                {pUmlageDetail.posten.map((po, i) => (
+                  <div key={po.id || i} className={`flex justify-between items-baseline gap-3 px-3 py-1.5 text-[11px] font-body ${i !== pUmlageDetail.posten.length - 1 ? 'border-b border-[#1C1C1A]/5' : ''}`}>
+                    <span className="text-[#1C1C1A]">{po.label}{po.detail && <span className="text-[#6B6961]"> · {po.detail}</span>}</span>
+                    <span className="num text-[#6B6961] whitespace-nowrap">{fmtEUR(po.brutto)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between px-3 py-2 text-xs font-body border-t border-[#1C1C1A]/15">
+                  <span className="text-[#1C1C1A]">Summe ÷ {form.ziel_modul_anzahl || 0} Module</span>
+                  <span className="num text-[#7B2D8E]">{fmtEUR(pComputedUmlage)}/Modul</span>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Laufende Pacht (Vorschau pro Kunde)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-3">
+                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Pacht / m² NUF / Monat (netto)</p>
+                <p className="font-display text-xl num">{pPachtProM2Netto > 0 ? fmtEUR(pPachtProM2Netto) : '—'}</p>
+              </div>
+              <div className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-3">
+                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">pro Standardmodul ({ZIEL_MODUL_NUF} m²) / Monat</p>
+                <p className="font-display text-xl num">{pPachtProModulNetto > 0 ? fmtEUR(pPachtProModulNetto) : '—'}<span className="font-body text-[10px] text-[#6B6961]"> netto</span></p>
+                {form.pacht_gewerblich && pPachtProModulPrivat > 0 && (
+                  <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Privat-Anteil: <span className="num">{fmtEUR(pPachtProModulPrivat)}</span> brutto</p>
+                )}
+              </div>
+              <div className="bg-[#7B2D8E]/5 border border-[#7B2D8E]/20 p-3">
+                <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Jahrespacht ÷ Ziel</p>
+                <p className="font-display text-xl num text-[#7B2D8E]">{fmtEUR(pPachtJahr)}<span className="font-body text-[10px] text-[#6B6961]"> / {form.ziel_modul_anzahl || 0}</span></p>
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Größere Module zahlen anteilig mehr (je m² NUF).</p>
+              </div>
+            </div>
+            <p className="font-body text-[10px] text-[#6B6961] mt-2">Basis: eingetragene Pacht/Jahr ({fmtEUR(pPachtJahr)}) ÷ {form.ziel_modul_anzahl || 0} Ziel-Module ÷ {ZIEL_MODUL_NUF} m² ÷ 12. Fließt beim Kunden in die laufenden Pflicht-Kosten ein.</p>
           </section>
 
           <section>
