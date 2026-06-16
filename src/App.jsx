@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.78';
+const APP_VERSION = '0.9.79';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4773,7 +4773,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
       const safeSlug = ((form.slug || 'projekt').replace(/[^a-z0-9-]/gi, '').toLowerCase()) || 'projekt';
       const path = `projects/${safeSlug}-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('visuals').upload(path, file, { upsert: true, contentType: file.type });
+      const { error } = await supabase.storage.from('visuals').upload(path, file, { upsert: false, contentType: file.type });
       if (error) throw error;
       const { data } = supabase.storage.from('visuals').getPublicUrl(path);
       setForm(f => ({ ...f, hero_image_url: data.publicUrl }));
