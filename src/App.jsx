@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.75';
+const APP_VERSION = '0.9.76';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1495,7 +1495,7 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
               <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#1C1C1A]/10 mt-auto">
                 <div>
                   <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Projektkosten</p>
-                  <p className="font-display text-base num">{fmtEUR(p.umlageProModulEinmalig)}</p>
+                  <p className="font-display text-base num">{fmtEUR(p.umlageProModulEinmalig > 0 ? p.umlageProModulEinmalig : calcProjektUmlageProModul(p))}</p>
                   <p className="font-body text-[10px] text-[#6B6961]">/Modul einm.</p>
                 </div>
                 <div>
@@ -2688,8 +2688,9 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     <p className="font-body text-[11px] text-[#6B6961] mb-3">{project.location}</p>
                     <dl className="space-y-1 text-[11px] font-body text-[#6B6961]">
                       <div className="flex justify-between"><dt>Projekt-Gesamtmodule</dt><dd className="num text-[#1C1C1A]">{project.zielModulAnzahl}</dd></div>
+                      {totals.gmCount > 0 && <div className="flex justify-between"><dt>davon Gemeinschaftsmodule</dt><dd className="num text-[#1C1C1A]">{totals.gmCount}</dd></div>}
                       {project.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(project.grundstueckGroesse)} m²</dd></div>}
-                      <div className="flex justify-between"><dt>Anteil</dt><dd className="num text-[#1C1C1A]">{totals.countTotal} von {project.zielModulAnzahl} ({fmtPct(totals.countTotal / project.zielModulAnzahl)})</dd></div>
+                      <div className="flex justify-between"><dt>Dein Anteil</dt><dd className="num text-[#1C1C1A]">{totals.countTotal} von {totals.verkaufbareModule} verkaufbaren{totals.gmCount > 0 ? ` (${project.zielModulAnzahl} gesamt)` : ''} · {fmtPct(totals.countTotal / (totals.verkaufbareModule || 1))}</dd></div>
                       {project.projektrabatt > 0 && <div className="flex justify-between text-[#D2563E]"><dt>Projekt-Bonus</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
                     </dl>
                   </div>
@@ -2843,7 +2844,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     <summary className="cursor-pointer list-none flex items-center justify-between">
                       <div className="flex-1">
                         <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalige Projektkosten {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</p>
-                        <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.einmaligGesamtNetto : totals.einmaligGesamtBrutto)}</p>
+                        <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(project ? (totals.einmaligGesamtBrutto + totals.countTotal * totals.gmKostenProModulBrutto) : (isPureGewerb ? totals.einmaligGesamtNetto : totals.einmaligGesamtBrutto))}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
                     </summary>
@@ -2851,12 +2852,9 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     {project ? (
                       // Projekt-Beitritt: Umlage stabil pro Modul (fixer Projekt-Tarif)
                       <>
-                        <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">{fmtEUR(totals.umlageProModul)}/Modul × {totals.countTotal} Module</dt><dd className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</dd></div>
-                        {totals.baugenehmigungEinzeln > 0 && (
-                          <div className="flex justify-between text-sm font-body mt-1"><dt className="text-[#6B6961]">+ Baugenehmigung (anteilig)</dt><dd className="num">{fmtEUR(totals.baugenehmigungEinzeln)}</dd></div>
-                        )}
+                        <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">Für deine Module</dt><dd className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</dd></div>
                         {totals.gmKostenGesamtBrutto > 0 && (
-                          <div className="flex justify-between text-sm font-body mt-1"><dt className="text-[#6B6961]">+ Gemeinschaftsmodule ({fmtEUR(totals.gmKostenProModulBrutto)}/Modul × {totals.countTotal})</dt><dd className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>
+                          <div className="flex justify-between text-sm font-body mt-1"><dt className="text-[#6B6961]">Für Gemeinschaftsmodule</dt><dd className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>
                         )}
                         <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto + totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>
                       </>
@@ -3403,13 +3401,13 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
 
         <aside className="lg:w-96 lg:shrink-0">
           <div className="lg:sticky lg:top-24 bg-[#1C1C1A] text-[#F8F5F0] p-7">
-            <p className="font-body text-xs tracking-[0.3em] uppercase opacity-50 mb-2">
+            <p className="font-body text-xs tracking-[0.3em] uppercase opacity-70 mb-2">
               {totals.istInvestor ? 'Investmentrechnung' : (totals.hasIncome ? 'Wirtschaftlichkeit' : 'Deine Monatsrate')}
             </p>
             <h3 className="font-display text-2xl mb-7">Monatlich</h3>
 
             <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-              <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-3">Finanzierung im Detail</p>
+              <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-3">Finanzierung im Detail</p>
               <dl className="space-y-2 text-sm font-body">
                 {hasPrivat && <>
                   <div className="flex justify-between"><dt className="opacity-70">KfW-Rate</dt><dd className="num">{fmtEUR(totals.kfwRate)}</dd></div>
@@ -3428,15 +3426,15 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {/* Variante A: Misch- oder reiner Privatkunde — Aufteilung Privat / Gewerblich */}
             {totals.hatPrivatAnteil && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-3">Monatsrate</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-3">Monatsrate</p>
                 <dl className="space-y-2.5 text-sm font-body">
                   <div className="flex justify-between items-baseline">
-                    <dt className="opacity-80">Monatsrate privat <span className="opacity-50 text-xs">(KfW + GLS)</span></dt>
+                    <dt className="opacity-80">Monatsrate privat <span className="opacity-70 text-xs">(KfW + GLS)</span></dt>
                     <dd className="font-display text-lg num">{fmtEUR(totals.privatFinanzierungMonat)}</dd>
                   </div>
                   {totals.hatGewerbModule && (
                     <div className="flex justify-between items-baseline">
-                      <dt className="opacity-80">Monatsrate gewerblich <span className="opacity-50 text-xs">(nach Steuer)</span></dt>
+                      <dt className="opacity-80">Monatsrate gewerblich <span className="opacity-70 text-xs">(nach Steuer)</span></dt>
                       <dd className="font-display text-lg num">{fmtEUR(totals.gewerblichRateNachSteuer)}</dd>
                     </div>
                   )}
@@ -3451,10 +3449,10 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {/* Variante B & C: rein gewerblich — eine konsolidierte Finanzierungs-Belastung */}
             {!totals.hatPrivatAnteil && totals.hatGewerbModule && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5">Monatsrate gewerblich <span className="opacity-70">(nach Steuer)</span></p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5">Monatsrate gewerblich <span className="opacity-70">(nach Steuer)</span></p>
                 <p className="font-display text-3xl num">{fmtEUR(totals.gewerblichRateNachSteuer)}</p>
                 {(totals.steuerentlastung > 0 || totals.iabEntlastungMonat > 0) && (
-                  <p className="font-body text-[10px] opacity-50 mt-0.5">inkl. AfA, Zins-Abzug{totals.iabEntlastungMonat > 0 ? ' & IAB-Vorteil' : ''}</p>
+                  <p className="font-body text-[10px] opacity-70 mt-0.5">inkl. AfA, Zins-Abzug{totals.iabEntlastungMonat > 0 ? ' & IAB-Vorteil' : ''}</p>
                 )}
               </div>
             )}
@@ -3462,25 +3460,25 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {/* Laufende Fixkosten (Lizenz, QM, Versicherung, Instandhaltung + Pacht) — separat ausgewiesen */}
             {totals.laufendeKostenMonat > 0 && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> Laufende Fixkosten</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> Laufende Fixkosten</p>
                 <p className="font-display text-xl num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</p>
-                <p className="font-body text-[10px] opacity-50 mt-0.5">Pacht, Lizenz, Quartiersmgmt, Versicherung, Instandhaltung</p>
+                <p className="font-body text-[10px] opacity-70 mt-0.5">Pacht, Lizenz, Quartiersmgmt, Versicherung, Instandhaltung</p>
               </div>
             )}
 
             {/* Verbrauchskosten als Hinweis */}
             {totals.verbrauchskostenMonat > 0 && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1">Verbrauchskosten <span className="opacity-50">(variabel)</span></p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1">Verbrauchskosten <span className="opacity-70">(variabel)</span></p>
                 <p className="font-display text-lg num opacity-70">ca. {fmtEUR(totals.verbrauchskostenMonat)}</p>
-                <p className="font-body text-[10px] opacity-50 mt-0.5">{getContentText('tooltip_verbrauchskosten', 'Strom, Wasser, Heizung — trägt der Bewohner')}</p>
+                <p className="font-body text-[10px] opacity-70 mt-0.5">{getContentText('tooltip_verbrauchskosten', 'Strom, Wasser, Heizung — trägt der Bewohner')}</p>
               </div>
             )}
 
             {/* Mieteinnahmen */}
             {totals.hasIncome && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Einnahmen / Monat</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Einnahmen / Monat</p>
                 <p className="font-display text-3xl num text-[#A87DAE]">+ {fmtEUR(totals.monthlyIncomeNetto)}</p>
               </div>
             )}
@@ -3489,23 +3487,23 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {totals.gmCount > 0 && (
               <details className="pb-5 mb-5 border-b border-[#F8F5F0]/15 group" open>
                 <summary className="flex items-center justify-between cursor-pointer list-none mb-2">
-                  <p className="font-body text-xs uppercase tracking-wider opacity-50 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Projekt-Gemeinschaft</p>
-                  <ChevronRight className="w-4 h-4 opacity-40 transition-transform group-open:rotate-90" strokeWidth={2} />
+                  <p className="font-body text-sm uppercase tracking-wider opacity-90 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" strokeWidth={2} /> Gemeinschaftsmodule im Projekt</p>
+                  <ChevronRight className="w-4 h-4 opacity-65 transition-transform group-open:rotate-90" strokeWidth={2} />
                 </summary>
 
                 <div className="space-y-1 mb-3">
-                  <p className="font-body text-[10px] uppercase tracking-wider opacity-40 mb-1">Vom Projekt bereitgestellt</p>
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1">Vom Projekt bereitgestellt</p>
                   {totals.gmItems.map((it, i) => (
                     <div key={i} className="flex justify-between font-body text-sm opacity-80"><span><span className="num">{it.anzahl}×</span> {it.displayName}</span></div>
                   ))}
-                  <div className="flex justify-between font-body text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span className="opacity-60">Gesamtkosten (brutto)</span><span className="num">{fmtEUR(totals.gmKostenGesamtBrutto)}</span></div>
+                  <div className="flex justify-between font-body text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span className="opacity-75">Gesamtkosten (brutto)</span><span className="num">{fmtEUR(totals.gmKostenGesamtBrutto)}</span></div>
                 </div>
 
                 {/* Einmalig: Mehrkosten vs. Ersparnis */}
                 <div className="bg-[#F8F5F0]/5 p-3 mb-3">
-                  <p className="font-body text-[10px] uppercase tracking-wider opacity-40 mb-1.5">Einmalig — deine Bilanz ({totals.countTotal} {totals.countTotal === 1 ? 'Modul' : 'Module'})</p>
-                  <div className="flex justify-between font-body text-sm"><span className="opacity-60">+ Umlage Projektkosten</span><span className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</span></div>
-                  <div className="flex justify-between font-body text-sm"><span className="opacity-60">+ Umlage Gemeinschaftsmodule</span><span className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</span></div>
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1.5">Einmalig — deine Bilanz ({totals.countTotal} {totals.countTotal === 1 ? 'Modul' : 'Module'})</p>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">+ Umlage Projektkosten</span><span className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">+ Umlage Gemeinschaftsmodule</span><span className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</span></div>
                   <div className="flex justify-between font-body text-sm text-[#7FB069]"><span>− Ersparnis Mengenrabatt</span><span className="num">−{fmtEUR(totals.mengenrabattErsparnis)}</span></div>
                   {(() => {
                     const netMehr = totals.countTotal * totals.umlageProModul + totals.countTotal * totals.gmKostenProModulBrutto - totals.mengenrabattErsparnis;
@@ -3521,14 +3519,14 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
 
                 {/* Laufend: Cashflow der Gemeinschaftsmodule */}
                 <div className="bg-[#F8F5F0]/5 p-3">
-                  <p className="font-body text-[10px] uppercase tracking-wider opacity-40 mb-1.5">Laufend / Monat — Gemeinschaftsmodule (Projekt gesamt)</p>
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1.5">Laufend / Monat — Gemeinschaftsmodule (Projekt gesamt)</p>
                   <div className="flex justify-between font-body text-sm text-[#A87DAE]"><span>Einnahmen brutto</span><span className="num">+{fmtEUR(totals.gmEinnahmenBruttoMonat)}</span></div>
-                  <div className="flex justify-between font-body text-sm"><span className="opacity-60">− Betreiber-Fee (CoMod)</span><span className="num">−{fmtEUR(totals.gmFeeMonat)}</span></div>
-                  <div className="flex justify-between font-body text-sm"><span className="opacity-60">− Betriebskosten (Pacht, QM, Verbrauch)</span><span className="num">−{fmtEUR(totals.gmBetriebMonat)}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">− Betreiber-Fee (CoMod)</span><span className="num">−{fmtEUR(totals.gmFeeMonat)}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">− Betriebskosten (Pacht, QM, Verbrauch)</span><span className="num">−{fmtEUR(totals.gmBetriebMonat)}</span></div>
                   <div className="flex justify-between gap-2 font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span>Effektive Gesamteinnahmen durch Gemeinschaftsmodule</span><span className={`num shrink-0 ${totals.gmNettoCashflowMonat >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmNettoCashflowMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmNettoCashflowMonat))}</span></div>
                   <div className="mt-2 pt-2 border-t border-[#F8F5F0]/10">
-                    <p className="font-body text-[11px] opacity-50">Davon beträgt dein monatlicher Anteil ({totals.countTotal} von {totals.verkaufbareModule} verkaufbaren Modulen)</p>
-                    <p className={`font-display text-2xl num ${totals.gmEinnahmenKunde >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmEinnahmenKunde >= 0 ? '+ ' : '− '}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}<span className="font-body text-xs opacity-50"> / Monat</span></p>
+                    <p className="font-body text-[11px] opacity-70">Davon beträgt dein monatlicher Anteil ({totals.countTotal} von {totals.verkaufbareModule} verkaufbaren Modulen)</p>
+                    <p className={`font-display text-2xl num ${totals.gmEinnahmenKunde >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmEinnahmenKunde >= 0 ? '+ ' : '− '}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}<span className="font-body text-xs opacity-70"> / Monat</span></p>
                   </div>
                 </div>
               </details>
@@ -3537,9 +3535,9 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {/* Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) */}
             {totals.istMAWohnen && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> Rate pro Mitarbeiter</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> Rate pro Mitarbeiter</p>
                 <p className="font-display text-3xl num">{fmtEUR(totals.belastungProMA)}</p>
-                <p className="font-body text-[10px] opacity-50 mt-0.5">
+                <p className="font-body text-[10px] opacity-70 mt-0.5">
                   ÷ {totals.eigennutzungGewerbCount} {totals.eigennutzungGewerbCount === 1 ? 'eigengen. Modul' : 'eigengen. Module'}
                   {totals.iabEntlastungProMA > 0 && <> · inkl. IAB −{fmtEUR(totals.iabEntlastungProMA)}/MA</>}
                 </p>
@@ -3548,7 +3546,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
 
             {/* Effektive Belastung / Cashflow — der zentrale Endwert */}
             <div className="mb-7">
-              <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1">
+              <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1">
                 {totals.cashflowPositive
                   ? (totals.istInvestor ? 'Cashflow / Monat' : 'Überschuss / Monat')
                   : 'Effektive Monatsrate'}
@@ -3558,7 +3556,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               </p>
               {totals.cashflowPositive
                 ? <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" strokeWidth={2.5} /> rechnerisch positiv</p>
-                : <p className="font-body text-[10px] opacity-50 mt-1.5 leading-relaxed">
+                : <p className="font-body text-[10px] opacity-70 mt-1.5 leading-relaxed">
                     Finanzierung {totals.hatGewerbModule ? '(nach Steuer) ' : ''}+ laufende Fixkosten{(totals.hasIncome || totals.gmCount > 0) ? ' − Einnahmen' : ''}
                   </p>}
             </div>
