@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.71';
+const APP_VERSION = '0.9.73';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -372,6 +372,7 @@ function mapDbProjectToFrontend(db) {
     geschossVerteilung: Array.isArray(db.geschoss_verteilung) ? db.geschoss_verteilung : [],
     einmalkostenOptionen: (db.einmalkosten_optionen && typeof db.einmalkosten_optionen === 'object') ? db.einmalkosten_optionen : {},
     pvAnteil: db.pv_anteil == null ? 0 : Number(db.pv_anteil),
+    gemeinschaftsmodule: Array.isArray(db.gemeinschaftsmodule) ? db.gemeinschaftsmodule : [],
     pachtJahr: db.pacht_jahr || 0,
     pachtGewerblich: !!db.pacht_gewerblich,
     zielModulAnzahl: db.ziel_modul_anzahl,
@@ -791,6 +792,41 @@ function calcProjektUmlageProModul(project) {
   });
   return detail.summeBrutto / ziel;
 }
+
+// Gemeinschaftsmodule (P4): projektweit bereitgestellte gewerbliche Module.
+// Kosten = Anzahl × Herstellung × (1 − Mengenrabatt-Staffel auf Ziel) × (1 + Projekt-Marge), OHNE Provision.
+// Einnahmen = Anzahl × Standard-Einnahmen × modul-Multiplikator × Projekt-Einnahmen-Faktor.
+// Beides ÷ Ziel-Module → Umlage bzw. Gutschrift pro Modul.
+function calcGemeinschaftsmodule(project) {
+  const empty = { kostenGesamtBrutto: 0, kostenProModulBrutto: 0, einnahmenGesamtMonat: 0, einnahmenProModulMonat: 0, items: [] };
+  const ziel = project?.zielModulAnzahl || 0;
+  const list = Array.isArray(project?.gemeinschaftsmodule) ? project.gemeinschaftsmodule : [];
+  if (ziel <= 0 || list.length === 0) return empty;
+  const rabatt = getRabatt(ziel); // nur Staffel, kein flacher Projektrabatt
+  const einFaktor = project.einnahmenFaktor ?? 1;
+  let kostenNetto = 0, einnahmenMonat = 0;
+  const items = [];
+  for (const gm of list) {
+    const p = ALL_PRODUCTS.find(x => x.kuerzel === gm.kuerzel);
+    const anzahl = Number(gm.anzahl) || 0;
+    if (!p || anzahl <= 0) continue;
+    const marge = (project.projektMarge != null) ? project.projektMarge : (p.marge != null ? p.marge : MARGE_STD);
+    const kNetto = anzahl * p.herst * (1 - rabatt) * (1 + marge); // ohne Provision
+    const mult = (gm.einnahmen_mult != null) ? Number(gm.einnahmen_mult) : 1;
+    const eMonat = anzahl * (p.einnahmen || 0) * mult * einFaktor;
+    kostenNetto += kNetto;
+    einnahmenMonat += eMonat;
+    items.push({ kuerzel: p.kuerzel, anzahl, kostenNetto: kNetto, einnahmenMonat: eMonat, mult });
+  }
+  const kostenBrutto = kostenNetto * (1 + UST);
+  return {
+    kostenGesamtBrutto: kostenBrutto,
+    kostenProModulBrutto: kostenBrutto / ziel,
+    einnahmenGesamtMonat: einnahmenMonat,
+    einnahmenProModulMonat: einnahmenMonat / ziel,
+    items,
+  };
+}
 function calcNebenkosten({ hasPacht, pachtJahr, pachtGewerblich, gesamtNUF, nufPrivat, nufGewerb, zielModulAnzahl }) {
   // Pacht-Berechnung:
   // - Wenn Projekt (zielModulAnzahl > 0): Umlage = pachtJahr / Ziel-Module / 32 m² / 12
@@ -964,8 +1000,11 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const privatSum = rabattPreiseSum(privatItems);
   const gewerbSum = rabattPreiseSum(gewerbItems);
   // Transport & Aufstellung: netto, ohne Marge/Provision/Rabatt durchgereicht; privat brutto (+USt), gewerb netto
-  const effPrivat = privatSum.brutto + countPrivat * einmaligProModul + countPrivat * tpaNettoProModul * (1 + UST);
-  const effGewerbNetto = gewerbSum.netto + countGewerb * (einmaligProModul / (1 + UST)) + countGewerb * tpaNettoProModul;
+  // Gemeinschaftsmodule (P4): Kosten als eigene Position, auf Ziel umgelegt, vor Steuer aufgeschlagen
+  const gm = project ? calcGemeinschaftsmodule(project) : { kostenGesamtBrutto: 0, kostenProModulBrutto: 0, einnahmenGesamtMonat: 0, einnahmenProModulMonat: 0, items: [] };
+  const gmKostenProModulBrutto = gm.kostenProModulBrutto;
+  const effPrivat = privatSum.brutto + countPrivat * einmaligProModul + countPrivat * tpaNettoProModul * (1 + UST) + countPrivat * gmKostenProModulBrutto;
+  const effGewerbNetto = gewerbSum.netto + countGewerb * (einmaligProModul / (1 + UST)) + countGewerb * tpaNettoProModul + countGewerb * (gmKostenProModulBrutto / (1 + UST));
   const effGewerbBrutto = effGewerbNetto * (1 + UST);
 
   const pachtSource = project ? { hasPacht: (project.pachtJahr || 0) > 0, pachtJahr: project.pachtJahr || 0, pachtGewerblich: project.pachtGewerblich, zielModulAnzahl: project.zielModulAnzahl || 0 }
@@ -982,7 +1021,9 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
 
   // === Optionale Upgrades Privat (Terrasse, PV, Dachbegrünung) ===
   // Gelten pro eigengenutztem Privatmodul. Summe fließt auf GLS-Finanzierung (nie KfW).
-  const privOpt = privatOptionen || {};
+  // Im Projekt-Beitritt sind Terrasse/Begrünung/PV bereits in der Solidar-Umlage enthalten —
+  // daher private Upgrades dort ignorieren (keine Doppelzählung), auch gegen Reste im State.
+  const privOpt = project ? {} : (privatOptionen || {});
   const privatOptionenKosten = PRIVAT_UPGRADES.reduce((s, opt) => {
     if (!privOpt[opt.id]) return s;
     return s + opt.proModul * countPrivat;
@@ -1073,7 +1114,9 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
 
   // Effektive Belastung = Finanzierung-eff + laufende Kosten − Einnahmen (Verbrauch trägt der Bewohner)
   // Gilt einheitlich für alle Kundentypen; Vorzeichen-Logik: negativ = Überschuss (Investor)
-  const effektiveBelastung = belastungFinanzierungEff + laufendeKostenMonat - monthlyIncomeNetto;
+  // Gemeinschaftsmodul-Einnahmen (P4): anteilige monatliche Gutschrift pro Kundenmodul, senkt die Belastung
+  const gmEinnahmenKunde = countTotal * (gm.einnahmenProModulMonat || 0);
+  const effektiveBelastung = belastungFinanzierungEff + laufendeKostenMonat - monthlyIncomeNetto - gmEinnahmenKunde;
   const cashflowPositive = effektiveBelastung < 0;
   const cashflowNetto = -effektiveBelastung; // Beibehaltung Vorzeichen-Konvention: positiv = Überschuss
 
@@ -1087,7 +1130,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const anzahlung = lineItems.reduce((s, x) => {
     const basis = x.usage === 'p' ? x.brutto : x.netto;
     return s + x.count * basis * ANZ_PCT;
-  }, 0) + einmaligGesamtBrutto * ANZ_PCT;
+  }, 0) + einmaligGesamtBrutto * ANZ_PCT + (countTotal * gmKostenProModulBrutto) * ANZ_PCT;
 
   return {
     lineItems, privatItems, gewerbItems, incomeItems,
@@ -1109,6 +1152,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     hatPrivatAnteil, hatGewerbEigen, hatGewerbVermietet, hatGewerbModule, istInvestor, istMAWohnen,
     nebenkosten, nebenkostenMonatGesamt, laufendeKostenMonat, verbrauchskostenMonat,
     einmaligGesamtBrutto, einmaligProModul, einmaligDetail, baugenehmigungEinzeln, umlageProModul: umlageProModulProjekt,
+    gmKostenProModulBrutto, gmKostenGesamtBrutto: gm.kostenGesamtBrutto, gmEinnahmenProModulMonat: gm.einnahmenProModulMonat, gmEinnahmenKunde, gmItems: gm.items,
     mindestflaeche,
   };
 }
@@ -2771,7 +2815,10 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         {totals.baugenehmigungEinzeln > 0 && (
                           <div className="flex justify-between text-sm font-body mt-1"><dt className="text-[#6B6961]">+ Baugenehmigung (anteilig)</dt><dd className="num">{fmtEUR(totals.baugenehmigungEinzeln)}</dd></div>
                         )}
-                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
+                        {totals.gmKostenGesamtBrutto > 0 && (
+                          <div className="flex justify-between text-sm font-body mt-1"><dt className="text-[#6B6961]">+ Gemeinschaftsmodule ({fmtEUR(totals.gmKostenProModulBrutto)}/Modul × {totals.countTotal})</dt><dd className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>
+                        )}
+                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto + totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>
                       </>
                     ) : gewerbConfig ? (
                       // Gewerblich: Detail-Posten analog Privat, aber mit zusätzlichem Block für Optionen/Schätzungen
@@ -2919,7 +2966,7 @@ function Slider({ label, value, onChange, min, max, step, format = (v) => v, hin
   );
 }
 
-function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPrivat, privatOptionen, setPrivatOptionen, countPrivat }) {
+function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPrivat, privatOptionen, setPrivatOptionen, countPrivat, hideUpgrades }) {
   return (
     <>
       {/* KfW-Panel */}
@@ -2955,7 +3002,8 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
           Der Auftragswert abzüglich KfW-Förderhöhe und Eigenkapital — zuzüglich optionaler Upgrades — wird über die GLS Bank finanziert.
         </p>
 
-        {/* Optionale Upgrades (Feedback V4) */}
+        {/* Optionale Upgrades (Feedback V4) — im Projekt-Beitritt ausgeblendet, da bereits in der Umlage enthalten */}
+        {!hideUpgrades && (
         <div className="mb-6">
           <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Optionale Upgrades</p>
           <div className="space-y-2">
@@ -2985,6 +3033,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
             </p>
           )}
         </div>
+        )}
 
         <div className="bg-[#F8F5F0] border border-[#1C1C1A]/8 p-4 mb-6 font-body text-sm space-y-1.5">
           <div className="flex justify-between"><span className="text-[#6B6961]">Auftragswert privat (inkl. ant. Projektkosten)</span><span className="num">{fmtEUR(totals.effPrivat)}</span></div>
@@ -3305,7 +3354,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
 
       <div className="flex flex-col lg:flex-row gap-10">
         <div className="flex-1 min-w-0 space-y-8">
-          {hasPrivat && <PrivatFinanzPanel totals={totals} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} countPrivat={totals.countPrivat} />}
+          {hasPrivat && <PrivatFinanzPanel totals={totals} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} countPrivat={totals.countPrivat} hideUpgrades={!!project} />}
           {hasGewerb && <GewerblichFinanzPanel totals={totals} financing={financing} setFinancing={setFinancing} />}
           {hasGewerb && <SteuerOptionenPanel totals={totals} financing={financing} setFinancing={setFinancing} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} />}
           <NebenkostenBreakdown totals={totals} project={project} gewerbConfig={gewerbConfig} />
@@ -3396,6 +3445,15 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               </div>
             )}
 
+            {/* Gemeinschaftsmodul-Einnahmen (P4) — eigene Gutschrift-Position */}
+            {totals.gmEinnahmenKunde > 0 && (
+              <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
+                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Gemeinschaftsmodule / Monat</p>
+                <p className="font-display text-2xl num text-[#A87DAE]">+ {fmtEUR(totals.gmEinnahmenKunde)}</p>
+                <p className="font-body text-[10px] opacity-50 mt-0.5">anteilige Einnahmen-Gutschrift aus Projekt-Gemeinschaftsmodulen</p>
+              </div>
+            )}
+
             {/* Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) */}
             {totals.istMAWohnen && (
               <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
@@ -3421,7 +3479,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               {totals.cashflowPositive
                 ? <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" strokeWidth={2.5} /> rechnerisch positiv</p>
                 : <p className="font-body text-[10px] opacity-50 mt-1.5 leading-relaxed">
-                    Finanzierung {totals.hatGewerbModule ? '(nach Steuer) ' : ''}+ laufende Fixkosten{totals.hasIncome ? ' − Einnahmen' : ''}
+                    Finanzierung {totals.hatGewerbModule ? '(nach Steuer) ' : ''}+ laufende Fixkosten{(totals.hasIncome || totals.gmEinnahmenKunde > 0) ? ' − Einnahmen' : ''}
                   </p>}
             </div>
 
@@ -3527,14 +3585,15 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
             </ul>
             <dl className="space-y-2.5 text-sm font-body pt-4 border-t border-[#1C1C1A]/10">
               <div className="flex justify-between"><dt className="text-[#6B6961]">Anschaffung brutto</dt><dd className="num">{fmtEUR(totals.bruttoGesamt)}</dd></div>
-              {(project || gewerbConfig) && <div className="flex justify-between"><dt className="text-[#6B6961]">Projektkosten einm.</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>}
+              {(project || gewerbConfig) && <div className="flex justify-between"><dt className="text-[#6B6961]">Projektkosten einm.</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto + totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>}
               <div className="flex justify-between"><dt className="text-[#6B6961]">Anzahlung</dt><dd className="num">{fmtEUR(totals.anzahlung)}</dd></div>
               <div className="flex justify-between pt-2 border-t border-[#1C1C1A]/10"><dt className="text-[#6B6961]">Finanzierung/Mt.</dt><dd className="num">{fmtEUR(totals.finanzierungMonat)}</dd></div>
               {(project || gewerbConfig) && <div className="flex justify-between text-[#7B2D8E]"><dt>Nebenkosten/Mt.</dt><dd className="num">{fmtEUR(totals.nebenkostenMonatGesamt)}</dd></div>}
               <div className="flex justify-between font-body"><dt className="text-[#1C1C1A]">Belastung/Mt.</dt><dd className="num">{fmtEUR(totals.monatlichGesamt)}</dd></div>
-              {totals.hasIncome && (
+              {(totals.hasIncome || totals.gmEinnahmenKunde > 0) && (
                 <>
-                  <div className="flex justify-between text-[#7B2D8E]"><dt>Einnahmen/Mt.</dt><dd className="num">+{fmtEUR(totals.monthlyIncomeNetto)}</dd></div>
+                  {totals.hasIncome && <div className="flex justify-between text-[#7B2D8E]"><dt>Einnahmen/Mt.</dt><dd className="num">+{fmtEUR(totals.monthlyIncomeNetto)}</dd></div>}
+                  {totals.gmEinnahmenKunde > 0 && <div className="flex justify-between text-[#7B2D8E]"><dt>Gemeinschaftsmodule/Mt.</dt><dd className="num">+{fmtEUR(totals.gmEinnahmenKunde)}</dd></div>}
                   <div className={`flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10 ${totals.cashflowPositive ? 'text-[#D2563E]' : ''}`}>
                     <dt>{totals.cashflowPositive ? 'Überschuss' : 'Eff. Belastung'}</dt>
                     <dd className="num">{totals.cashflowPositive ? '+' : ''}{fmtEUR(Math.abs(totals.cashflowNetto))}</dd>
@@ -4533,6 +4592,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     geschoss_verteilung: [],
     einmalkosten_optionen: {},
     pv_anteil: 0,
+    gemeinschaftsmodule: [],
     pacht_jahr: 0,
     pacht_gewerblich: false,
     provision_pct: null,
@@ -4592,6 +4652,23 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
   const pPachtProM2Netto = (pZiel > 0 && pPachtJahr > 0) ? pPachtJahr / pZiel / ZIEL_MODUL_NUF / 12 : 0;
   const pPachtProModulNetto = pPachtProM2Netto * ZIEL_MODUL_NUF;
   const pPachtProModulPrivat = form.pacht_gewerblich ? pPachtProModulNetto * (1 + UST) : pPachtProModulNetto;
+
+  // P4 — Gemeinschaftsmodule
+  const gmList = Array.isArray(form.gemeinschaftsmodule) ? form.gemeinschaftsmodule : [];
+  const gewerbModule = (typeof PRODUCTS === 'object' && Array.isArray(PRODUCTS.gewerblich)) ? PRODUCTS.gewerblich : [];
+  const addGm = (kuerzel) => setForm(f => ({ ...f, gemeinschaftsmodule: [...(Array.isArray(f.gemeinschaftsmodule) ? f.gemeinschaftsmodule : []), { kuerzel, anzahl: 1, einnahmen_mult: 1 }] }));
+  const removeGm = (idx) => setForm(f => ({ ...f, gemeinschaftsmodule: (f.gemeinschaftsmodule || []).filter((_, i) => i !== idx) }));
+  const setGmField = (idx, field, value) => setForm(f => {
+    const neu = [...(Array.isArray(f.gemeinschaftsmodule) ? f.gemeinschaftsmodule : [])];
+    neu[idx] = { ...neu[idx], [field]: value };
+    return { ...f, gemeinschaftsmodule: neu };
+  });
+  const pGm = calcGemeinschaftsmodule({
+    zielModulAnzahl: pZiel,
+    projektMarge: (margeStr !== '' && form.projekt_marge != null) ? form.projekt_marge : null,
+    einnahmenFaktor: form.einnahmen_faktor == null ? 1 : form.einnahmen_faktor,
+    gemeinschaftsmodule: gmList,
+  });
 
   const update = (key) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked
@@ -4897,6 +4974,68 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
               </div>
             </div>
             <p className="font-body text-[10px] text-[#6B6961] mt-2">Basis: eingetragene Pacht/Jahr ({fmtEUR(pPachtJahr)}) ÷ {form.ziel_modul_anzahl || 0} Ziel-Module ÷ {ZIEL_MODUL_NUF} m² ÷ 12. Fließt beim Kunden in die laufenden Pflicht-Kosten ein.</p>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Gemeinschaftsmodule</p>
+            <p className="font-body text-[11px] text-[#6B6961] mb-4 leading-relaxed">
+              Gewerbliche Module, die das Projekt allen Kunden bereitstellt (z. B. Gym, Wellness, CoWork, Gemeinschaftswohnung). Kosten werden als eigene Umlage auf alle {pZiel || 0} Ziel-Module verteilt (Mengenrabatt-Staffel + Projekt-Marge, ohne Provision). Einnahmen fließen — mit Multiplikator und Projekt-Einnahmen-Faktor — als monatliche Gutschrift zurück.
+            </p>
+
+            <div className="mb-4">
+              <select value="" onChange={e => { if (e.target.value) addGm(e.target.value); }}
+                className="bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]">
+                <option value="">+ Gemeinschaftsmodul hinzufügen …</option>
+                {gewerbModule.map(p => (
+                  <option key={p.kuerzel} value={p.kuerzel}>{p.displayName || p.kuerzel}</option>
+                ))}
+              </select>
+            </div>
+
+            {gmList.length === 0 ? (
+              <p className="font-body text-xs text-[#6B6961] italic mb-2">Keine Gemeinschaftsmodule gewählt.</p>
+            ) : (
+              <div className="space-y-2 mb-4">
+                {gmList.map((g, idx) => {
+                  const p = gewerbModule.find(x => x.kuerzel === g.kuerzel);
+                  return (
+                    <div key={idx} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-end bg-[#F8F5F0] border border-[#1C1C1A]/10 p-2">
+                      <div>
+                        <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Modul</p>
+                        <p className="font-body text-sm">{p ? (p.displayName || p.kuerzel) : g.kuerzel}</p>
+                      </div>
+                      <div>
+                        <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Anzahl</p>
+                        <input type="number" min="0" value={g.anzahl ?? 0} onChange={e => setGmField(idx, 'anzahl', Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                          className={`w-20 bg-white border border-[#1C1C1A]/15 px-2 py-1 font-display text-base focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                      </div>
+                      <div>
+                        <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Einnahmen %</p>
+                        <input type="number" min="0" value={Math.round((g.einnahmen_mult ?? 1) * 100)} onChange={e => setGmField(idx, 'einnahmen_mult', Math.max(0, Number(e.target.value) || 0) / 100)}
+                          className={`w-24 bg-white border border-[#1C1C1A]/15 px-2 py-1 font-display text-base focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                      </div>
+                      <button type="button" onClick={() => removeGm(idx)}
+                        className="font-body text-xs text-[#C5392E] hover:underline px-2 py-2">entfernen</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {gmList.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-[#7B2D8E]/5 border border-[#7B2D8E]/20 p-3">
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Kosten-Umlage / Modul (brutto)</p>
+                  <p className="font-display text-xl num text-[#7B2D8E]">{fmtEUR(pGm.kostenProModulBrutto)}</p>
+                  <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Gesamt: {fmtEUR(pGm.kostenGesamtBrutto)} ÷ {pZiel || 0} Module</p>
+                </div>
+                <div className="bg-[#7FB069]/10 border border-[#7FB069]/40 p-3">
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Einnahmen-Gutschrift / Modul / Monat</p>
+                  <p className="font-display text-xl num text-[#5C8A47]">{fmtEUR(pGm.einnahmenProModulMonat)}</p>
+                  <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Gesamt: {fmtEUR(pGm.einnahmenGesamtMonat)}/Mt. ÷ {pZiel || 0} · inkl. Faktor {Math.round((form.einnahmen_faktor == null ? 1 : form.einnahmen_faktor) * 100)} %</p>
+                </div>
+              </div>
+            )}
           </section>
 
           <section>
