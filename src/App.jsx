@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.79';
+const APP_VERSION = '0.9.80';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -296,6 +296,7 @@ function mapDbModuleToFrontend(db) {
   };
   // Optionale Felder nur setzen wenn vorhanden (Frontend prüft mit `in` oder undefined)
   if (db.display_name && db.display_name !== db.kuerzel) base.displayName = db.display_name;
+  if (db.bild_url) base.bildUrl = db.bild_url;
   if (db.kueche) base.kueche = db.kueche;
   if (db.moebliert != null) base.moebliert = db.moebliert;
   if (db.groesse_label != null) base.groesse = db.groesse_label;
@@ -4146,6 +4147,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
     beschreibung_de: '',
     beschreibung_en: '',
     icon_path: '',
+    bild_url: '',
     breite_korpus_cm: 350,
     laenge_korpus_cm: 700,
     hoehe_cm: 320,
@@ -4183,6 +4185,30 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
   };
   const [margeStr, setMargeStr] = useState(() => pctToStr(form.marge));
   const [feeStr,   setFeeStr]   = useState(() => pctToStr(form.fee));
+
+  // Bild-Upload (Supabase Storage, Bucket 'visuals', Unterordner modules/)
+  const [imgUploading, setImgUploading] = useState(false);
+  const [imgError, setImgError] = useState('');
+  const handleImageUpload = async (file) => {
+    if (!file) return;
+    setImgError('');
+    if (!file.type.startsWith('image/')) { setImgError('Bitte eine Bilddatei wählen.'); return; }
+    if (file.size > 8 * 1024 * 1024) { setImgError('Bild zu groß (max. 8 MB).'); return; }
+    setImgUploading(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const base = ((form.kuerzel || 'modul').replace(/[^a-z0-9-]/gi, '').toLowerCase()) || 'modul';
+      const path = `modules/${base}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('visuals').upload(path, file, { upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from('visuals').getPublicUrl(path);
+      setForm(f => ({ ...f, bild_url: data.publicUrl }));
+    } catch (e) {
+      setImgError(e?.message || 'Upload fehlgeschlagen.');
+    } finally {
+      setImgUploading(false);
+    }
+  };
 
   // Modul-Sichtbarkeit: Welche Workspaces haben dieses Modul ausgeblendet?
   // Set von workspace-IDs. Wird beim Mount geladen (nur wenn Modul existiert) und beim Save gespeichert.
@@ -4341,6 +4367,37 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
                 <input type="text" value={form.icon_path ?? ''} onChange={update('icon_path')}
                   className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">z. B. '/icons/comod_stay_lkdm.png'</p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Modul-Bild</p>
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Bild-URL</label>
+                <input type="text" value={form.bild_url ?? ''} onChange={update('bild_url')}
+                  placeholder="z. B. /modules/stay.jpg oder https://…"
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                <div className="flex items-center gap-3 mt-2">
+                  <label className={`inline-flex items-center gap-1.5 font-body text-xs uppercase tracking-wider border px-3 py-1.5 cursor-pointer transition-colors ${imgUploading ? 'opacity-50 pointer-events-none border-[#1C1C1A]/15 text-[#6B6961]' : 'border-[#7B2D8E]/40 text-[#7B2D8E] hover:bg-[#7B2D8E]/10'}`}>
+                    <Upload className="w-3.5 h-3.5" strokeWidth={2} />
+                    {imgUploading ? 'Lädt hoch …' : 'Bild hochladen'}
+                    <input type="file" accept="image/*" className="hidden" disabled={imgUploading}
+                      onChange={e => { const f = e.target.files?.[0]; handleImageUpload(f); e.target.value = ''; }} />
+                  </label>
+                  {form.bild_url && !imgUploading && (
+                    <button type="button" onClick={() => setForm(f => ({ ...f, bild_url: '' }))}
+                      className="font-body text-xs text-[#C5392E] hover:underline">entfernen</button>
+                  )}
+                </div>
+                {imgError && <p className="font-body text-[11px] text-[#C5392E] mt-1.5">{imgError}</p>}
+                <p className="font-body text-[10px] text-[#6B6961] mt-1.5">Querformat empfohlen. Per „Bild hochladen" direkt in den Storage laden — oder eine externe URL/Repo-Pfad eintragen.</p>
+              </div>
+              <div className="w-44 aspect-[3/2] bg-[#F8F5F0] border border-[#1C1C1A]/10 flex items-center justify-center overflow-hidden">
+                {form.bild_url
+                  ? <img src={form.bild_url} alt="Vorschau" className="w-full h-full object-cover" />
+                  : <span className="font-display text-3xl text-[#A87DAE]/30">{(form.kuerzel || '?').charAt(0)}</span>}
               </div>
             </div>
           </section>
