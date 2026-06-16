@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.77';
+const APP_VERSION = '0.9.78';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4676,6 +4676,9 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     pv_anteil: 0,
     gemeinschaftsmodule: [],
     gemeinschaft_betriebskosten_monat: 0,
+    gm_finanz_laufzeit: 0,
+    gm_finanz_zins: 0,
+    gm_finanz_restwert: 0,
     pacht_jahr: 0,
     pacht_gewerblich: false,
     provision_pct: null,
@@ -4781,6 +4784,20 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     }
   };
 
+  // Finanzierungs-Einschätzung Gemeinschaftsmodule (NUR intern/Admin — keine Frontend-Wirkung)
+  const gmFinJahre = Number(form.gm_finanz_laufzeit) || 0;
+  const gmFinZins = (Number(form.gm_finanz_zins) || 0) / 100;
+  const gmFinRestwert = Number(form.gm_finanz_restwert) || 0;
+  const gmFinAktiv = gmFinJahre > 0 && gmFinZins > 0 && pGm.kostenGesamtBrutto > 0;
+  const gmFinN = gmFinJahre * 12;
+  const gmFinI = gmFinZins / 12;
+  // Annuität mit Restwert (Ballon am Laufzeitende): zahlt Zins auf den Gesamtbetrag, tilgt bis Restwert
+  const gmFinRate = !gmFinAktiv ? 0
+    : (gmFinI > 0
+        ? (pGm.kostenGesamtBrutto - gmFinRestwert * Math.pow(1 + gmFinI, -gmFinN)) * gmFinI / (1 - Math.pow(1 + gmFinI, -gmFinN))
+        : (pGm.kostenGesamtBrutto - gmFinRestwert) / gmFinN);
+  const gmFinCashflow = pGm.nettoCashflowMonat - gmFinRate; // Monat, Projekt gesamt
+
   const update = (key) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked
             : e.target.type === 'number' ? (e.target.value === '' ? null : Number(e.target.value))
@@ -4809,6 +4826,9 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
       aufstellung_pro_modul: Number(form.aufstellung_pro_modul) || 0,
       pv_anteil: Number(form.pv_anteil) || 0,
       gemeinschaft_betriebskosten_monat: Number(form.gemeinschaft_betriebskosten_monat) || 0,
+      gm_finanz_laufzeit: Number(form.gm_finanz_laufzeit) || 0,
+      gm_finanz_zins: Number(form.gm_finanz_zins) || 0,
+      gm_finanz_restwert: Number(form.gm_finanz_restwert) || 0,
     };
     let res;
     if (isNew) {
@@ -5179,6 +5199,42 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                   <div className="flex justify-between px-3 py-1.5 border-t border-[#1C1C1A]/5"><span className="text-[#6B6961]">− Betreiber-Fee</span><span className="num text-[#6B6961]">−{fmtEUR(pGm.feeMonat)}</span></div>
                   <div className="flex justify-between px-3 py-1.5 border-t border-[#1C1C1A]/5"><span className="text-[#6B6961]">− Betriebskosten (Pacht, QM, Vers., Verbrauch)</span><span className="num text-[#6B6961]">−{fmtEUR(pGm.betriebMonat)}</span></div>
                   <div className="flex justify-between px-3 py-2 border-t border-[#1C1C1A]/15 font-display"><span className="text-[#1C1C1A]">Netto-Cashflow</span><span className={`num ${pGm.nettoCashflowMonat >= 0 ? 'text-[#5C8A47]' : 'text-[#C5392E]'}`}>{pGm.nettoCashflowMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(pGm.nettoCashflowMonat))}</span></div>
+                </div>
+
+                {/* Finanzierungs-Einschätzung — NUR intern, keine Frontend-Wirkung */}
+                <div className="border border-dashed border-[#1C1C1A]/20 p-3 bg-[#1C1C1A]/[0.02]">
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Finanzierungs-Einschätzung <span className="normal-case tracking-normal italic">(nur intern · keine Auswirkung auf Frontend/Kunde)</span></p>
+                  <p className="font-body text-[11px] text-[#6B6961] mb-3 leading-relaxed">Worst-Case-Check: Tragen die Netto-Einnahmen die Finanzierung der Gemeinschaftsmodul-Kosten ({fmtEUR(pGm.kostenGesamtBrutto)})?</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Laufzeit (Jahre)</label>
+                      <input type="number" value={form.gm_finanz_laufzeit ?? ''} onChange={update('gm_finanz_laufzeit')} placeholder="z. B. 20"
+                        className={`w-full bg-white border border-[#1C1C1A]/15 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                    </div>
+                    <div>
+                      <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Zinssatz (%)</label>
+                      <input type="number" value={form.gm_finanz_zins ?? ''} onChange={update('gm_finanz_zins')} placeholder="z. B. 4"
+                        className={`w-full bg-white border border-[#1C1C1A]/15 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                    </div>
+                    <div>
+                      <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Restwert (€)</label>
+                      <input type="number" value={form.gm_finanz_restwert ?? ''} onChange={update('gm_finanz_restwert')} placeholder="0"
+                        className={`w-full bg-white border border-[#1C1C1A]/15 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                    </div>
+                  </div>
+                  {gmFinAktiv ? (
+                    <div className="mt-3 border-t border-[#1C1C1A]/10 pt-2 text-[11px] font-body space-y-1">
+                      <div className="flex justify-between"><span className="text-[#6B6961]">Finanzierungsrate / Monat</span><span className="num">−{fmtEUR(gmFinRate)}</span></div>
+                      <div className="flex justify-between"><span className="text-[#6B6961]">Netto-Einnahmen / Monat (s. o.)</span><span className="num">+{fmtEUR(pGm.nettoCashflowMonat)}</span></div>
+                      <div className="flex justify-between font-display text-sm pt-1.5 border-t border-[#1C1C1A]/10">
+                        <span className="text-[#1C1C1A]">Cashflow nach Finanzierung</span>
+                        <span className={`num ${gmFinCashflow >= 0 ? 'text-[#5C8A47]' : 'text-[#C5392E]'}`}>{gmFinCashflow >= 0 ? '+' : '−'}{fmtEUR(Math.abs(gmFinCashflow))}</span>
+                      </div>
+                      <p className={`font-body text-[10px] mt-0.5 ${gmFinCashflow >= 0 ? 'text-[#5C8A47]' : 'text-[#C5392E]'}`}>{gmFinCashflow >= 0 ? '✓ trägt sich unter diesen Konditionen' : '✗ trägt sich noch nicht — Konditionen/Einnahmen prüfen'}</p>
+                    </div>
+                  ) : (
+                    <p className="font-body text-[10px] text-[#6B6961] italic mt-2">Laufzeit & Zinssatz eingeben für die Einschätzung.</p>
+                  )}
                 </div>
               </div>
             )}
