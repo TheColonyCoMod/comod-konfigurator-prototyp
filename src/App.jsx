@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.74';
+const APP_VERSION = '0.9.75';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -3507,7 +3507,16 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
                   <div className="flex justify-between font-body text-sm"><span className="opacity-60">+ Umlage Projektkosten</span><span className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</span></div>
                   <div className="flex justify-between font-body text-sm"><span className="opacity-60">+ Umlage Gemeinschaftsmodule</span><span className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</span></div>
                   <div className="flex justify-between font-body text-sm text-[#7FB069]"><span>− Ersparnis Mengenrabatt</span><span className="num">−{fmtEUR(totals.mengenrabattErsparnis)}</span></div>
-                  <div className="flex justify-between font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span>Netto-Mehrkosten</span><span className="num">{fmtEUR(Math.max(0, totals.countTotal * totals.umlageProModul + totals.countTotal * totals.gmKostenProModulBrutto - totals.mengenrabattErsparnis))}</span></div>
+                  {(() => {
+                    const netMehr = totals.countTotal * totals.umlageProModul + totals.countTotal * totals.gmKostenProModulBrutto - totals.mengenrabattErsparnis;
+                    const istErsparnis = netMehr < 0;
+                    return (
+                      <div className="flex justify-between font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10">
+                        <span>{istErsparnis ? 'Deine Ersparnis' : 'Netto-Mehrkosten'}</span>
+                        <span className={`num ${istErsparnis ? 'text-[#7FB069]' : ''}`}>{fmtEUR(Math.abs(netMehr))}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Laufend: Cashflow der Gemeinschaftsmodule */}
@@ -3516,8 +3525,11 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
                   <div className="flex justify-between font-body text-sm text-[#A87DAE]"><span>Einnahmen brutto</span><span className="num">+{fmtEUR(totals.gmEinnahmenBruttoMonat)}</span></div>
                   <div className="flex justify-between font-body text-sm"><span className="opacity-60">− Betreiber-Fee (CoMod)</span><span className="num">−{fmtEUR(totals.gmFeeMonat)}</span></div>
                   <div className="flex justify-between font-body text-sm"><span className="opacity-60">− Betriebskosten (Pacht, QM, Verbrauch)</span><span className="num">−{fmtEUR(totals.gmBetriebMonat)}</span></div>
-                  <div className="flex justify-between font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span>Netto-Cashflow</span><span className={`num ${totals.gmNettoCashflowMonat >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmNettoCashflowMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmNettoCashflowMonat))}</span></div>
-                  <div className="flex justify-between font-body text-[11px] opacity-60 mt-1"><span>dein Anteil ({totals.countTotal} von {totals.verkaufbareModule} verkaufbaren)</span><span className="num">{totals.gmEinnahmenKunde >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}/Mt.</span></div>
+                  <div className="flex justify-between gap-2 font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span>Effektive Gesamteinnahmen durch Gemeinschaftsmodule</span><span className={`num shrink-0 ${totals.gmNettoCashflowMonat >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmNettoCashflowMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmNettoCashflowMonat))}</span></div>
+                  <div className="mt-2 pt-2 border-t border-[#F8F5F0]/10">
+                    <p className="font-body text-[11px] opacity-50">Davon beträgt dein monatlicher Anteil ({totals.countTotal} von {totals.verkaufbareModule} verkaufbaren Modulen)</p>
+                    <p className={`font-display text-2xl num ${totals.gmEinnahmenKunde >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmEinnahmenKunde >= 0 ? '+ ' : '− '}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}<span className="font-body text-xs opacity-50"> / Monat</span></p>
+                  </div>
                 </div>
               </details>
             )}
