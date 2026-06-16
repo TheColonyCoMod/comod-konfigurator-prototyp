@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.73';
+const APP_VERSION = '0.9.74';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -769,10 +769,21 @@ function calcEinmaligeProjektkosten({ modulAnzahl, grundstueckGroesse, geschosse
   return { posten, summeNetto, summeBrutto, belegteFlaeche, freiflaeche, tatsaechlicheGrdst };
 }
 
+// Anzahl der Gemeinschaftsmodule (Σ anzahl) und verkaufbare Kundenmodule (Ziel − Gemeinschaftsmodule).
+// Kosten/Erträge der Gemeinschaftsmodule und die Solidar-Umlage verteilen sich auf die verkaufbaren Module.
+function sumGemeinschaftsCount(project) {
+  const list = Array.isArray(project?.gemeinschaftsmodule) ? project.gemeinschaftsmodule : [];
+  return list.reduce((s, gm) => s + (Number(gm.anzahl) || 0), 0);
+}
+function verkaufbareModule(project) {
+  const ziel = project?.zielModulAnzahl || 0;
+  return Math.max(1, ziel - sumGemeinschaftsCount(project));
+}
+
 // Solidar-Umlage pro Modul (P1): ALLE einmaligen Projektkosten — Planung/PM (gestaffelt nach Ziel),
 // Baugenehmigung (auf die Gesamt-BGF des Projekts hochgerechnet), Treppen/Fundamente/Terrassen/PV
 // (aus der Geschoss-Verteilung) und die gewählten Grundstücks-/Erschließungs-Optionen — geteilt durch
-// die Ziel-Modulanzahl. Liefert den Brutto-Wert pro Modul (Gewerb-Pfad rechnet daraus netto zurück).
+// die VERKAUFBAREN Module (Ziel − Gemeinschaftsmodule). Brutto pro Modul.
 function calcProjektUmlageProModul(project) {
   const ziel = project?.zielModulAnzahl || 0;
   if (ziel <= 0) return 0;
@@ -790,21 +801,28 @@ function calcProjektUmlageProModul(project) {
     geschossVerteilung: verteilung,
     pvAnteil: project.pvAnteil || 0,
   });
-  return detail.summeBrutto / ziel;
+  return detail.summeBrutto / verkaufbareModule(project);
 }
 
 // Gemeinschaftsmodule (P4): projektweit bereitgestellte gewerbliche Module.
-// Kosten = Anzahl × Herstellung × (1 − Mengenrabatt-Staffel auf Ziel) × (1 + Projekt-Marge), OHNE Provision.
-// Einnahmen = Anzahl × Standard-Einnahmen × modul-Multiplikator × Projekt-Einnahmen-Faktor.
-// Beides ÷ Ziel-Module → Umlage bzw. Gutschrift pro Modul.
+// Kosten (einmalig) = Anzahl × Herstellung × (1 − Mengenrabatt-Staffel auf Ziel) × (1 + Projekt-Marge), OHNE Provision.
+// Einnahmen (Monat, brutto) = Anzahl × Standard-Einnahmen × Multiplikator × Projekt-Einnahmen-Faktor.
+//   − Betreiber-Fee (je Modul-fee)  − Betriebskosten (Pacht + Nebenkosten fix/verbrauch je m² × NUF, Worst Case aus Settings)
+//   = Netto-Cashflow/Monat.  Alles ÷ VERKAUFBARE Module (Ziel − Gemeinschaftsmodule).
 function calcGemeinschaftsmodule(project) {
-  const empty = { kostenGesamtBrutto: 0, kostenProModulBrutto: 0, einnahmenGesamtMonat: 0, einnahmenProModulMonat: 0, items: [] };
+  const empty = { kostenGesamtBrutto: 0, kostenProModulBrutto: 0, einnahmenBruttoMonat: 0, feeMonat: 0, betriebMonat: 0, nettoCashflowMonat: 0, nettoProModulMonat: 0, gmCount: 0, communityNUF: 0, items: [] };
   const ziel = project?.zielModulAnzahl || 0;
   const list = Array.isArray(project?.gemeinschaftsmodule) ? project.gemeinschaftsmodule : [];
   if (ziel <= 0 || list.length === 0) return empty;
   const rabatt = getRabatt(ziel); // nur Staffel, kein flacher Projektrabatt
   const einFaktor = project.einnahmenFaktor ?? 1;
-  let kostenNetto = 0, einnahmenMonat = 0;
+  const verkaufbar = verkaufbareModule(project);
+  // Betriebskosten je m²/Monat (Worst Case aus Settings): Pacht + Nebenkosten (fix + verbrauch)
+  const fixProM2 = NEBENKOSTEN_POSTEN.filter(p => p.typ === 'fix').reduce((s, p) => s + p.proM2, 0);
+  const verbrauchProM2 = NEBENKOSTEN_POSTEN.filter(p => p.typ === 'verbrauch').reduce((s, p) => s + p.proM2, 0);
+  const pachtProM2 = ((project.pachtJahr || 0) > 0 && ziel > 0) ? (project.pachtJahr / ziel / ZIEL_MODUL_NUF / 12) : 0;
+  const betriebProM2 = pachtProM2 + fixProM2 + verbrauchProM2;
+  let kostenNetto = 0, einnahmenMonat = 0, feeMonat = 0, betriebMonat = 0, communityNUF = 0;
   const items = [];
   for (const gm of list) {
     const p = ALL_PRODUCTS.find(x => x.kuerzel === gm.kuerzel);
@@ -814,16 +832,27 @@ function calcGemeinschaftsmodule(project) {
     const kNetto = anzahl * p.herst * (1 - rabatt) * (1 + marge); // ohne Provision
     const mult = (gm.einnahmen_mult != null) ? Number(gm.einnahmen_mult) : 1;
     const eMonat = anzahl * (p.einnahmen || 0) * mult * einFaktor;
+    const fMonat = eMonat * (p.fee || 0);
+    const nuf = anzahl * (p.nuf || 0);
+    const bMonat = nuf * betriebProM2;
     kostenNetto += kNetto;
     einnahmenMonat += eMonat;
-    items.push({ kuerzel: p.kuerzel, anzahl, kostenNetto: kNetto, einnahmenMonat: eMonat, mult });
+    feeMonat += fMonat;
+    betriebMonat += bMonat;
+    communityNUF += nuf;
+    items.push({ kuerzel: p.kuerzel, displayName: p.displayName || p.kuerzel, anzahl, einnahmenBruttoMonat: eMonat, feeMonat: fMonat, betriebMonat: bMonat, mult });
   }
   const kostenBrutto = kostenNetto * (1 + UST);
+  const nettoCashflow = einnahmenMonat - feeMonat - betriebMonat;
   return {
     kostenGesamtBrutto: kostenBrutto,
-    kostenProModulBrutto: kostenBrutto / ziel,
-    einnahmenGesamtMonat: einnahmenMonat,
-    einnahmenProModulMonat: einnahmenMonat / ziel,
+    kostenProModulBrutto: kostenBrutto / verkaufbar,
+    einnahmenBruttoMonat: einnahmenMonat,
+    feeMonat, betriebMonat,
+    nettoCashflowMonat: nettoCashflow,
+    nettoProModulMonat: nettoCashflow / verkaufbar,
+    gmCount: sumGemeinschaftsCount(project),
+    communityNUF,
     items,
   };
 }
@@ -1001,11 +1030,19 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const gewerbSum = rabattPreiseSum(gewerbItems);
   // Transport & Aufstellung: netto, ohne Marge/Provision/Rabatt durchgereicht; privat brutto (+USt), gewerb netto
   // Gemeinschaftsmodule (P4): Kosten als eigene Position, auf Ziel umgelegt, vor Steuer aufgeschlagen
-  const gm = project ? calcGemeinschaftsmodule(project) : { kostenGesamtBrutto: 0, kostenProModulBrutto: 0, einnahmenGesamtMonat: 0, einnahmenProModulMonat: 0, items: [] };
+  const gm = project ? calcGemeinschaftsmodule(project) : { kostenGesamtBrutto: 0, kostenProModulBrutto: 0, einnahmenBruttoMonat: 0, feeMonat: 0, betriebMonat: 0, nettoCashflowMonat: 0, nettoProModulMonat: 0, gmCount: 0, communityNUF: 0, items: [] };
   const gmKostenProModulBrutto = gm.kostenProModulBrutto;
   const effPrivat = privatSum.brutto + countPrivat * einmaligProModul + countPrivat * tpaNettoProModul * (1 + UST) + countPrivat * gmKostenProModulBrutto;
   const effGewerbNetto = gewerbSum.netto + countGewerb * (einmaligProModul / (1 + UST)) + countGewerb * tpaNettoProModul + countGewerb * (gmKostenProModulBrutto / (1 + UST));
   const effGewerbBrutto = effGewerbNetto * (1 + UST);
+  // Ersparnis durch Projekt-Mengenrabatt (vs. Listenpreis ohne Rabatt) — zur ehrlichen Gegenüberstellung
+  const _projMargeOverride = (project && project.projektMarge != null) ? project.projektMarge : undefined;
+  const mengenrabattErsparnis = project ? lineItems.reduce((s, it) => {
+    const ohne = calcRabattiertePreise(it, 0, _projMargeOverride);
+    const mit = calcRabattiertePreise(it, rabattPct, _projMargeOverride);
+    const diff = it.usage === 'p' ? (ohne.brutto - mit.brutto) : (ohne.netto - mit.netto);
+    return s + it.count * diff;
+  }, 0) : 0;
 
   const pachtSource = project ? { hasPacht: (project.pachtJahr || 0) > 0, pachtJahr: project.pachtJahr || 0, pachtGewerblich: project.pachtGewerblich, zielModulAnzahl: project.zielModulAnzahl || 0 }
     : gewerbConfig ? { hasPacht: !!gewerbConfig.hasPacht, pachtJahr: gewerbConfig.pachtJahr || 0, pachtGewerblich: gewerbConfig.pachtGewerblich, zielModulAnzahl: 0 }
@@ -1114,8 +1151,8 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
 
   // Effektive Belastung = Finanzierung-eff + laufende Kosten − Einnahmen (Verbrauch trägt der Bewohner)
   // Gilt einheitlich für alle Kundentypen; Vorzeichen-Logik: negativ = Überschuss (Investor)
-  // Gemeinschaftsmodul-Einnahmen (P4): anteilige monatliche Gutschrift pro Kundenmodul, senkt die Belastung
-  const gmEinnahmenKunde = countTotal * (gm.einnahmenProModulMonat || 0);
+  // Gemeinschaftsmodul-Netto-Cashflow (P4): Einnahmen − Betreiber-Fee − Betriebskosten, anteilig je Kundenmodul
+  const gmEinnahmenKunde = countTotal * (gm.nettoProModulMonat || 0);
   const effektiveBelastung = belastungFinanzierungEff + laufendeKostenMonat - monthlyIncomeNetto - gmEinnahmenKunde;
   const cashflowPositive = effektiveBelastung < 0;
   const cashflowNetto = -effektiveBelastung; // Beibehaltung Vorzeichen-Konvention: positiv = Überschuss
@@ -1152,7 +1189,10 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     hatPrivatAnteil, hatGewerbEigen, hatGewerbVermietet, hatGewerbModule, istInvestor, istMAWohnen,
     nebenkosten, nebenkostenMonatGesamt, laufendeKostenMonat, verbrauchskostenMonat,
     einmaligGesamtBrutto, einmaligProModul, einmaligDetail, baugenehmigungEinzeln, umlageProModul: umlageProModulProjekt,
-    gmKostenProModulBrutto, gmKostenGesamtBrutto: gm.kostenGesamtBrutto, gmEinnahmenProModulMonat: gm.einnahmenProModulMonat, gmEinnahmenKunde, gmItems: gm.items,
+    gmKostenProModulBrutto, gmKostenGesamtBrutto: gm.kostenGesamtBrutto, gmEinnahmenKunde, gmItems: gm.items,
+    gmEinnahmenBruttoMonat: gm.einnahmenBruttoMonat, gmFeeMonat: gm.feeMonat, gmBetriebMonat: gm.betriebMonat,
+    gmNettoCashflowMonat: gm.nettoCashflowMonat, gmNettoProModulMonat: gm.nettoProModulMonat, gmCount: gm.gmCount,
+    verkaufbareModule: project ? verkaufbareModule(project) : 0, mengenrabattErsparnis,
     mindestflaeche,
   };
 }
@@ -3445,13 +3485,41 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               </div>
             )}
 
-            {/* Gemeinschaftsmodul-Einnahmen (P4) — eigene Gutschrift-Position */}
-            {totals.gmEinnahmenKunde > 0 && (
-              <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-50 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Gemeinschaftsmodule / Monat</p>
-                <p className="font-display text-2xl num text-[#A87DAE]">+ {fmtEUR(totals.gmEinnahmenKunde)}</p>
-                <p className="font-body text-[10px] opacity-50 mt-0.5">anteilige Einnahmen-Gutschrift aus Projekt-Gemeinschaftsmodulen</p>
-              </div>
+            {/* Projekt-Gemeinschaft (P4) — ehrliche Gegenüberstellung statt Roh-Einnahmen */}
+            {totals.gmCount > 0 && (
+              <details className="pb-5 mb-5 border-b border-[#F8F5F0]/15 group" open>
+                <summary className="flex items-center justify-between cursor-pointer list-none mb-2">
+                  <p className="font-body text-xs uppercase tracking-wider opacity-50 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Projekt-Gemeinschaft</p>
+                  <ChevronRight className="w-4 h-4 opacity-40 transition-transform group-open:rotate-90" strokeWidth={2} />
+                </summary>
+
+                <div className="space-y-1 mb-3">
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-40 mb-1">Vom Projekt bereitgestellt</p>
+                  {totals.gmItems.map((it, i) => (
+                    <div key={i} className="flex justify-between font-body text-sm opacity-80"><span><span className="num">{it.anzahl}×</span> {it.displayName}</span></div>
+                  ))}
+                  <div className="flex justify-between font-body text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span className="opacity-60">Gesamtkosten (brutto)</span><span className="num">{fmtEUR(totals.gmKostenGesamtBrutto)}</span></div>
+                </div>
+
+                {/* Einmalig: Mehrkosten vs. Ersparnis */}
+                <div className="bg-[#F8F5F0]/5 p-3 mb-3">
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-40 mb-1.5">Einmalig — deine Bilanz ({totals.countTotal} {totals.countTotal === 1 ? 'Modul' : 'Module'})</p>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-60">+ Umlage Projektkosten</span><span className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-60">+ Umlage Gemeinschaftsmodule</span><span className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</span></div>
+                  <div className="flex justify-between font-body text-sm text-[#7FB069]"><span>− Ersparnis Mengenrabatt</span><span className="num">−{fmtEUR(totals.mengenrabattErsparnis)}</span></div>
+                  <div className="flex justify-between font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span>Netto-Mehrkosten</span><span className="num">{fmtEUR(Math.max(0, totals.countTotal * totals.umlageProModul + totals.countTotal * totals.gmKostenProModulBrutto - totals.mengenrabattErsparnis))}</span></div>
+                </div>
+
+                {/* Laufend: Cashflow der Gemeinschaftsmodule */}
+                <div className="bg-[#F8F5F0]/5 p-3">
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-40 mb-1.5">Laufend / Monat — Gemeinschaftsmodule (Projekt gesamt)</p>
+                  <div className="flex justify-between font-body text-sm text-[#A87DAE]"><span>Einnahmen brutto</span><span className="num">+{fmtEUR(totals.gmEinnahmenBruttoMonat)}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-60">− Betreiber-Fee (CoMod)</span><span className="num">−{fmtEUR(totals.gmFeeMonat)}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-60">− Betriebskosten (Pacht, QM, Verbrauch)</span><span className="num">−{fmtEUR(totals.gmBetriebMonat)}</span></div>
+                  <div className="flex justify-between font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span>Netto-Cashflow</span><span className={`num ${totals.gmNettoCashflowMonat >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmNettoCashflowMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmNettoCashflowMonat))}</span></div>
+                  <div className="flex justify-between font-body text-[11px] opacity-60 mt-1"><span>dein Anteil ({totals.countTotal} von {totals.verkaufbareModule} verkaufbaren)</span><span className="num">{totals.gmEinnahmenKunde >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}/Mt.</span></div>
+                </div>
+              </details>
             )}
 
             {/* Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) */}
@@ -3479,7 +3547,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               {totals.cashflowPositive
                 ? <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" strokeWidth={2.5} /> rechnerisch positiv</p>
                 : <p className="font-body text-[10px] opacity-50 mt-1.5 leading-relaxed">
-                    Finanzierung {totals.hatGewerbModule ? '(nach Steuer) ' : ''}+ laufende Fixkosten{(totals.hasIncome || totals.gmEinnahmenKunde > 0) ? ' − Einnahmen' : ''}
+                    Finanzierung {totals.hatGewerbModule ? '(nach Steuer) ' : ''}+ laufende Fixkosten{(totals.hasIncome || totals.gmCount > 0) ? ' − Einnahmen' : ''}
                   </p>}
             </div>
 
@@ -3590,10 +3658,10 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
               <div className="flex justify-between pt-2 border-t border-[#1C1C1A]/10"><dt className="text-[#6B6961]">Finanzierung/Mt.</dt><dd className="num">{fmtEUR(totals.finanzierungMonat)}</dd></div>
               {(project || gewerbConfig) && <div className="flex justify-between text-[#7B2D8E]"><dt>Nebenkosten/Mt.</dt><dd className="num">{fmtEUR(totals.nebenkostenMonatGesamt)}</dd></div>}
               <div className="flex justify-between font-body"><dt className="text-[#1C1C1A]">Belastung/Mt.</dt><dd className="num">{fmtEUR(totals.monatlichGesamt)}</dd></div>
-              {(totals.hasIncome || totals.gmEinnahmenKunde > 0) && (
+              {(totals.hasIncome || totals.gmCount > 0) && (
                 <>
                   {totals.hasIncome && <div className="flex justify-between text-[#7B2D8E]"><dt>Einnahmen/Mt.</dt><dd className="num">+{fmtEUR(totals.monthlyIncomeNetto)}</dd></div>}
-                  {totals.gmEinnahmenKunde > 0 && <div className="flex justify-between text-[#7B2D8E]"><dt>Gemeinschaftsmodule/Mt.</dt><dd className="num">+{fmtEUR(totals.gmEinnahmenKunde)}</dd></div>}
+                  {totals.gmCount > 0 && <div className={`flex justify-between ${totals.gmEinnahmenKunde >= 0 ? 'text-[#7B2D8E]' : 'text-[#C5392E]'}`}><dt>Gemeinschaftsmodule netto/Mt.</dt><dd className="num">{totals.gmEinnahmenKunde >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}</dd></div>}
                   <div className={`flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10 ${totals.cashflowPositive ? 'text-[#D2563E]' : ''}`}>
                     <dt>{totals.cashflowPositive ? 'Überschuss' : 'Eff. Belastung'}</dt>
                     <dd className="num">{totals.cashflowPositive ? '+' : ''}{fmtEUR(Math.abs(totals.cashflowNetto))}</dd>
@@ -4645,7 +4713,9 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     geschossVerteilung: pVerteilung.length ? pVerteilung : defaultGeschossVerteilung(pZiel, 2),
     pvAnteil: Number(form.pv_anteil) || 0,
   }) : { posten: [], summeBrutto: 0 };
-  const pComputedUmlage = pZiel > 0 ? pUmlageDetail.summeBrutto / pZiel : 0;
+  const pGmCount = (Array.isArray(form.gemeinschaftsmodule) ? form.gemeinschaftsmodule : []).reduce((s, g) => s + (Number(g.anzahl) || 0), 0);
+  const pVerkaufbar = Math.max(1, pZiel - pGmCount);
+  const pComputedUmlage = pZiel > 0 ? pUmlageDetail.summeBrutto / pVerkaufbar : 0;
   const pUmlageAktiv = (form.umlage_pro_modul_einmalig > 0) ? form.umlage_pro_modul_einmalig : pComputedUmlage;
   // Pacht-Vorschau (laufend): €/m² NUF / Monat netto, daraus pro Standardmodul (ZIEL_MODUL_NUF m²)
   const pPachtJahr = Number(form.pacht_jahr) || 0;
@@ -4667,6 +4737,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     zielModulAnzahl: pZiel,
     projektMarge: (margeStr !== '' && form.projekt_marge != null) ? form.projekt_marge : null,
     einnahmenFaktor: form.einnahmen_faktor == null ? 1 : form.einnahmen_faktor,
+    pachtJahr: pPachtJahr,
     gemeinschaftsmodule: gmList,
   });
 
@@ -4929,7 +5000,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                 <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Berechnete Umlage / Modul (brutto)</p>
                 <p className="font-display text-2xl num text-[#7B2D8E]">{fmtEUR(pComputedUmlage)}</p>
                 <p className="font-body text-[10px] text-[#6B6961] mt-1">
-                  Gesamt einmalig: {fmtEUR(pComputedUmlage * (form.ziel_modul_anzahl || 0))} auf {form.ziel_modul_anzahl || 0} Module
+                  Gesamt einmalig: {fmtEUR(pComputedUmlage * pVerkaufbar)} auf {pVerkaufbar} verkaufbare Module{pGmCount > 0 ? ` (${pZiel || 0} − ${pGmCount} Gemeinschaft)` : ''}
                   {form.umlage_pro_modul_einmalig > 0 && <span className="text-[#D2563E]"> · Override aktiv: {fmtEUR(form.umlage_pro_modul_einmalig)}/Modul</span>}
                 </p>
               </div>
@@ -4946,7 +5017,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                   </div>
                 ))}
                 <div className="flex justify-between px-3 py-2 text-xs font-body border-t border-[#1C1C1A]/15">
-                  <span className="text-[#1C1C1A]">Summe ÷ {form.ziel_modul_anzahl || 0} Module</span>
+                  <span className="text-[#1C1C1A]">Summe ÷ {pVerkaufbar} verkaufbare Module</span>
                   <span className="num text-[#7B2D8E]">{fmtEUR(pComputedUmlage)}/Modul</span>
                 </div>
               </div>
@@ -5023,16 +5094,25 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
             )}
 
             {gmList.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-[#7B2D8E]/5 border border-[#7B2D8E]/20 p-3">
-                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Kosten-Umlage / Modul (brutto)</p>
-                  <p className="font-display text-xl num text-[#7B2D8E]">{fmtEUR(pGm.kostenProModulBrutto)}</p>
-                  <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Gesamt: {fmtEUR(pGm.kostenGesamtBrutto)} ÷ {pZiel || 0} Module</p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-[#7B2D8E]/5 border border-[#7B2D8E]/20 p-3">
+                    <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Kosten-Umlage / Modul (einmalig, brutto)</p>
+                    <p className="font-display text-xl num text-[#7B2D8E]">{fmtEUR(pGm.kostenProModulBrutto)}</p>
+                    <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Gesamt: {fmtEUR(pGm.kostenGesamtBrutto)} ÷ {pVerkaufbar} verkaufbare Module</p>
+                  </div>
+                  <div className={`p-3 border ${pGm.nettoProModulMonat >= 0 ? 'bg-[#7FB069]/10 border-[#7FB069]/40' : 'bg-[#D2563E]/5 border-[#D2563E]/30'}`}>
+                    <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Netto-Cashflow / Modul / Monat</p>
+                    <p className={`font-display text-xl num ${pGm.nettoProModulMonat >= 0 ? 'text-[#5C8A47]' : 'text-[#C5392E]'}`}>{pGm.nettoProModulMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(pGm.nettoProModulMonat))}</p>
+                    <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pGm.nettoProModulMonat >= 0 ? 'rechnet sich' : 'noch nicht kostendeckend'}</p>
+                  </div>
                 </div>
-                <div className="bg-[#7FB069]/10 border border-[#7FB069]/40 p-3">
-                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Einnahmen-Gutschrift / Modul / Monat</p>
-                  <p className="font-display text-xl num text-[#5C8A47]">{fmtEUR(pGm.einnahmenProModulMonat)}</p>
-                  <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Gesamt: {fmtEUR(pGm.einnahmenGesamtMonat)}/Mt. ÷ {pZiel || 0} · inkl. Faktor {Math.round((form.einnahmen_faktor == null ? 1 : form.einnahmen_faktor) * 100)} %</p>
+                <div className="border border-[#1C1C1A]/10 text-[11px] font-body">
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] px-3 pt-3 pb-2">Laufende Bilanz / Monat (gesamt im Projekt) · inkl. Faktor {Math.round((form.einnahmen_faktor == null ? 1 : form.einnahmen_faktor) * 100)} %</p>
+                  <div className="flex justify-between px-3 py-1.5 text-[#5C8A47]"><span>Einnahmen brutto</span><span className="num">+{fmtEUR(pGm.einnahmenBruttoMonat)}</span></div>
+                  <div className="flex justify-between px-3 py-1.5 border-t border-[#1C1C1A]/5"><span className="text-[#6B6961]">− Betreiber-Fee</span><span className="num text-[#6B6961]">−{fmtEUR(pGm.feeMonat)}</span></div>
+                  <div className="flex justify-between px-3 py-1.5 border-t border-[#1C1C1A]/5"><span className="text-[#6B6961]">− Betriebskosten (Pacht, QM, Vers., Verbrauch)</span><span className="num text-[#6B6961]">−{fmtEUR(pGm.betriebMonat)}</span></div>
+                  <div className="flex justify-between px-3 py-2 border-t border-[#1C1C1A]/15 font-display"><span className="text-[#1C1C1A]">Netto-Cashflow</span><span className={`num ${pGm.nettoCashflowMonat >= 0 ? 'text-[#5C8A47]' : 'text-[#C5392E]'}`}>{pGm.nettoCashflowMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(pGm.nettoCashflowMonat))}</span></div>
                 </div>
               </div>
             )}
