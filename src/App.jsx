@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.85';
+const APP_VERSION = '0.9.86';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -387,12 +387,17 @@ function mapDbProjectToFrontend(db) {
   };
 }
 
-// Lädt alle 'live'-Projekte aus DB und ersetzt PROJECTS_TEMPLATES
+// Lädt 'live'-Projekte aus DB und ersetzt PROJECTS_TEMPLATES.
+// Hauptdomain = CoMod-Kontext: nur CoMod-eigene Projekte (workspace = CoMod-Default oder Legacy-NULL).
+// Partner-Projekte erscheinen hier NICHT (sie laufen über den Partner-Link /p/{slug}, Stage 3) —
+// außer später per "global zeigen"-Flag (dann hier per OR ergänzen).
+const CO_MOD_WS_ID = '00000000-0000-0000-0000-000000000001';
 async function loadProjectsFromDb() {
   try {
     const { data, error } = await supabase
       .from('projects').select('*')
       .eq('status', 'live').is('deleted_at', null)
+      .or(`workspace_id.eq.${CO_MOD_WS_ID},workspace_id.is.null`)
       .order('sort_order', { ascending: true });
     if (error) { console.warn('[Supabase] Projekt-Load Fehler:', error.message); return false; }
     if (!data || data.length === 0) { console.warn('[Supabase] Keine Live-Projekte in DB, Fallback aktiv'); return false; }
@@ -5546,6 +5551,16 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
           <section>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Status & Reihenfolge</p>
             <div className="space-y-3">
+              {!isMaster && !PARTNER_STATUS.includes(form.status) && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-body text-[10px] uppercase tracking-wider text-[#6B6961]">Aktueller Status:</span>
+                  <span className="px-2.5 py-1 text-xs uppercase tracking-wider font-body border"
+                    style={{ background: (PROJECT_STATUS_LABELS[form.status] || PROJECT_STATUS_LABELS.draft).bg, color: (PROJECT_STATUS_LABELS[form.status] || PROJECT_STATUS_LABELS.draft).color, borderColor: (PROJECT_STATUS_LABELS[form.status] || PROJECT_STATUS_LABELS.draft).color }}>
+                    {(PROJECT_STATUS_LABELS[form.status] || PROJECT_STATUS_LABELS.draft).label}
+                  </span>
+                  <span className="font-body text-[10px] text-[#6B6961]">von CoMod gesetzt — bleibt erhalten, Änderungen an Inhalten speicherst Du direkt.</span>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {Object.entries(PROJECT_STATUS_LABELS)
                   .filter(([key]) => isMaster || PARTNER_STATUS.includes(key))
@@ -5560,7 +5575,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
               <p className="font-body text-[10px] text-[#6B6961]">
                 {isMaster
                   ? <>Status <strong>Live</strong> = im Konfigurator wählbar. Andere Stati sind nur im Admin sichtbar.</>
-                  : <>Reiche das Projekt mit <strong>Wartet auf Freigabe</strong> ein — CoMod prüft und schaltet es live.</>}
+                  : <>Reiche das Projekt mit <strong>Wartet auf Freigabe</strong> ein — CoMod prüft und schaltet es live. Danach kannst Du Inhalte direkt ändern.</>}
               </p>
               <div className="max-w-xs">
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Sortier-Reihenfolge</label>
@@ -5619,10 +5634,19 @@ function AdminProjectsView({ authProfile }) {
 
   useEffect(() => { loadAll(); }, []);
 
+  const isMaster = authProfile?.role === 'master_admin';
+  // Partner sieht nur eigene Projekte (RLS liefert zwar auch fremde live-Projekte fürs Frontend,
+  // im Admin sollen sie aber nicht auftauchen). CoMod-Projekte für eigene Kunden „sichtbar schalten"
+  // kommt separat über project_visibility.
+  const visibleProjects = useMemo(
+    () => isMaster ? projects : projects.filter(p => p.workspace_id === authProfile?.workspace_id),
+    [projects, isMaster, authProfile?.workspace_id]
+  );
+
   const filtered = useMemo(() => {
-    if (statusFilter === 'all') return projects;
-    return projects.filter(p => p.status === statusFilter);
-  }, [projects, statusFilter]);
+    if (statusFilter === 'all') return visibleProjects;
+    return visibleProjects.filter(p => p.status === statusFilter);
+  }, [visibleProjects, statusFilter]);
 
   function handleSaved(savedRow) {
     setProjects(prev => {
@@ -5644,7 +5668,7 @@ function AdminProjectsView({ authProfile }) {
         <div>
           <h1 className="font-display text-4xl tracking-tight mb-2">Projekte</h1>
           <p className="font-body text-sm text-[#6B6961]">
-            {filtered.length} von {projects.length} {projects.length === 1 ? 'Projekt' : 'Projekten'}
+            {filtered.length} von {visibleProjects.length} {visibleProjects.length === 1 ? 'Projekt' : 'Projekten'}
           </p>
         </div>
         <div className="flex items-center gap-3">
