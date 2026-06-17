@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.87';
+const APP_VERSION = '0.9.88';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -388,26 +388,55 @@ function mapDbProjectToFrontend(db) {
 }
 
 // Lädt 'live'-Projekte aus DB und ersetzt PROJECTS_TEMPLATES.
-// Hauptdomain = CoMod-Kontext: nur CoMod-eigene Projekte (workspace = CoMod-Default oder Legacy-NULL).
-// Partner-Projekte erscheinen hier NICHT (sie laufen über den Partner-Link /p/{slug}, Stage 3) —
-// außer später per "global zeigen"-Flag (dann hier per OR ergänzen).
+// - Ohne viewerWorkspaceId (Hauptdomain / CoMod / anonym): CoMod-eigene Projekte (workspace = CoMod
+//   oder Legacy-NULL) + Partner-Projekte mit show_global = true.
+// - Mit viewerWorkspaceId (eingeloggter Partner; später Partner-Link /p/{slug}): eigene Live-Projekte
+//   des Workspaces + die von diesem Workspace freigeschalteten CoMod-Projekte (project_visibility).
 const CO_MOD_WS_ID = '00000000-0000-0000-0000-000000000001';
-async function loadProjectsFromDb() {
+async function loadProjectsFromDb(viewerWorkspaceId = null) {
   try {
-    let { data, error } = await supabase
+    let data, error;
+    if (viewerWorkspaceId) {
+      // Partner-Sicht
+      let visIds = [];
+      try {
+        const { data: vis } = await supabase
+          .from('project_visibility')
+          .select('project_id')
+          .eq('scope_type', 'workspace')
+          .eq('scope_id', viewerWorkspaceId)
+          .eq('visible', true);
+        visIds = (vis || []).map(r => r.project_id);
+      } catch { /* Tabelle ggf. noch nicht vorhanden */ }
+      const orParts = [`workspace_id.eq.${viewerWorkspaceId}`];
+      if (visIds.length) orParts.push(`id.in.(${visIds.join(',')})`);
+      const res = await supabase
+        .from('projects').select('*')
+        .eq('status', 'live').is('deleted_at', null)
+        .or(orParts.join(','))
+        .order('sort_order', { ascending: true });
+      data = res.data; error = res.error;
+      if (error) { console.warn('[Supabase] Projekt-Load (Partner) Fehler:', error.message); return false; }
+      // Partner-Sicht ist autoritativ — auch ein leeres Ergebnis übernehmen (kein Fallback auf Templates).
+      PROJECTS_TEMPLATES = (data || []).map(mapDbProjectToFrontend);
+      console.log(`[Supabase] ${PROJECTS_TEMPLATES.length} Partner-Projekte (ws ${viewerWorkspaceId}) geladen`);
+      return true;
+    }
+    // CoMod-/Hauptsicht
+    let res = await supabase
       .from('projects').select('*')
       .eq('status', 'live').is('deleted_at', null)
       .or(`workspace_id.eq.${CO_MOD_WS_ID},workspace_id.is.null,show_global.eq.true`)
       .order('sort_order', { ascending: true });
-    if (error) {
+    if (res.error) {
       // Fallback, falls show_global noch nicht existiert: nur CoMod-eigene Projekte
-      const retry = await supabase
+      res = await supabase
         .from('projects').select('*')
         .eq('status', 'live').is('deleted_at', null)
         .or(`workspace_id.eq.${CO_MOD_WS_ID},workspace_id.is.null`)
         .order('sort_order', { ascending: true });
-      data = retry.data; error = retry.error;
     }
+    data = res.data; error = res.error;
     if (error) { console.warn('[Supabase] Projekt-Load Fehler:', error.message); return false; }
     if (!data || data.length === 0) { console.warn('[Supabase] Keine Live-Projekte in DB, Fallback aktiv'); return false; }
     PROJECTS_TEMPLATES = data.map(mapDbProjectToFrontend);
@@ -6799,6 +6828,16 @@ export default function App() {
     });
     return () => { cancelled = true; sub?.subscription?.unsubscribe(); };
   }, []);
+
+  // (b) Betrachter-Perspektive: sobald die Session geprüft ist, die Konfigurator-Projekte passend laden.
+  // Eingeloggter Partner → eigene Live-Projekte + von ihm freigeschaltete CoMod-Projekte.
+  // Anonym / CoMod / Master → CoMod-/Hauptsicht (inkl. global geschalteter Partner-Projekte).
+  useEffect(() => {
+    if (authUser === null) return; // Session noch nicht geprüft → Start-Load gilt
+    const ws = (authProfile && authProfile.role === 'partner_admin' && authProfile.workspace_id)
+      ? authProfile.workspace_id : null;
+    loadProjectsFromDb(ws).then(ok => { if (ok) setProductsTick(t => t + 1); });
+  }, [authUser, authProfile]);
 
   // Scroll-to-Top bei jedem Schrittwechsel — sonst landet der User unten in der Sidebar
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [step]);
