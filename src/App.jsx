@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.84';
+const APP_VERSION = '0.9.85';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4860,10 +4860,17 @@ const PROJECT_STATUS_LABELS = {
   archived:          { label: 'Archiviert',      color: '#6B6961', bg: '#F0EFEC' },
 };
 
-function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
+function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, authProfile }) {
   const isNew = !project;
+  const isMaster = authProfile?.role === 'master_admin';
+  // Partner legen Projekte im EIGENEN Workspace an (RLS: with_check workspace_id = auth_workspace_id()).
+  // Master defaulten auf den CoMod-Workspace. Bestehende Projekte behalten ihren Wert via ...(project||{}).
+  const CO_MOD_WS = '00000000-0000-0000-0000-000000000001';
+  const defaultWorkspaceId = (!isMaster && authProfile?.workspace_id) ? authProfile.workspace_id : CO_MOD_WS;
+  // Stati, die ein Partner setzen darf (RLS verbietet live/approved/rejected → Freigabe macht der Master).
+  const PARTNER_STATUS = ['draft', 'pending_approval', 'paused', 'archived'];
   const [form, setForm] = useState(() => ({
-    workspace_id: '00000000-0000-0000-0000-000000000001',
+    workspace_id: defaultWorkspaceId,
     slug: '',
     name: '',
     location: '',
@@ -5540,7 +5547,9 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Status & Reihenfolge</p>
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                {Object.entries(PROJECT_STATUS_LABELS).map(([key, meta]) => (
+                {Object.entries(PROJECT_STATUS_LABELS)
+                  .filter(([key]) => isMaster || PARTNER_STATUS.includes(key))
+                  .map(([key, meta]) => (
                   <button key={key} onClick={() => setForm(f => ({...f, status: key}))}
                     className={`px-3 py-1.5 text-xs uppercase tracking-wider font-body border transition-colors`}
                     style={form.status === key ? { background: meta.bg, color: meta.color, borderColor: meta.color } : { borderColor: '#1C1C1A26', color: '#6B6961' }}>
@@ -5549,7 +5558,9 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                 ))}
               </div>
               <p className="font-body text-[10px] text-[#6B6961]">
-                Status <strong>Live</strong> = im Konfigurator wählbar. Andere Stati sind nur im Admin sichtbar.
+                {isMaster
+                  ? <>Status <strong>Live</strong> = im Konfigurator wählbar. Andere Stati sind nur im Admin sichtbar.</>
+                  : <>Reiche das Projekt mit <strong>Wartet auf Freigabe</strong> ein — CoMod prüft und schaltet es live.</>}
               </p>
               <div className="max-w-xs">
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Sortier-Reihenfolge</label>
@@ -5586,7 +5597,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
   );
 }
 
-function AdminProjectsView() {
+function AdminProjectsView({ authProfile }) {
   const [projects, setProjects] = useState([]);
   const [fassaden, setFassaden] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -5688,7 +5699,7 @@ function AdminProjectsView() {
         </div>
       )}
 
-      {editing !== undefined && <AdminProjectEdit project={editing} fassaden={fassaden} onClose={() => setEditing(undefined)} onSaved={handleSaved} onDeleted={handleDeleted} />}
+      {editing !== undefined && <AdminProjectEdit project={editing} fassaden={fassaden} authProfile={authProfile} onClose={() => setEditing(undefined)} onSaved={handleSaved} onDeleted={handleDeleted} />}
     </div>
   );
 }
@@ -6576,7 +6587,7 @@ function AdminPanel({ authUser, authProfile }) {
 
       {tab === 'leads'    && <AdminLeadsView authUser={authUser} authProfile={authProfile} />}
       {tab === 'modules'  && <AdminModulesView authProfile={authProfile} />}
-      {tab === 'projects' && <AdminProjectsView />}
+      {tab === 'projects' && <AdminProjectsView authProfile={authProfile} />}
       {tab === 'settings' && <AdminSettingsView />}
       {tab === 'backups'  && <AdminBackupsView authUser={authUser} authProfile={authProfile} />}
       {tab === 'texte'    && <AdminContentBlocksView authUser={authUser} authProfile={authProfile} />}
