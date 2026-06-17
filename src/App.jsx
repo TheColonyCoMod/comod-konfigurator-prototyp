@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.89';
+const APP_VERSION = '0.9.90';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2624,7 +2624,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
               {availableCategories.map(c => (
                 <button key={c} onClick={() => setCatFilter(c)}
                   className={`px-3 py-1.5 transition-colors ${catFilter === c ? 'border-[#D2563E] text-[#D2563E]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
-                  {CATEGORIES[c].label}
+                  {CATEGORIES[c]?.label || c}
                 </button>
               ))}
             </div>
@@ -2634,8 +2634,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
             {Object.entries(familiesByCat).map(([catId, famIds]) => (
               <div key={catId}>
                 <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-[#1C1C1A]/10">
-                  <h2 className="font-display text-2xl">{CATEGORIES[catId].label}</h2>
-                  <p className="font-body text-xs text-[#6B6961] hidden md:block">{CATEGORIES[catId].desc}</p>
+                  <h2 className="font-display text-2xl">{CATEGORIES[catId]?.label || catId}</h2>
+                  <p className="font-body text-xs text-[#6B6961] hidden md:block">{CATEGORIES[catId]?.desc || ''}</p>
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   {famIds.map(fid => (
