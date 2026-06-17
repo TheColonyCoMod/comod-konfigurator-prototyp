@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.91';
+const APP_VERSION = '0.9.92';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2199,7 +2199,11 @@ function findVariantProduct(products, variant) {
 // AddFamilyCard – für die zusammengeführte Add-Karte im 'Beides'-Modus
 function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProjectOrConfig, addUsageState, setAddUsageState, isPureGewerb, priceCtx }) {
   // addUsageState = 'p' | 'g' (für die ganze Add-Karte)
-  const usageState = addUsageState || 'g'; // Default gewerblich (Hauptanwendungsfall)
+  const wantUsage = addUsageState || 'g'; // Default gewerblich (Hauptanwendungsfall)
+  const hasP = PRODUCTS.privat.some(p => p.family === 'add');
+  const hasG = PRODUCTS.gewerblich.some(p => p.family === 'addb');
+  // Auf eine Nutzungsart zwingen, die wirklich Module hat — sonst leere Ansicht.
+  const usageState = ((wantUsage === 'p' && hasP) || (wantUsage === 'g' && hasG)) ? wantUsage : (hasG ? 'g' : 'p');
   const familyId = usageState === 'p' ? 'add' : 'addb';
   const products = (usageState === 'p' ? PRODUCTS.privat : PRODUCTS.gewerblich).filter(p => p.family === familyId);
 
@@ -2259,20 +2263,9 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
   // Im rein gewerblichen Pfad: netto-Preise (Hinweis steht im Sidebar-Banner)
   const effectivePrice = product ? effectiveModulPreis(product, isPureGewerb, priceCtx) : 0;
 
-  // Kein Ergänzungsmodul in dieser Nutzungsart (z. B. ausgeblendet) → graceful Fallback statt Crash.
+  // Kein Ergänzungsmodul vorhanden → nichts rendern (ModulesStep blendet den Block ohnehin aus).
   // Steht NACH allen Hooks, damit die Hook-Reihenfolge konstant bleibt.
-  if (!product) {
-    return (
-      <div className="border border-[#1C1C1A]/10 bg-white p-6 flex flex-col gap-4">
-        <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Ergänzungsmodule</p>
-        <div className="flex gap-2">
-          <button onClick={() => switchUsage('p')} className={`px-3 py-1.5 text-xs uppercase tracking-wider border ${usageState === 'p' ? 'border-[#D2563E] text-[#D2563E]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Privat</button>
-          <button onClick={() => switchUsage('g')} className={`px-3 py-1.5 text-xs uppercase tracking-wider border ${usageState === 'g' ? 'border-[#D2563E] text-[#D2563E]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Gewerblich</button>
-        </div>
-        <p className="font-body text-sm text-[#6B6961]">In dieser Nutzungsart sind aktuell keine Ergänzungsmodule verfügbar.</p>
-      </div>
-    );
-  }
+  if (!product) return null;
 
   return (
     <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${familyTotal > 0 ? 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
@@ -2296,7 +2289,8 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <p className="font-body text-xs text-[#6B6961] leading-snug">Ergänzungsmodul leer — z. B. Hobby, Lager, Praxis, Büro</p>
         </div>
 
-        {/* Privat / Gewerblich Toggle */}
+        {/* Privat / Gewerblich Toggle — nur wenn beide Nutzungsarten Ergänzungsmodule haben */}
+        {hasP && hasG && (
         <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">Nutzung & Finanzierung</p>
           <div className="flex gap-1">
@@ -2313,6 +2307,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
             {usageState === 'p' ? 'Z. B. Hobby-Werkstatt, Gartenhaus. Brutto-Preis, KfW/GLS-Finanzierung.' : 'Z. B. Lager, Büro, Praxis. Netto-Preis, Plattform-Finanzierung mit Steuervorteilen.'}
           </p>
         </div>
+        )}
 
         <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">Größe</p>
@@ -2536,7 +2531,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
             ...FAMILIES_BUSINESS.filter(f => f !== 'addb')];
   }, [modulart]);
 
-  const showAddCombined = modulart === 'beides';
+  const hasAnyAdd = PRODUCTS.privat.some(p => p.family === 'add') || PRODUCTS.gewerblich.some(p => p.family === 'addb');
+  const showAddCombined = modulart === 'beides' && hasAnyAdd;
 
   const productsByFamily = useMemo(() => {
     const groups = {};
