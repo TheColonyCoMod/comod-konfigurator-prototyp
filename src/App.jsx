@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.88';
+const APP_VERSION = '0.9.89';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -313,7 +313,7 @@ function mapDbModuleToFrontend(db) {
 
 // Lädt alle aktiven Module aus Supabase und ersetzt PRODUCTS + ALL_PRODUCTS
 // Gibt true zurück bei Erfolg, false bei Fehler/Fallback
-async function loadProductsFromDb() {
+async function loadProductsFromDb(viewerWorkspaceId = null) {
   try {
     const { data, error } = await supabase
       .from('modules')
@@ -323,13 +323,27 @@ async function loadProductsFromDb() {
       .order('sort_order', { ascending: true });
     if (error) { console.warn('[Supabase] Module-Load Fehler:', error.message); return false; }
     if (!data || data.length === 0) { console.warn('[Supabase] Keine Module in DB gefunden, Fallback aktiv'); return false; }
-    const mapped = data.map(mapDbModuleToFrontend).map(withPrices);
+    // Partner-Kontext: vom Workspace ausgeblendete Module entfernen.
+    let rows = data;
+    if (viewerWorkspaceId) {
+      try {
+        const { data: hid } = await supabase
+          .from('module_visibility')
+          .select('module_id')
+          .eq('scope_type', 'workspace')
+          .eq('scope_id', viewerWorkspaceId)
+          .eq('hidden', true);
+        const hidden = new Set((hid || []).map(r => r.module_id));
+        if (hidden.size) rows = rows.filter(m => !hidden.has(m.id));
+      } catch { /* module_visibility ggf. nicht lesbar — dann ungefiltert */ }
+    }
+    const mapped = rows.map(mapDbModuleToFrontend).map(withPrices);
     PRODUCTS = {
       privat:     mapped.filter(p => p.usage === 'p'),
       gewerblich: mapped.filter(p => p.usage === 'g'),
     };
     ALL_PRODUCTS = [...PRODUCTS.privat, ...PRODUCTS.gewerblich];
-    console.log(`[Supabase] ${mapped.length} Module aus DB geladen (${PRODUCTS.privat.length} privat, ${PRODUCTS.gewerblich.length} gewerblich)`);
+    console.log(`[Supabase] ${mapped.length} Module geladen${viewerWorkspaceId ? ` (ws ${viewerWorkspaceId})` : ''} (${PRODUCTS.privat.length} privat, ${PRODUCTS.gewerblich.length} gewerblich)`);
     return true;
   } catch (e) {
     console.warn('[Supabase] Verbindungsfehler, Fallback auf hartcodierte Module:', e.message);
@@ -6795,6 +6809,8 @@ export default function App() {
   // null = noch nicht geprüft, false = nicht eingeloggt, object = eingeloggter User mit Profil
   const [authUser, setAuthUser] = useState(null);
   const [authProfile, setAuthProfile] = useState(null);
+  // Partner-Link /p/{slug}: undefined = noch nicht aufgelöst, null = kein Link, string = Workspace-ID
+  const [linkWs, setLinkWs] = useState(undefined);
   useEffect(() => {
     let cancelled = false;
     async function checkSession() {
@@ -6829,15 +6845,32 @@ export default function App() {
     return () => { cancelled = true; sub?.subscription?.unsubscribe(); };
   }, []);
 
-  // (b) Betrachter-Perspektive: sobald die Session geprüft ist, die Konfigurator-Projekte passend laden.
-  // Eingeloggter Partner → eigene Live-Projekte + von ihm freigeschaltete CoMod-Projekte.
-  // Anonym / CoMod / Master → CoMod-/Hauptsicht (inkl. global geschalteter Partner-Projekte).
+  // (a1) Partner-Link aus der URL auflösen: /p/{slug} → Workspace-ID (einmalig beim Start).
   useEffect(() => {
-    if (authUser === null) return; // Session noch nicht geprüft → Start-Load gilt
-    const ws = (authProfile && authProfile.role === 'partner_admin' && authProfile.workspace_id)
+    const m = (typeof window !== 'undefined' ? window.location.pathname : '').match(/^\/p\/([^/]+)/);
+    if (!m) { setLinkWs(null); return; }
+    const slug = decodeURIComponent(m[1]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.from('workspaces').select('id').eq('slug', slug).limit(1);
+        if (!cancelled) setLinkWs(data && data[0] ? data[0].id : null);
+      } catch { if (!cancelled) setLinkWs(null); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // (b)+(a1) Betrachter-Perspektive: Projekte UND Module passend zum Kontext laden.
+  // Vorrang: Partner-Link-Slug → eingeloggte Partner-Session → CoMod-/Hauptsicht.
+  useEffect(() => {
+    if (linkWs === undefined) return;                 // Link-Slug noch nicht aufgelöst
+    if (linkWs === null && authUser === null) return; // weder Link noch Session geprüft
+    const sessionWs = (authProfile && authProfile.role === 'partner_admin' && authProfile.workspace_id)
       ? authProfile.workspace_id : null;
-    loadProjectsFromDb(ws).then(ok => { if (ok) setProductsTick(t => t + 1); });
-  }, [authUser, authProfile]);
+    const ws = linkWs || sessionWs || null;
+    Promise.all([loadProjectsFromDb(ws), loadProductsFromDb(ws)])
+      .then(([p, m]) => { if (p || m) setProductsTick(t => t + 1); });
+  }, [linkWs, authUser, authProfile]);
 
   // Scroll-to-Top bei jedem Schrittwechsel — sonst landet der User unten in der Sidebar
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [step]);
