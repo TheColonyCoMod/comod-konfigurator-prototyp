@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.97';
+const APP_VERSION = '0.9.98';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -102,6 +102,16 @@ const FAMILY_LABELS = {
 
 // Add ist die einzige Familie, die je nach Auswahl privat oder gewerblich werden kann
 const ADD_FAMILY_PAIR = { privat: 'add', business: 'addb' };
+
+// B-Modell: Familien mit einem gewerblichen Zwilling (Privat-Family → Gewerbe-Family).
+// Nur diese Modularten können im Backend per Häkchen auf „auch gewerblich" gestellt werden.
+const TWIN_FAMILY = { live: 'liveb', add: 'addb', stack: 'stack' };
+function makeTwinKuerzel(kuerzel, family) {
+  if (family === 'live')  return (kuerzel || '').replace('CoMod Live ', 'CoMod Live B ');
+  if (family === 'add')   return (kuerzel || '').replace('CoMod Add ', 'CoMod Add B ');
+  if (family === 'stack') return (kuerzel || '').endsWith(' B') ? kuerzel : `${kuerzel || ''} B`;
+  return `${kuerzel || ''} B`;
+}
 
 const FAMILIES_PRIVAT = ['live', 'home', 'add', 'stack'];
 const FAMILIES_BUSINESS = ['liveb', 'studio', 'stay', 'double', 'gym', 'music', 'wellness', 'cowork', 'community', 'addb', 'pool', 'stack'];
@@ -4270,6 +4280,17 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
+  // B-Modell: Hat dieses (Primär-)Modul einen gewerblichen Zwilling? Steuert das „Verfügbar für"-Häkchen.
+  const [secondaryOn, setSecondaryOn] = useState(false);
+  useEffect(() => {
+    if (!module?.id) { setSecondaryOn(false); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from('modules').select('id').eq('mirror_of', module.id).is('deleted_at', null);
+      if (!cancelled) setSecondaryOn(!!(data && data.length));
+    })();
+    return () => { cancelled = true; };
+  }, [module?.id]);
 
   // String-Buffer für Prozent-Felder, damit "15,5" oder "15." flüssig getippt werden kann
   // (DB hält 0.155, UI zeigt 15,5). Beim Save in form-Werte zurückkonvertiert.
@@ -4379,20 +4400,36 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
     }
     setHiddenInWorkspacesOrig(new Set(hiddenInWorkspaces));
 
-    // B-Modell: gemeinsame Felder auf gespiegelte Zwillinge übernehmen.
+    // B-Modell: Zwilling verwalten — anlegen, spiegeln oder entfernen, je nach „Verfügbar für".
     // Identität des Zwillings (usage, family, kuerzel, mirror_of, sort_order) bleibt erhalten;
-    // alles andere (Preis, Marge, Größen, Texte, Bild, aktiv, …) wird gespiegelt. Best-effort:
-    // der Primär-Datensatz ist bereits gespeichert, ein Spiegel-Fehler darf das nicht zunichtemachen.
+    // alles andere wird gespiegelt. Best-effort: der Primär-Datensatz ist bereits gespeichert.
     try {
+      const primaryId = res.data.id;
       const { data: mirrors } = await supabase.from('modules')
-        .select('id').eq('mirror_of', res.data.id).is('deleted_at', null);
-      if (mirrors && mirrors.length) {
-        const { usage, family, kuerzel, mirror_of, sort_order, ...shared } = payload;
-        for (const mir of mirrors) {
-          await supabase.from('modules').update(shared).eq('id', mir.id);
-        }
+        .select('id').eq('mirror_of', primaryId).is('deleted_at', null);
+      const existing = (mirrors && mirrors[0]) ? mirrors[0].id : null;
+      const twinFamily = TWIN_FAMILY[res.data.family];
+      const wantTwin = secondaryOn && !!twinFamily && res.data.usage === 'p';
+      if (wantTwin && existing) {
+        // Spiegeln: gemeinsame Felder übernehmen, Identität bewahren
+        const { usage, family, kuerzel, mirror_of, sort_order, id, created_at, updated_at, deleted_at, ...shared } = res.data;
+        await supabase.from('modules').update(shared).eq('id', existing);
+      } else if (wantTwin && !existing) {
+        // Neu anlegen: vollständige Kopie, Identität auf gewerblichen Zwilling umgestellt
+        const { id, created_at, updated_at, deleted_at, ...base } = res.data;
+        await supabase.from('modules').insert({
+          ...base,
+          usage: 'g',
+          family: twinFamily,
+          kuerzel: makeTwinKuerzel(base.kuerzel, base.family),
+          mirror_of: primaryId,
+        });
+      } else if (!wantTwin && existing) {
+        // Zwilling entfernen (Sichtbarkeits-Einträge zuerst wegen FK)
+        await supabase.from('module_visibility').delete().eq('module_id', existing);
+        await supabase.from('modules').delete().eq('id', existing);
       }
-    } catch { /* Spiegeln best-effort */ }
+    } catch { /* Zwilling-Verwaltung best-effort */ }
 
     setSaved(true); setSaving(false);
     setTimeout(() => { onSaved(res.data); }, 600);
@@ -4447,10 +4484,31 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
                 </select>
               </div>
               <div>
-                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Nutzung</label>
-                <select value={form.usage} onChange={update('usage')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]">
-                  {MODULE_USAGE.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-                </select>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">{isNew ? 'Nutzung' : 'Verfügbar für'}</label>
+                {isNew ? (
+                  <select value={form.usage} onChange={update('usage')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]">
+                    {MODULE_USAGE.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                  </select>
+                ) : (
+                  <div className="flex flex-col gap-1.5 pt-1">
+                    {[['p', 'Privat'], ['g', 'Gewerblich']].map(([u, lbl]) => {
+                      const isPrimary = form.usage === u;
+                      const canSecondary = !!TWIN_FAMILY[form.family] && form.usage === 'p' && u === 'g';
+                      const checked = isPrimary || (canSecondary && secondaryOn);
+                      const disabled = isPrimary || !canSecondary;
+                      return (
+                        <label key={u} className={`flex items-center gap-2 font-body text-sm ${disabled && !isPrimary ? 'opacity-40' : 'cursor-pointer'}`}>
+                          <input type="checkbox" checked={checked} disabled={disabled}
+                            onChange={e => setSecondaryOn(e.target.checked)} className="accent-[var(--brand-accent,#D2563E)]" />
+                          {lbl}{isPrimary && <span className="text-[10px] text-[#6B6961] uppercase tracking-wider">Basis</span>}
+                        </label>
+                      );
+                    })}
+                    {!TWIN_FAMILY[form.family] && (
+                      <p className="font-body text-[11px] text-[#6B6961] leading-snug">Diese Modulart unterstützt nur die Basis-Nutzung.</p>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Größen-Label</label>
@@ -4885,6 +4943,7 @@ function AdminModulesView({ authProfile }) {
       return [...prev, savedRow].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     });
     setEditing(undefined);
+    loadModules(); // Zwillinge (neu angelegt/entfernt) + P+G-Badges frisch ziehen
   }
 
   return (
