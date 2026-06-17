@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.93';
+const APP_VERSION = '0.9.94';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -6744,6 +6744,142 @@ function AdminContentBlocksView({ authUser, authProfile }) {
   );
 }
 
+function AdminBrandingView({ authProfile }) {
+  const ws = authProfile?.workspace_id || null;
+  const [accent, setAccent] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [imgUploading, setImgUploading] = useState(false);
+  const [imgError, setImgError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const b = await loadWorkspaceBranding(ws);
+      if (!active) return;
+      setAccent(b?.accent || '');
+      setLogoUrl(b?.logoUrl || '');
+      setLoading(false);
+    })();
+    return () => { active = false; };
+  }, [ws]);
+
+  const handleLogoUpload = async (file) => {
+    if (!file) return;
+    setImgError('');
+    if (!file.type.startsWith('image/')) { setImgError('Bitte eine Bilddatei wählen.'); return; }
+    if (file.size > 8 * 1024 * 1024) { setImgError('Bild zu groß (max. 8 MB).'); return; }
+    setImgUploading(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+      const path = `branding/${ws}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('visuals').upload(path, file, { upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from('visuals').getPublicUrl(path);
+      setLogoUrl(data.publicUrl);
+    } catch (e) {
+      setImgError(e?.message || 'Upload fehlgeschlagen.');
+    } finally {
+      setImgUploading(false);
+    }
+  };
+
+  async function writeSetting(key, value) {
+    await supabase.from('settings').delete().eq('workspace_id', ws).eq('key', key);
+    if (value) {
+      const { error } = await supabase.from('settings').insert({ workspace_id: ws, key, value });
+      if (error) throw error;
+    }
+  }
+
+  async function save() {
+    if (!ws) return;
+    setSaving(true); setMsg('');
+    try {
+      const acc = accent.trim();
+      if (acc && !/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(acc)) {
+        setMsg('Bitte eine gültige Hex-Farbe angeben, z. B. #2E6F7B.'); setSaving(false); return;
+      }
+      await writeSetting('brand_accent', acc || null);
+      await writeSetting('brand_logo_url', logoUrl.trim() || null);
+      if (acc) document.documentElement.style.setProperty('--brand-accent', acc);
+      else document.documentElement.style.removeProperty('--brand-accent');
+      setMsg('Gespeichert. Die Akzentfarbe greift sofort, das Logo nach dem nächsten Neuladen bzw. im Konfigurator.');
+    } catch (e) {
+      setMsg('Speichern fehlgeschlagen: ' + (e?.message || 'unbekannter Fehler') + ' (evtl. fehlt die Schreib-Policy für Settings).');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!ws) return <p className="font-body text-sm text-[#6B6961]">Kein Workspace zugeordnet.</p>;
+  if (loading) return <p className="font-body text-sm text-[#6B6961]">Lädt …</p>;
+
+  const previewAccent = (accent && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(accent.trim())) ? accent.trim() : '#D2563E';
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="font-display text-2xl tracking-tight mb-1">Branding</h2>
+      <p className="font-body text-sm text-[#6B6961] mb-8">Logo und Akzentfarbe für Deinen Konfigurator-Link und die Vorschau.</p>
+
+      {/* Logo */}
+      <div className="border border-[#1C1C1A]/10 bg-white p-6 mb-6">
+        <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-3">Logo</p>
+        <div className="flex items-center gap-5 flex-wrap">
+          <div className="h-16 min-w-[140px] px-4 flex items-center justify-center border border-[#1C1C1A]/10 bg-[#F8F5F0]">
+            {logoUrl
+              ? <img src={logoUrl} alt="Logo-Vorschau" className="max-h-12 w-auto object-contain" />
+              : <span className="font-body text-xs text-[#6B6961]">CoMod-Standard</span>}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className={`inline-flex items-center gap-2 px-4 py-2 border border-[#1C1C1A]/15 font-body text-xs tracking-wider uppercase cursor-pointer hover:border-[#1C1C1A]/40 transition-colors ${imgUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+              <input type="file" accept="image/*" className="hidden" disabled={imgUploading}
+                onChange={e => { handleLogoUpload(e.target.files?.[0]); e.target.value = ''; }} />
+              {imgUploading ? 'Lädt hoch …' : 'Logo hochladen'}
+            </label>
+            {logoUrl && (
+              <button onClick={() => setLogoUrl('')} className="font-body text-xs text-[#6B6961] hover:text-[#1C1C1A] underline self-start">Logo entfernen</button>
+            )}
+          </div>
+        </div>
+        {imgError && <p className="font-body text-xs text-red-600 mt-2">{imgError}</p>}
+        <p className="font-body text-[11px] text-[#6B6961] mt-3 leading-snug">PNG mit transparentem Hintergrund empfohlen, Höhe ca. 40–80&nbsp;px. Max. 8&nbsp;MB.</p>
+      </div>
+
+      {/* Akzentfarbe */}
+      <div className="border border-[#1C1C1A]/10 bg-white p-6 mb-6">
+        <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-3">Akzentfarbe</p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <input type="color" value={previewAccent} onChange={e => setAccent(e.target.value)}
+            className="w-12 h-12 p-0 border border-[#1C1C1A]/15 bg-white cursor-pointer" aria-label="Akzentfarbe wählen" />
+          <input type="text" value={accent} placeholder="#D2563E" onChange={e => setAccent(e.target.value)}
+            className="w-32 px-3 py-2 border border-[#1C1C1A]/15 font-body text-sm num bg-white focus:outline-none focus:border-[#1C1C1A]/40" />
+          {accent && (
+            <button onClick={() => setAccent('')} className="font-body text-xs text-[#6B6961] hover:text-[#1C1C1A] underline">Zurücksetzen (CoMod)</button>
+          )}
+        </div>
+        {/* Live-Vorschau */}
+        <div className="mt-4 pt-4 border-t border-[#1C1C1A]/8 flex items-center gap-3 flex-wrap">
+          <span className="font-body text-[11px] tracking-wider uppercase text-[#6B6961]">Vorschau:</span>
+          <span className="px-4 py-2 font-body text-xs tracking-wider uppercase text-white" style={{ backgroundColor: previewAccent }}>Button</span>
+          <span className="w-6 h-1.5 rounded-full inline-block" style={{ backgroundColor: previewAccent }} />
+          <span className="font-body text-sm" style={{ color: previewAccent }}>Akzenttext</span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 flex-wrap">
+        <button onClick={save} disabled={saving}
+          className="px-6 py-2.5 font-body text-xs tracking-wider uppercase text-[#F8F5F0] bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] transition-colors disabled:opacity-50">
+          {saving ? 'Speichert …' : 'Branding speichern'}
+        </button>
+        {msg && <p className="font-body text-xs text-[#6B6961]">{msg}</p>}
+      </div>
+    </div>
+  );
+}
+
 function AdminPanel({ authUser, authProfile }) {
   const [tab, setTab] = useState('leads'); // 'leads' | 'modules' | 'projects' | 'settings' | 'backups'
   async function logout() { await supabase.auth.signOut(); }
@@ -6751,6 +6887,7 @@ function AdminPanel({ authUser, authProfile }) {
     { key: 'leads',    label: 'Leads' },
     { key: 'modules',  label: 'Module' },
     { key: 'projects', label: 'Projekte' },
+    ...(authProfile?.role === 'partner_admin' ? [{ key: 'branding', label: 'Branding' }] : []),
     ...(authProfile?.role === 'master_admin' ? [{ key: 'settings', label: 'Settings' }, { key: 'texte', label: 'Texte' }, { key: 'backups', label: 'Backups' }] : []),
   ];
   return (
@@ -6775,6 +6912,7 @@ function AdminPanel({ authUser, authProfile }) {
       {tab === 'leads'    && <AdminLeadsView authUser={authUser} authProfile={authProfile} />}
       {tab === 'modules'  && <AdminModulesView authProfile={authProfile} />}
       {tab === 'projects' && <AdminProjectsView authProfile={authProfile} />}
+      {tab === 'branding' && <AdminBrandingView authProfile={authProfile} />}
       {tab === 'settings' && <AdminSettingsView />}
       {tab === 'backups'  && <AdminBackupsView authUser={authUser} authProfile={authProfile} />}
       {tab === 'texte'    && <AdminContentBlocksView authUser={authUser} authProfile={authProfile} />}
