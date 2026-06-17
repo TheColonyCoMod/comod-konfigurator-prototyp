@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.96';
+const APP_VERSION = '0.9.97';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4379,6 +4379,21 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
     }
     setHiddenInWorkspacesOrig(new Set(hiddenInWorkspaces));
 
+    // B-Modell: gemeinsame Felder auf gespiegelte Zwillinge übernehmen.
+    // Identität des Zwillings (usage, family, kuerzel, mirror_of, sort_order) bleibt erhalten;
+    // alles andere (Preis, Marge, Größen, Texte, Bild, aktiv, …) wird gespiegelt. Best-effort:
+    // der Primär-Datensatz ist bereits gespeichert, ein Spiegel-Fehler darf das nicht zunichtemachen.
+    try {
+      const { data: mirrors } = await supabase.from('modules')
+        .select('id').eq('mirror_of', res.data.id).is('deleted_at', null);
+      if (mirrors && mirrors.length) {
+        const { usage, family, kuerzel, mirror_of, sort_order, ...shared } = payload;
+        for (const mir of mirrors) {
+          await supabase.from('modules').update(shared).eq('id', mir.id);
+        }
+      }
+    } catch { /* Spiegeln best-effort */ }
+
     setSaved(true); setSaving(false);
     setTimeout(() => { onSaved(res.data); }, 600);
   }
@@ -4844,9 +4859,14 @@ function AdminModulesView({ authProfile }) {
 
   useEffect(() => { loadModules(); }, []);
 
+  // Zwillinge (Spiegel-Datensätze) im Backend ausblenden → eine Karte pro logischem Modul.
+  // dualPrimaryIds = Primär-Datensätze, die einen gespiegelten Zwilling haben (für P+G-Badge & Filter).
+  const dualPrimaryIds = useMemo(() => new Set(modules.filter(m => m.mirror_of).map(m => m.mirror_of)), [modules]);
+  const visibleCount = useMemo(() => modules.filter(m => !m.mirror_of).length, [modules]);
+
   const filtered = useMemo(() => {
-    let list = modules;
-    if (usageFilter !== 'all') list = list.filter(m => m.usage === usageFilter);
+    let list = modules.filter(m => !m.mirror_of);
+    if (usageFilter !== 'all') list = list.filter(m => m.usage === usageFilter || dualPrimaryIds.has(m.id));
     if (activeFilter !== 'all') list = list.filter(m => activeFilter === 'active' ? m.is_active : !m.is_active);
     if (search.trim()) {
       const s = search.toLowerCase();
@@ -4856,7 +4876,7 @@ function AdminModulesView({ authProfile }) {
         (m.family || '').toLowerCase().includes(s));
     }
     return list;
-  }, [modules, usageFilter, activeFilter, search]);
+  }, [modules, usageFilter, activeFilter, search, dualPrimaryIds]);
 
   function handleSaved(savedRow) {
     setModules(prev => {
@@ -4873,7 +4893,7 @@ function AdminModulesView({ authProfile }) {
         <div>
           <h1 className="font-display text-4xl tracking-tight mb-2">Module</h1>
           <p className="font-body text-sm text-[#6B6961]">
-            {filtered.length} von {modules.length} {modules.length === 1 ? 'Modul' : 'Modulen'} · {isMaster ? 'global gepflegt' : 'Sichtbarkeit für Deinen Konfigurator'}
+            {filtered.length} von {visibleCount} {visibleCount === 1 ? 'Modul' : 'Modulen'} · {isMaster ? 'global gepflegt' : 'Sichtbarkeit für Deinen Konfigurator'}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -4927,7 +4947,7 @@ function AdminModulesView({ authProfile }) {
                 <div className="text-xs text-[#6B6961]">{m.family}</div>
                 <div className="text-xs text-[#6B6961]">{m.category}</div>
                 <div className="text-xs">
-                  <span className="px-1.5 py-0.5 border border-[#1C1C1A]/10 bg-[#F8F5F0] uppercase tracking-wider">{m.usage}</span>
+                  <span className="px-1.5 py-0.5 border border-[#1C1C1A]/10 bg-[#F8F5F0] uppercase tracking-wider">{dualPrimaryIds.has(m.id) ? 'P + G' : (m.usage === 'p' ? 'P' : 'G')}</span>
                 </div>
                 {isMaster ? (
                   <>
