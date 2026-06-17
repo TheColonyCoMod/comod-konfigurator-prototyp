@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.99';
+const APP_VERSION = '0.9.101';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -268,13 +268,16 @@ const ICON_MAP = {
 
 function getModulIcon(kuerzel) {
   if (!kuerzel) return null;
-  if (ICON_MAP[kuerzel]) return `/icons/${ICON_MAP[kuerzel]}`;
-  // Unmöblierte Module teilen den Grundriss mit der möblierten Variante:
-  // fehlt ein Icon für "… (…,D)", nimm das von "… (…,D,M)".
-  if (kuerzel.endsWith(')') && !kuerzel.endsWith(',M)')) {
-    const moeb = kuerzel.replace(/\)$/, ',M)');
-    if (ICON_MAP[moeb]) return `/icons/${ICON_MAP[moeb]}`;
-  }
+  // Der Grundriss ist unabhängig von Möblierung und privat/gewerblich identisch.
+  // Reihenfolge der Kandidaten: exakt → ohne " B" (Gewerbe) → möbliert (",M)") → beides.
+  const candidates = [];
+  const push = (k) => { if (k && !candidates.includes(k)) candidates.push(k); };
+  push(kuerzel);
+  const noB = kuerzel.replace(' B (', ' (').replace(/ B$/, ''); // "Live B (PK,D)" → "Live (PK,D)"
+  push(noB);
+  if (kuerzel.endsWith(')') && !kuerzel.endsWith(',M)')) push(kuerzel.replace(/\)$/, ',M)'));
+  if (noB.endsWith(')') && !noB.endsWith(',M)')) push(noB.replace(/\)$/, ',M)'));
+  for (const c of candidates) { if (ICON_MAP[c]) return `/icons/${ICON_MAP[c]}`; }
   return null;
 }
 
@@ -2304,6 +2307,14 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
     <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${familyTotal > 0 ? 'border-[var(--brand-accent,#D2563E)] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
       {/* Hero-Image: Grundriss groß, weißer Hintergrund (Feedback V4) */}
       <div className="relative bg-white flex items-center justify-center px-2 py-2" style={{ minHeight: '200px' }}>
+        {product.usage === 'g' && (
+          <div className="absolute top-0 right-0 w-[96px] h-[96px] overflow-hidden pointer-events-none z-10">
+            <span className="absolute font-body text-[9px] tracking-[0.12em] uppercase text-white text-center"
+              style={{ backgroundColor: '#7B2D8E', width: '136px', padding: '3px 0', top: '18px', right: '-34px', transform: 'rotate(45deg)', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+              Gewerblich
+            </span>
+          </div>
+        )}
         {(() => {
           const iconPath = getModulIcon(product.kuerzel);
           return iconPath ? (
@@ -2460,6 +2471,14 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
 
       {/* Hero-Image: Grundriss groß, weißer Hintergrund, minimales Padding (Feedback V4) */}
       <div className="relative bg-white flex items-center justify-center px-2 py-2" style={{ minHeight: '200px' }}>
+        {product.usage === 'g' && (
+          <div className="absolute top-0 right-0 w-[96px] h-[96px] overflow-hidden pointer-events-none z-10">
+            <span className="absolute font-body text-[9px] tracking-[0.12em] uppercase text-white text-center"
+              style={{ backgroundColor: '#7B2D8E', width: '136px', padding: '3px 0', top: '18px', right: '-34px', transform: 'rotate(45deg)', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+              Gewerblich
+            </span>
+          </div>
+        )}
         {(() => {
           const iconPath = getModulIcon(product.kuerzel);
           return iconPath ? (
