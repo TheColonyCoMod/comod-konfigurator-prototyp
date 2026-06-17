@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.86';
+const APP_VERSION = '0.9.87';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -394,11 +394,20 @@ function mapDbProjectToFrontend(db) {
 const CO_MOD_WS_ID = '00000000-0000-0000-0000-000000000001';
 async function loadProjectsFromDb() {
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('projects').select('*')
       .eq('status', 'live').is('deleted_at', null)
-      .or(`workspace_id.eq.${CO_MOD_WS_ID},workspace_id.is.null`)
+      .or(`workspace_id.eq.${CO_MOD_WS_ID},workspace_id.is.null,show_global.eq.true`)
       .order('sort_order', { ascending: true });
+    if (error) {
+      // Fallback, falls show_global noch nicht existiert: nur CoMod-eigene Projekte
+      const retry = await supabase
+        .from('projects').select('*')
+        .eq('status', 'live').is('deleted_at', null)
+        .or(`workspace_id.eq.${CO_MOD_WS_ID},workspace_id.is.null`)
+        .order('sort_order', { ascending: true });
+      data = retry.data; error = retry.error;
+    }
     if (error) { console.warn('[Supabase] Projekt-Load Fehler:', error.message); return false; }
     if (!data || data.length === 0) { console.warn('[Supabase] Keine Live-Projekte in DB, Fallback aktiv'); return false; }
     PROJECTS_TEMPLATES = data.map(mapDbProjectToFrontend);
@@ -4904,6 +4913,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
     pacht_jahr: 0,
     pacht_gewerblich: false,
     provision_pct: null,
+    show_global: false,
     fassaden_variante_id: fassaden.find(f => f.slug === 'standard')?.id || null,
     status: 'draft',
     sort_order: 0,
@@ -5577,6 +5587,15 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                   ? <>Status <strong>Live</strong> = im Konfigurator wählbar. Andere Stati sind nur im Admin sichtbar.</>
                   : <>Reiche das Projekt mit <strong>Wartet auf Freigabe</strong> ein — CoMod prüft und schaltet es live. Danach kannst Du Inhalte direkt ändern.</>}
               </p>
+              {!isMaster && (
+                <label className="flex items-start gap-3 cursor-pointer pt-1">
+                  <input type="checkbox" className="mt-0.5" checked={!!form.show_global} onChange={update('show_global')} />
+                  <span className="font-body text-sm">
+                    Auch im CoMod-Hauptkonfigurator zeigen
+                    <span className="block font-body text-[10px] text-[#6B6961]">Ohne Haken erscheint Dein Projekt nur in Deinem eigenen Konfigurator-Link, nicht bei CoMod-Kunden.</span>
+                  </span>
+                </label>
+              )}
               <div className="max-w-xs">
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Sortier-Reihenfolge</label>
                 <input type="number" value={form.sort_order ?? ''} onChange={update('sort_order')}
@@ -5619,6 +5638,7 @@ function AdminProjectsView({ authProfile }) {
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [editing, setEditing] = useState(undefined);
+  const [projVis, setProjVis] = useState(new Set()); // project_ids, die der Partner für seine Kunden sichtbar gemacht hat
 
   async function loadAll() {
     setLoading(true); setError(null);
@@ -5629,7 +5649,36 @@ function AdminProjectsView({ authProfile }) {
     if (pRes.error) setError(pRes.error.message);
     else setProjects(pRes.data || []);
     if (!fRes.error) setFassaden(fRes.data || []);
+
+    // Partner: bisher für eigene Kunden sichtbar geschaltete CoMod-Projekte laden.
+    // Fail-soft: wenn die Tabelle noch nicht existiert (SQL nicht eingespielt), bleibt das Set leer.
+    if (authProfile?.role !== 'master_admin' && authProfile?.workspace_id) {
+      try {
+        const { data: vData, error: vErr } = await supabase
+          .from('project_visibility')
+          .select('project_id')
+          .eq('scope_type', 'workspace')
+          .eq('scope_id', authProfile.workspace_id)
+          .eq('visible', true);
+        if (!vErr) setProjVis(new Set((vData || []).map(r => r.project_id)));
+      } catch { /* Tabelle ggf. noch nicht vorhanden */ }
+    }
     setLoading(false);
+  }
+
+  async function toggleProjectVisible(projectId, makeVisible) {
+    const wsId = authProfile?.workspace_id;
+    if (!wsId) return;
+    setProjVis(prev => { const n = new Set(prev); makeVisible ? n.add(projectId) : n.delete(projectId); return n; }); // optimistisch
+    try {
+      const res = makeVisible
+        ? await supabase.from('project_visibility').insert({ project_id: projectId, scope_type: 'workspace', scope_id: wsId, visible: true })
+        : await supabase.from('project_visibility').delete().eq('project_id', projectId).eq('scope_type', 'workspace').eq('scope_id', wsId);
+      if (res.error) throw res.error;
+    } catch (e) {
+      setProjVis(prev => { const n = new Set(prev); makeVisible ? n.delete(projectId) : n.add(projectId); return n; }); // revert
+      setError('Sichtbarkeit speichern fehlgeschlagen: ' + (e?.message || e));
+    }
   }
 
   useEffect(() => { loadAll(); }, []);
@@ -5641,6 +5690,11 @@ function AdminProjectsView({ authProfile }) {
   const visibleProjects = useMemo(
     () => isMaster ? projects : projects.filter(p => p.workspace_id === authProfile?.workspace_id),
     [projects, isMaster, authProfile?.workspace_id]
+  );
+  // CoMod-Projekte (live), die der Partner für seine Kunden ein-/ausblenden kann — ohne Detail-Einsicht.
+  const comodProjects = useMemo(
+    () => isMaster ? [] : projects.filter(p => (p.workspace_id === CO_MOD_WS_ID || p.workspace_id == null) && p.status === 'live'),
+    [projects, isMaster]
   );
 
   const filtered = useMemo(() => {
@@ -5720,6 +5774,45 @@ function AdminProjectsView({ authProfile }) {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {!isMaster && (
+        <div className="mt-12">
+          <div className="mb-4">
+            <h2 className="font-display text-2xl tracking-tight mb-1">CoMod-Projekte</h2>
+            <p className="font-body text-sm text-[#6B6961]">
+              Entscheide, welche unserer Projekte Deine Kunden in Deinem Konfigurator sehen. Details bleiben bei CoMod.
+            </p>
+          </div>
+          {comodProjects.length === 0 ? (
+            <div className="bg-white border border-[#1C1C1A]/10 p-10 text-center font-body text-sm text-[#6B6961]">
+              Aktuell keine CoMod-Projekte verfügbar.
+            </div>
+          ) : (
+            <div className="bg-white border border-[#1C1C1A]/10 divide-y divide-[#1C1C1A]/5">
+              {comodProjects.map(p => {
+                const on = projVis.has(p.id);
+                return (
+                  <div key={p.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
+                    <div>
+                      <p className="font-body text-sm text-[#1C1C1A]">{p.name}</p>
+                      <p className="font-body text-xs text-[#6B6961]">{p.location || '—'}</p>
+                    </div>
+                    <button
+                      onClick={() => toggleProjectVisible(p.id, !on)}
+                      role="switch" aria-checked={on}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${on ? 'bg-[#7B2D8E]' : 'bg-[#1C1C1A]/15'}`}>
+                      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <p className="font-body text-[10px] text-[#6B6961] mt-2">
+            Aktiv = das Projekt erscheint in Deinem Konfigurator-Link (sobald dieser eingerichtet ist).
+          </p>
         </div>
       )}
 
