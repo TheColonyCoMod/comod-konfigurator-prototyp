@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.90';
+const APP_VERSION = '0.9.91';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2205,7 +2205,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 
   const [groesse, setGroesse] = useState(32);
   const product = products.find(p => p.groesse === groesse) || products[0];
-  const count = selections[product.kuerzel] || 0;
+  const count = product ? (selections[product.kuerzel] || 0) : 0;
 
   // Wenn Toggle wechselt: alte Auswahl löschen, neue Auswahl beibehalten? Hier einfach: alle Add-Selections in der jeweils anderen Familie löschen
   function switchUsage(newUsage) {
@@ -2224,6 +2224,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
   }
 
   function adjust(delta) {
+    if (!product) return;
     setSelections(prev => {
       const next = { ...prev };
       next[product.kuerzel] = Math.max(0, (next[product.kuerzel] || 0) + delta);
@@ -2256,7 +2257,22 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
   // Einmalige anteilige Projektkosten bleiben bewusst AUSSEN vor (Feedback V7) — sonst Preissprünge bei jeder
   // Modulanzahl-Änderung. Projekt-Rabatt/-Marge sind dagegen stabil (auf Ziel-Modulanzahl bzw. fix).
   // Im rein gewerblichen Pfad: netto-Preise (Hinweis steht im Sidebar-Banner)
-  const effectivePrice = effectiveModulPreis(product, isPureGewerb, priceCtx);
+  const effectivePrice = product ? effectiveModulPreis(product, isPureGewerb, priceCtx) : 0;
+
+  // Kein Ergänzungsmodul in dieser Nutzungsart (z. B. ausgeblendet) → graceful Fallback statt Crash.
+  // Steht NACH allen Hooks, damit die Hook-Reihenfolge konstant bleibt.
+  if (!product) {
+    return (
+      <div className="border border-[#1C1C1A]/10 bg-white p-6 flex flex-col gap-4">
+        <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Ergänzungsmodule</p>
+        <div className="flex gap-2">
+          <button onClick={() => switchUsage('p')} className={`px-3 py-1.5 text-xs uppercase tracking-wider border ${usageState === 'p' ? 'border-[#D2563E] text-[#D2563E]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Privat</button>
+          <button onClick={() => switchUsage('g')} className={`px-3 py-1.5 text-xs uppercase tracking-wider border ${usageState === 'g' ? 'border-[#D2563E] text-[#D2563E]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Gewerblich</button>
+        </div>
+        <p className="font-body text-sm text-[#6B6961]">In dieser Nutzungsart sind aktuell keine Ergänzungsmodule verfügbar.</p>
+      </div>
+    );
+  }
 
   return (
     <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${familyTotal > 0 ? 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
