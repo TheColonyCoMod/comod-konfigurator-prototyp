@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.92';
+const APP_VERSION = '0.9.93';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -351,7 +351,22 @@ async function loadProductsFromDb(viewerWorkspaceId = null) {
   }
 }
 
-// PROJECTS_TEMPLATES — Fallback. Wird beim App-Start aus DB überschrieben.
+// Lädt Branding (Logo-URL + Akzentfarbe) eines Workspaces aus den (workspace-scoped) Settings.
+// Wird für den Partner-Link /p/{slug} UND die eingeloggte Partner-Vorschau genutzt.
+async function loadWorkspaceBranding(ws) {
+  if (!ws) return null;
+  try {
+    const { data, error } = await supabase
+      .from('settings').select('key,value')
+      .eq('workspace_id', ws)
+      .in('key', ['brand_logo_url', 'brand_accent']);
+    if (error || !data) return null;
+    const m = {};
+    data.forEach(s => { m[s.key] = s.value; });
+    return { logoUrl: m.brand_logo_url || null, accent: m.brand_accent || null };
+  } catch { return null; }
+}
+
 // Bei DB-Fehler bleibt diese hartcodierte Liste aktiv.
 let PROJECTS_TEMPLATES = [
   { id: 'voelk', name: 'Völklinger Straße', location: 'Düsseldorf',
@@ -1290,7 +1305,7 @@ function FontStyles() {
 function Button({ children, variant = 'primary', onClick, disabled, className = '', ...rest }) {
   const base = 'inline-flex items-center justify-center gap-2 px-6 py-3 text-sm tracking-wide transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed font-body';
   const styles = {
-    primary: 'bg-[#D2563E] text-[#F8F5F0] hover:bg-[#B04528]',
+    primary: 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] hover:bg-[#B04528]',
     secondary: 'border border-[#1C1C1A]/20 text-[#1C1C1A] hover:bg-[#1C1C1A]/5',
     inverse: 'bg-[#F8F5F0] text-[#1C1C1A] hover:bg-white',
   };
@@ -1338,7 +1353,7 @@ function StepIndicator({ currentStep, onJump }) {
         <div key={i} className="flex items-center gap-3">
           <button onClick={() => i < currentStep && onJump(i)} disabled={i >= currentStep}
             className={`flex items-center gap-2 transition-colors ${i === currentStep ? 'text-[#1C1C1A]' : i < currentStep ? 'text-[#6B6961] hover:text-[#1C1C1A] cursor-pointer' : 'text-[#6B6961]/40 cursor-default'}`}>
-            <span className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentStep ? 'bg-[#D2563E] w-6' : i < currentStep ? 'bg-[#6B6961]' : 'bg-[#6B6961]/30'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentStep ? 'bg-[var(--brand-accent,#D2563E)] w-6' : i < currentStep ? 'bg-[#6B6961]' : 'bg-[#6B6961]/30'}`} />
             <span>{label}</span>
           </button>
           {i < steps.length - 1 && <span className="text-[#6B6961]/30">·</span>}
@@ -1348,7 +1363,7 @@ function StepIndicator({ currentStep, onJump }) {
   );
 }
 
-function Header({ step, onJump, view, setView }) {
+function Header({ step, onJump, view, setView, brandLogoUrl }) {
   function handleRestart() {
     // Nur fragen, wenn der Nutzer schon irgendwo unterwegs ist (step > 1 oder im Admin)
     const inProgress = view === 'customer' && step > 1;
@@ -1365,7 +1380,7 @@ function Header({ step, onJump, view, setView }) {
         <div className="flex items-center gap-3">
           <button onClick={handleRestart} title="Zum Start des Konfigurators"
             className="flex items-center hover:opacity-70 transition-opacity">
-            <img src="/brand/comod_logo_black.png" alt="CoMod — zum Start" className="h-10 w-auto" />
+            <img src={brandLogoUrl || "/brand/comod_logo_black.png"} alt="zum Start" className="h-10 w-auto" />
           </button>
           <span className="font-body text-xs text-[#6B6961] tracking-[0.2em] uppercase border-l border-[#1C1C1A]/15 pl-3 hidden md:inline">Konfigurator</span>
         </div>
@@ -1410,7 +1425,7 @@ function WelcomeStep({ onSelect }) {
       <div className="mb-16">
         <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-6">Willkommen</p>
         <h1 className="font-display text-5xl md:text-6xl leading-tight tracking-tight mb-6">
-          Was passt zu Dir<span className="text-[#D2563E]">,</span><br/>
+          Was passt zu Dir<span className="text-[var(--brand-accent,#D2563E)]">,</span><br/>
           <em className="font-display">erzähl es uns kurz</em><span className="opacity-40"> …</span>
         </h1>
         <p className="font-body text-lg text-[#6B6961] max-w-2xl leading-relaxed">
@@ -1422,7 +1437,7 @@ function WelcomeStep({ onSelect }) {
           const Icon = o.icon;
           return (
             <button key={o.id} onClick={() => onSelect(o.id)}
-              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#D2563E] overflow-hidden flex flex-col transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
+              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[var(--brand-accent,#D2563E)] overflow-hidden flex flex-col transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
               {/* Header-Visual im Querformat 3:2, mit Icon-Fallback */}
               <div className="relative bg-[#F8F5F0] overflow-hidden" style={{ aspectRatio: '3 / 2' }}>
                 {o.image ? (
@@ -1439,14 +1454,14 @@ function WelcomeStep({ onSelect }) {
               {/* Textteil */}
               <div className="p-8 flex-1 flex flex-col">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-11 h-11 rounded-full bg-[#D2563E]/5 group-hover:bg-[#D2563E]/10 flex items-center justify-center transition-colors shrink-0">
-                    <Icon className="w-5 h-5 text-[#D2563E]" strokeWidth={1.5} />
+                  <div className="w-11 h-11 rounded-full bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] group-hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] flex items-center justify-center transition-colors shrink-0">
+                    <Icon className="w-5 h-5 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
                   </div>
                   <h3 className="font-display text-3xl">{o.title}</h3>
                 </div>
                 <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-4">{o.subtitle}</p>
                 <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-6">{o.desc}</p>
-                <div className="flex items-center gap-2 font-body text-sm text-[#D2563E] opacity-0 group-hover:opacity-100 transition-opacity mt-auto">
+                <div className="flex items-center gap-2 font-body text-sm text-[var(--brand-accent,#D2563E)] opacity-0 group-hover:opacity-100 transition-opacity mt-auto">
                   Weiter <ArrowRight className="w-4 h-4" />
                 </div>
               </div>
@@ -1486,14 +1501,14 @@ function PrivatModeStep({ onSelectMode, onBack }) {
           const Icon = o.icon;
           return (
             <button key={o.id} onClick={() => onSelectMode(o.id)}
-              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#D2563E] p-8 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
-              <div className="w-12 h-12 rounded-full bg-[#D2563E]/5 group-hover:bg-[#D2563E]/10 flex items-center justify-center mb-6 transition-colors">
-                <Icon className="w-5 h-5 text-[#D2563E]" strokeWidth={1.5} />
+              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[var(--brand-accent,#D2563E)] p-8 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
+              <div className="w-12 h-12 rounded-full bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] group-hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] flex items-center justify-center mb-6 transition-colors">
+                <Icon className="w-5 h-5 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
               </div>
               <h3 className="font-display text-2xl mb-1">{o.title}</h3>
               <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-4">{o.subtitle}</p>
               <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-6">{o.desc}</p>
-              <div className="flex items-center gap-2 font-body text-sm text-[#D2563E] opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-2 font-body text-sm text-[var(--brand-accent,#D2563E)] opacity-0 group-hover:opacity-100 transition-opacity">
                 Auswählen <ArrowRight className="w-4 h-4" />
               </div>
             </button>
@@ -1525,7 +1540,7 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
           const isSelected = selectedProject?.id === p.id;
           return (
           <button key={p.id} onClick={() => onSelect(p)}
-            className={`text-left bg-white border transition-all duration-300 overflow-hidden flex flex-col ${isSelected ? 'border-[#D2563E] shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]' : 'border-[#1C1C1A]/10 hover:border-[#D2563E]/50'}`}>
+            className={`text-left bg-white border transition-all duration-300 overflow-hidden flex flex-col ${isSelected ? 'border-[var(--brand-accent,#D2563E)] shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]' : 'border-[#1C1C1A]/10 hover:border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_50%,transparent)]'}`}>
             {/* Hero-Image im Querformat 3:2, mit Fallback */}
             <div className="relative bg-[#F8F5F0] overflow-hidden" style={{ aspectRatio: '3 / 2' }}>
               {p.heroImageUrl ? (
@@ -1540,7 +1555,7 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
                 </div>
               )}
               {isSelected && (
-                <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#D2563E] flex items-center justify-center shadow-md">
+                <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[var(--brand-accent,#D2563E)] flex items-center justify-center shadow-md">
                   <Check className="w-4 h-4 text-white" />
                 </div>
               )}
@@ -1567,7 +1582,7 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
                 </div>
                 <div>
                   <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Rabatt gesamt</p>
-                  <p className="font-display text-base num text-[#D2563E]">{fmtPct(gesamtrabatt)}</p>
+                  <p className="font-display text-base num text-[var(--brand-accent,#D2563E)]">{fmtPct(gesamtrabatt)}</p>
                   <p className="font-body text-[10px] text-[#6B6961]">{fmtPct(mengenrabatt)} Menge + {fmtPct(p.projektrabatt)} Projekt</p>
                 </div>
                 <div>
@@ -1588,15 +1603,15 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
 
       {/* Vor- und Nachteile der Projekt-Beteiligung — unterhalb der Projekte */}
       <div className="mt-10 grid md:grid-cols-2 gap-4">
-        <div className="bg-white border border-[#D2563E]/20 p-5">
-          <p className="font-body text-[11px] uppercase tracking-wider text-[#D2563E] mb-3 flex items-center gap-1.5">
+        <div className="bg-white border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] p-5">
+          <p className="font-body text-[11px] uppercase tracking-wider text-[var(--brand-accent,#D2563E)] mb-3 flex items-center gap-1.5">
             <Plus className="w-3.5 h-3.5" strokeWidth={2} /> Vorteile
           </p>
           <ul className="space-y-2 font-body text-sm text-[#1C1C1A]/85 leading-relaxed">
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[#D2563E] shrink-0 mt-0.5" strokeWidth={2} /><span>Mengenrabatte aus der Gesamtgröße des Projekts</span></li>
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[#D2563E] shrink-0 mt-0.5" strokeWidth={2} /><span>Zusätzliche Einnahmenpotenziale aus Gemeinschaftsmodulen (Gym, CoWork, Wellness)</span></li>
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[#D2563E] shrink-0 mt-0.5" strokeWidth={2} /><span>Nutzung der Gemeinschaftsmodule ohne eigene Investition</span></li>
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[#D2563E] shrink-0 mt-0.5" strokeWidth={2} /><span>Wir kümmern uns um Grundstück, Genehmigung & Bauleitung</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>Mengenrabatte aus der Gesamtgröße des Projekts</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>Zusätzliche Einnahmenpotenziale aus Gemeinschaftsmodulen (Gym, CoWork, Wellness)</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>Nutzung der Gemeinschaftsmodule ohne eigene Investition</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>Wir kümmern uns um Grundstück, Genehmigung & Bauleitung</span></li>
           </ul>
         </div>
         <div className="bg-white border border-[#7B2D8E]/30 p-5">
@@ -1654,16 +1669,16 @@ function ModulartStep({ onSelect, onBack }) {
           const Icon = o.icon;
           return (
             <button key={o.id} onClick={() => onSelect(o.id)}
-              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[#D2563E] p-7 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
-              <div className="w-12 h-12 rounded-full bg-[#D2563E]/5 group-hover:bg-[#D2563E]/10 flex items-center justify-center mb-5 transition-colors">
-                <Icon className="w-5 h-5 text-[#D2563E]" strokeWidth={1.5} />
+              className="group text-left bg-white border border-[#1C1C1A]/10 hover:border-[var(--brand-accent,#D2563E)] p-7 transition-all duration-300 hover:shadow-[0_8px_30px_-12px_rgba(60,84,70,0.25)]">
+              <div className="w-12 h-12 rounded-full bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] group-hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] flex items-center justify-center mb-5 transition-colors">
+                <Icon className="w-5 h-5 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
               </div>
               <h3 className="font-display text-2xl mb-1">{o.title}</h3>
               <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-3">{o.subtitle}</p>
               <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-5">{o.desc}</p>
               <div className="pt-3 border-t border-[#1C1C1A]/10 flex items-center justify-between">
                 <p className="font-body text-[10px] uppercase tracking-wider text-[#7B2D8E]">{o.finanzhinweis}</p>
-                <ArrowRight className="w-4 h-4 text-[#D2563E] opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ArrowRight className="w-4 h-4 text-[var(--brand-accent,#D2563E)] opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </button>
           );
@@ -1778,7 +1793,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
       <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">
         Damit wir Dir realistische Zahlen zeigen können. Wir starten mit Deiner Flächensituation und ermitteln daraus die mögliche Modulanzahl und Geschoss-Verteilung.
       </p>
-      <div className="bg-[#D2563E]/5 border border-[#D2563E]/20 px-4 py-3 mb-8 flex items-center gap-2.5 max-w-2xl">
+      <div className="bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] px-4 py-3 mb-8 flex items-center gap-2.5 max-w-2xl">
         <span className="text-[#C5392E] font-medium text-base">*</span>
         <p className="font-body text-xs text-[#6B6961]">Pflichtangaben mit Stern. Diese erste Kostenindikation verfeinern wir gemeinsam im Beratungsgespräch.</p>
       </div>
@@ -1787,23 +1802,23 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
 
         {/* SCHRITT 1: Fläche-Status */}
         <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-4">
-          <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#D2563E] text-[#F8F5F0] flex items-center justify-center text-xs font-body">1</span> Fläche</h3>
+          <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">1</span> Fläche</h3>
           <FieldLabel required>Wie sieht's mit der Fläche aus?</FieldLabel>
           <div className="grid md:grid-cols-3 gap-3">
             <button onClick={() => setFlaecheStatus('ja')}
-              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'ja' ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-              <MapPin className="w-5 h-5 text-[#D2563E] mb-2" strokeWidth={1.5} />
+              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'ja' ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+              <MapPin className="w-5 h-5 text-[var(--brand-accent,#D2563E)] mb-2" strokeWidth={1.5} />
               <p className="font-body text-sm text-[#1C1C1A] font-medium">Ja, ich habe</p>
               <p className="font-body text-xs text-[#6B6961] mt-1">Konkretes Grundstück vorhanden</p>
             </button>
             <button onClick={() => setFlaecheStatus('suche_selbst')}
-              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'suche_selbst' ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-              <MapPin className="w-5 h-5 text-[#D2563E] mb-2" strokeWidth={1.5} />
+              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'suche_selbst' ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+              <MapPin className="w-5 h-5 text-[var(--brand-accent,#D2563E)] mb-2" strokeWidth={1.5} />
               <p className="font-body text-sm text-[#1C1C1A] font-medium">Noch nicht — ich suche</p>
               <p className="font-body text-xs text-[#6B6961] mt-1">Ich kümmere mich selbst um die Fläche</p>
             </button>
             <button onClick={() => setFlaecheStatus('sucht_fuer_mich')}
-              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'sucht_fuer_mich' ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+              className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'sucht_fuer_mich' ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
               <MapPin className="w-5 h-5 text-[#7B2D8E] mb-2" strokeWidth={1.5} />
               <p className="font-body text-sm text-[#1C1C1A] font-medium">Bitte sucht eine Fläche für mich</p>
               <p className="font-body text-xs text-[#6B6961] mt-1">Ihr unterstützt mich bei der Suche</p>
@@ -1816,7 +1831,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
               <FieldLabel required>Grundstücksgröße in m²</FieldLabel>
               <NumberInput value={config.grundstueckGroesse} onChange={v => setConfig(c => ({...c, grundstueckGroesse: v, geschosse: 0, zielModulAnzahl: 0, geschossVerteilung: []}))}
                 placeholder="z. B. 2000"
-                className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#D2563E]" />
+                className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[var(--brand-accent,#D2563E)]" />
             </div>
           )}
           {(config.flaecheStatus === 'suche_selbst' || config.flaecheStatus === 'sucht_fuer_mich') && (
@@ -1824,7 +1839,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
               <FieldLabel required hint="Daraus berechnen wir den Mindestflächenbedarf">Wie viele Module wünschst Du Dir?</FieldLabel>
               <NumberInput value={config.gewuenschteModulAnzahl} onChange={v => setConfig(c => ({...c, gewuenschteModulAnzahl: v, geschosse: 0, zielModulAnzahl: 0, geschossVerteilung: []}))}
                 placeholder="z. B. 50"
-                className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#D2563E]" />
+                className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[var(--brand-accent,#D2563E)]" />
               {config.flaecheStatus === 'sucht_fuer_mich' && (
                 <div className="bg-[#FBF7EF] border border-[#7B2D8E]/30 p-3 flex gap-2 items-start">
                   <Info className="w-4 h-4 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} />
@@ -1840,7 +1855,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
         {/* SCHRITT 2: Geschossigkeit */}
         {hasFlaecheData && (
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-4">
-            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#D2563E] text-[#F8F5F0] flex items-center justify-center text-xs font-body">2</span> Geschossigkeit</h3>
+            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">2</span> Geschossigkeit</h3>
             <FieldLabel required hint="Beeinflusst die maximale Modulanzahl">Wie viele Geschosse sind geplant?</FieldLabel>
             <div className="grid grid-cols-3 gap-3">
               {[
@@ -1849,8 +1864,8 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                 { n: 3, label: '3 Geschosse', sub: 'EG + OG + DG' },
               ].map(g => (
                 <button key={g.n} onClick={() => setGeschosse(g.n)}
-                  className={`p-4 border text-left transition-colors flex items-center gap-3 ${config.geschosse === g.n ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-                  <Layers className="w-5 h-5 text-[#D2563E]" strokeWidth={1.5} />
+                  className={`p-4 border text-left transition-colors flex items-center gap-3 ${config.geschosse === g.n ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                  <Layers className="w-5 h-5 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
                   <div><p className="font-body text-sm text-[#1C1C1A]">{g.label}</p><p className="font-body text-xs text-[#6B6961]">{g.sub}</p></div>
                 </button>
               ))}
@@ -1858,8 +1873,8 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
 
             {/* Berechnete Kapazität anzeigen */}
             {maxModuleData && config.geschosse > 0 && (
-              <div className="mt-3 bg-[#D2563E]/5 border border-[#D2563E]/15 p-4">
-                <p className="font-body text-xs uppercase tracking-wider text-[#D2563E] mb-2">Berechnete Kapazität</p>
+              <div className="mt-3 bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)] p-4">
+                <p className="font-body text-xs uppercase tracking-wider text-[var(--brand-accent,#D2563E)] mb-2">Berechnete Kapazität</p>
                 <div className="font-body text-sm text-[#1C1C1A] space-y-1">
                   <p><span className="num">{config.grundstueckGroesse} m²</span> × {Math.round(BEBAUUNGSGRAD * 100)} % bebaubar ÷ {ZIEL_MODUL_BGF} m² BGF = <span className="num font-medium">{maxModuleData.maxProGeschoss}</span> Module / Geschoss</p>
                   <p><span className="num font-medium">{maxModuleData.maxGesamt}</span> Module insgesamt möglich (bei {config.geschosse} {config.geschosse === 1 ? 'Geschoss' : 'Geschossen'})</p>
@@ -1898,7 +1913,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
         {/* SCHRITT 3: Zielwert + Geschoss-Verteilung */}
         {config.geschosse > 0 && maxZielwert > 0 && (
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-5">
-            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#D2563E] text-[#F8F5F0] flex items-center justify-center text-xs font-body">3</span> Zielwert & Verteilung</h3>
+            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">3</span> Zielwert & Verteilung</h3>
 
             <div>
               {(config.flaecheStatus === 'suche_selbst' || config.flaecheStatus === 'sucht_fuer_mich') ? (
@@ -1906,7 +1921,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                 <div>
                   <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Modulanzahl</p>
                   <div className="flex items-baseline justify-between">
-                    <span className="font-display text-2xl num text-[#D2563E]">{config.zielModulAnzahl}</span>
+                    <span className="font-display text-2xl num text-[var(--brand-accent,#D2563E)]">{config.zielModulAnzahl}</span>
                     <span className="font-body text-xs text-[#6B6961]">aus Deiner Wunsch-Vorgabe</span>
                   </div>
                   <p className="font-body text-xs text-[#6B6961] mt-2">Die Modulanzahl ist durch Deine Wunsch-Vorgabe oben festgelegt. Du kannst nur die Verteilung auf die Geschosse anpassen.</p>
@@ -1916,7 +1931,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                 <>
                   <FieldLabel required hint={`Default = Maximum von ${maxZielwert}`}>Ziel-Modulanzahl</FieldLabel>
                   <div className="flex items-baseline justify-between mb-2">
-                    <span className="font-display text-2xl num text-[#D2563E]">{config.zielModulAnzahl}</span>
+                    <span className="font-display text-2xl num text-[var(--brand-accent,#D2563E)]">{config.zielModulAnzahl}</span>
                     <span className="font-body text-xs text-[#6B6961]">max. {maxZielwert}</span>
                   </div>
                   <input type="range" min={1} max={maxZielwert} step={1}
@@ -1939,7 +1954,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                       <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1">{geschossNamen[idx]}</p>
                       <NumberInput value={wert} onChange={v => setVerteilungWert(idx, v)}
                         placeholder="0"
-                        className="w-full px-2 py-1.5 bg-white border border-[#1C1C1A]/15 text-lg font-display focus:border-[#D2563E]" />
+                        className="w-full px-2 py-1.5 bg-white border border-[#1C1C1A]/15 text-lg font-display focus:border-[var(--brand-accent,#D2563E)]" />
                       <p className="font-body text-[10px] text-[#6B6961] mt-1">Module</p>
                     </div>
                   ))}
@@ -1947,7 +1962,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                 <div className="flex justify-between items-center mt-3 font-body text-sm">
                   <span className="text-[#6B6961]">Summe Verteilung: <span className="num text-[#1C1C1A]">{verteilungSumme}</span> / {config.zielModulAnzahl}</span>
                   {validierung.valid
-                    ? <span className="text-[#D2563E] flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={2.5}/> gültig</span>
+                    ? <span className="text-[var(--brand-accent,#D2563E)] flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={2.5}/> gültig</span>
                     : <span className="text-[#C5392E] text-xs">{validierung.error}</span>}
                 </div>
               </div>
@@ -1977,12 +1992,12 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                     </div>
                   )}
                   {dachflaeche > 0 && (
-                    <div className="flex justify-between py-2 bg-[#D2563E]/5 px-3 -mx-3">
+                    <div className="flex justify-between py-2 bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-3 -mx-3">
                       <div>
                         <p className="text-[#1C1C1A]">Dachfläche (oberstes Geschoss)</p>
                         <p className="text-xs text-[#6B6961]">{verteilung[verteilung.length-1]} Module × {ZIEL_MODUL_BGF} m² — verfügbar für PV & Begrünung</p>
                       </div>
-                      <span className="num shrink-0 text-[#D2563E]">{fmtNum(dachflaeche)} m²</span>
+                      <span className="num shrink-0 text-[var(--brand-accent,#D2563E)]">{fmtNum(dachflaeche)} m²</span>
                     </div>
                   )}
                 </div>
@@ -1997,17 +2012,17 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                       <FieldLabel required={false} hint="Inkl. Speicher & Wechselrichter">PV-Anlage auf Dachfläche</FieldLabel>
                       <div className="grid grid-cols-3 gap-2 mt-2">
                         <button onClick={() => setConfig(c => ({...c, pvAnteil: 0}))}
-                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0 ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0 ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
                           <p className="font-body text-sm text-[#1C1C1A]">Keine PV</p>
                           <p className="font-body text-[10px] text-[#6B6961] mt-0.5">—</p>
                         </button>
                         <button onClick={() => setConfig(c => ({...c, pvAnteil: 0.5}))}
-                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0.5 ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0.5 ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
                           <p className="font-body text-sm text-[#1C1C1A]">50 % Dach</p>
                           <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pv50} Module · {fmtEUR(pv50 * KOSTEN_PV_PRO_MODUL)}</p>
                         </button>
                         <button onClick={() => setConfig(c => ({...c, pvAnteil: 1}))}
-                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 1 ? 'border-[#D2563E] bg-[#D2563E]/10 ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                          className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 1 ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
                           <p className="font-body text-sm text-[#1C1C1A]">100 % Dach</p>
                           <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pv100} Module · {fmtEUR(pv100 * KOSTEN_PV_PRO_MODUL)}</p>
                         </button>
@@ -2024,15 +2039,15 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
         {/* SCHRITT 4: Pacht (nur bei eigener Fläche) */}
         {config.flaecheStatus === 'ja' && config.zielModulAnzahl > 0 && (
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-6">
-            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#D2563E] text-[#F8F5F0] flex items-center justify-center text-xs font-body">4</span> Vorarbeiten & Pacht</h3>
+            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">4</span> Vorarbeiten & Pacht</h3>
 
             <div>
               <FieldLabel required>Möchtest Du Erschließung, Wege & Begrünung im Detail angeben?</FieldLabel>
               <div className="flex gap-2 mb-3">
                 <button onClick={() => setConfig(c => ({...c, detailKosten: true}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ja, ich weiß, was anfällt</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ja, ich weiß, was anfällt</button>
                 <button onClick={() => setConfig(c => ({...c, detailKosten: false}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten === false ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Nein — bitte schätzen</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Nein — bitte schätzen</button>
               </div>
               <p className="font-body text-xs text-[#6B6961]">Bei Schätzung nehmen wir Erschließung, Wege und Begrünung pauschal an — Abriss/Entsorgung musst Du dennoch explizit ankreuzen.</p>
               {config.detailKosten && (
@@ -2041,7 +2056,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                   {GRDST_OPTIONEN.map(opt => (
                     <label key={opt.id} className="flex items-start gap-3 cursor-pointer group">
                       <button onClick={() => toggleOption(opt.id)}
-                        className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${config.activeOptionen[opt.id] ? 'bg-[#D2563E] border-[#D2563E]' : 'border-[#1C1C1A]/20 group-hover:border-[#D2563E]/50'}`}>
+                        className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${config.activeOptionen[opt.id] ? 'bg-[var(--brand-accent,#D2563E)] border-[var(--brand-accent,#D2563E)]' : 'border-[#1C1C1A]/20 group-hover:border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_50%,transparent)]'}`}>
                         {config.activeOptionen[opt.id] && <Check className="w-3.5 h-3.5 text-[#F8F5F0]" strokeWidth={2.5} />}
                       </button>
                       <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
@@ -2055,7 +2070,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                   {GRDST_OPTIONEN.filter(o => !o.schaetzungsfaehig).map(opt => (
                     <label key={opt.id} className="flex items-start gap-3 cursor-pointer group">
                       <button onClick={() => toggleOption(opt.id)}
-                        className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${config.activeOptionen[opt.id] ? 'bg-[#D2563E] border-[#D2563E]' : 'border-[#1C1C1A]/20 group-hover:border-[#D2563E]/50'}`}>
+                        className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${config.activeOptionen[opt.id] ? 'bg-[var(--brand-accent,#D2563E)] border-[var(--brand-accent,#D2563E)]' : 'border-[#1C1C1A]/20 group-hover:border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_50%,transparent)]'}`}>
                         {config.activeOptionen[opt.id] && <Check className="w-3.5 h-3.5 text-[#F8F5F0]" strokeWidth={2.5} />}
                       </button>
                       <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
@@ -2069,9 +2084,9 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
               <FieldLabel required>Fällt für die Fläche eine Pacht an?</FieldLabel>
               <div className="flex gap-2">
                 <button onClick={() => setConfig(c => ({...c, hasPacht: true}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ja, Pacht</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ja, Pacht</button>
                 <button onClick={() => setConfig(c => ({...c, hasPacht: false}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht === false ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Nein / Eigentum</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Nein / Eigentum</button>
               </div>
               {config.hasPacht && (
                 <>
@@ -2080,7 +2095,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                     <div className="flex items-center gap-2">
                       <NumberInput value={config.pachtJahr} onChange={v => setConfig(c => ({...c, pachtJahr: v}))}
                         placeholder="z. B. 96000"
-                        className="flex-1 w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#D2563E]" />
+                        className="flex-1 w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[var(--brand-accent,#D2563E)]" />
                       <span className="font-body text-sm text-[#6B6961]">€ / Jahr</span>
                     </div>
                   </div>
@@ -2088,9 +2103,9 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                     <FieldLabel required>Wird die Pacht gewerblich oder privat berechnet?</FieldLabel>
                     <div className="flex gap-2">
                       <button onClick={() => setConfig(c => ({...c, pachtGewerblich: true}))}
-                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Gewerblich (+19 % USt)</button>
+                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Gewerblich (+19 % USt)</button>
                       <button onClick={() => setConfig(c => ({...c, pachtGewerblich: false}))}
-                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich === false ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Privat (keine USt)</button>
+                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Privat (keine USt)</button>
                     </div>
                   </div>
                 </>
@@ -2133,7 +2148,7 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
           <div className="flex gap-1.5 flex-wrap">
             {groessen.map(g => (
               <button key={g} onClick={() => setSelectedVariant({...selectedVariant, groesse: g})}
-                className={`px-3 py-1.5 font-body text-xs border transition-colors num ${selectedVariant.groesse === g ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                className={`px-3 py-1.5 font-body text-xs border transition-colors num ${selectedVariant.groesse === g ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
                 {g} m²
               </button>
             ))}
@@ -2146,7 +2161,7 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
           <div className="flex gap-1.5 flex-wrap">
             {kuechen.map(k => (
               <button key={k} onClick={() => setSelectedVariant({...selectedVariant, kueche: k})}
-                className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.kueche === k ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.kueche === k ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
                 {k}
               </button>
             ))}
@@ -2158,9 +2173,9 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">Möblierung</p>
           <div className="flex gap-1.5 flex-wrap">
             <button onClick={() => setSelectedVariant({...selectedVariant, moebliert: false})}
-              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === false ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Ohne Möbel</button>
+              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Ohne Möbel</button>
             <button onClick={() => setSelectedVariant({...selectedVariant, moebliert: true})}
-              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === true ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Möbliert</button>
+              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === true ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Möbliert</button>
           </div>
         </div>
       )}
@@ -2175,7 +2190,7 @@ function AvailabilityToggle({ product, mode, onChange }) {
       <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">Nutzung dieses Moduls</p>
       <div className="flex gap-1">
         <button onClick={() => onChange('eigennutzung')}
-          className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${mode === 'eigennutzung' ? 'bg-[#D2563E] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+          className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${mode === 'eigennutzung' ? 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
           <Gift className="w-3 h-3" strokeWidth={2} /> Eigennutzung
         </button>
         <button onClick={() => onChange('einnahmen')}
@@ -2268,7 +2283,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
   if (!product) return null;
 
   return (
-    <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${familyTotal > 0 ? 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
+    <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${familyTotal > 0 ? 'border-[var(--brand-accent,#D2563E)] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
       {/* Hero-Image: Grundriss groß, weißer Hintergrund (Feedback V4) */}
       <div className="relative bg-white flex items-center justify-center px-2 py-2" style={{ minHeight: '200px' }}>
         {(() => {
@@ -2280,7 +2295,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           );
         })()}
         {familyTotal > 0 && (
-          <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[#D2563E] bg-[#F8F5F0] border border-[#D2563E]/30 px-2 py-0.5 num">{familyTotal} gewählt</span>
+          <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} gewählt</span>
         )}
       </div>
       <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1">
@@ -2295,7 +2310,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">Nutzung & Finanzierung</p>
           <div className="flex gap-1">
             <button onClick={() => switchUsage('p')}
-              className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${usageState === 'p' ? 'bg-[#D2563E] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+              className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${usageState === 'p' ? 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
               <Home className="w-3 h-3" strokeWidth={2} /> Privat (KfW/GLS)
             </button>
             <button onClick={() => switchUsage('g')}
@@ -2314,7 +2329,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <div className="flex gap-1.5 flex-wrap">
             {[12, 24, 32].map(g => (
               <button key={g} onClick={() => setGroesse(g)}
-                className={`px-3 py-1.5 font-body text-xs border transition-colors num ${groesse === g ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                className={`px-3 py-1.5 font-body text-xs border transition-colors num ${groesse === g ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
                 {g} m²
               </button>
             ))}
@@ -2331,19 +2346,19 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <div className="flex items-center gap-2">
             {count > 0 ? (
               <>
-                <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[#D2563E] hover:bg-[#D2563E]/5 flex items-center justify-center transition-colors">
+                <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] flex items-center justify-center transition-colors">
                   <Minus className="w-4 h-4" strokeWidth={1.5} />
                 </button>
                 <input type="number" min={0} max={999} value={count}
                   onChange={e => setExact(e.target.value)}
                   onFocus={e => e.target.select()}
-                  className="font-display text-xl num w-12 text-center bg-transparent border-b border-[#1C1C1A]/15 focus:border-[#D2563E] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                <button onClick={() => adjust(1)} className="w-9 h-9 rounded-full bg-[#D2563E] hover:bg-[#B04528] text-[#F8F5F0] flex items-center justify-center transition-colors">
+                  className="font-display text-xl num w-12 text-center bg-transparent border-b border-[#1C1C1A]/15 focus:border-[var(--brand-accent,#D2563E)] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <button onClick={() => adjust(1)} className="w-9 h-9 rounded-full bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] text-[#F8F5F0] flex items-center justify-center transition-colors">
                   <Plus className="w-4 h-4" strokeWidth={1.5} />
                 </button>
               </>
             ) : (
-              <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[#D2563E] hover:bg-[#D2563E]/5 transition-colors">
+              <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] transition-colors">
                 <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Hinzufügen
               </button>
             )}
@@ -2422,7 +2437,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
   return (
     <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${
       familyTotal > 0
-        ? (showsIncome && product.usage === 'g' ? 'border-[#7B2D8E] bg-white shadow-[0_4px_20px_-8px_rgba(168,139,90,0.25)]' : 'border-[#D2563E] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]')
+        ? (showsIncome && product.usage === 'g' ? 'border-[#7B2D8E] bg-white shadow-[0_4px_20px_-8px_rgba(168,139,90,0.25)]' : 'border-[var(--brand-accent,#D2563E)] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]')
         : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
 
       {/* Hero-Image: Grundriss groß, weißer Hintergrund, minimales Padding (Feedback V4) */}
@@ -2436,7 +2451,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
           );
         })()}
         {familyTotal > 0 && (
-          <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[#D2563E] bg-[#F8F5F0] border border-[#D2563E]/30 px-2 py-0.5 num">{familyTotal} gewählt</span>
+          <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} gewählt</span>
         )}
       </div>
 
@@ -2463,19 +2478,19 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
           <div className="flex items-center gap-2">
             {count > 0 ? (
               <>
-                <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[#D2563E] hover:bg-[#D2563E]/5 flex items-center justify-center transition-colors">
+                <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] flex items-center justify-center transition-colors">
                   <Minus className="w-4 h-4" strokeWidth={1.5} />
                 </button>
                 <input type="number" min={0} max={999} value={count}
                   onChange={e => setExact(e.target.value)}
                   onFocus={e => e.target.select()}
-                  className="font-display text-xl num w-12 text-center bg-transparent border-b border-[#1C1C1A]/15 focus:border-[#D2563E] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                <button onClick={() => adjust(1)} className="w-9 h-9 rounded-full bg-[#D2563E] hover:bg-[#B04528] text-[#F8F5F0] flex items-center justify-center transition-colors">
+                  className="font-display text-xl num w-12 text-center bg-transparent border-b border-[#1C1C1A]/15 focus:border-[var(--brand-accent,#D2563E)] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <button onClick={() => adjust(1)} className="w-9 h-9 rounded-full bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] text-[#F8F5F0] flex items-center justify-center transition-colors">
                   <Plus className="w-4 h-4" strokeWidth={1.5} />
                 </button>
               </>
             ) : (
-              <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[#D2563E] hover:bg-[#D2563E]/5 transition-colors">
+              <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] transition-colors">
                 <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Hinzufügen
               </button>
             )}
@@ -2606,8 +2621,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
           </p>
 
           {totals.rabattPct > 0 && (
-            <div className="bg-[#D2563E]/5 border border-[#D2563E]/20 px-4 py-3 mb-6 flex items-center gap-2.5">
-              <TrendingUp className="w-4 h-4 text-[#D2563E]" strokeWidth={1.5} />
+            <div className="bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] px-4 py-3 mb-6 flex items-center gap-2.5">
+              <TrendingUp className="w-4 h-4 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
               <p className="font-body text-xs text-[#1C1C1A]">
                 <span className="font-medium num">{fmtPct(totals.rabattPct)} Rabatt</span> berücksichtigt
                 {gewerbConfig && gewerbConfig.zielModulAnzahl > 0
@@ -2619,8 +2634,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
             </div>
           )}
           {totals.nextStaffel && totals.countTotal > 0 && totals.rabattPct === 0 && !gewerbConfig && (
-            <div className="bg-[#D2563E]/5 border border-[#D2563E]/20 px-4 py-3 mb-6 flex items-center gap-2.5">
-              <TrendingUp className="w-4 h-4 text-[#D2563E]" strokeWidth={1.5} />
+            <div className="bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] px-4 py-3 mb-6 flex items-center gap-2.5">
+              <TrendingUp className="w-4 h-4 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
               <p className="font-body text-xs text-[#1C1C1A]">
                 Noch <span className="font-medium num">{totals.nextStaffel.ab - totals.countTotal}</span> Module bis zum nächsten Rabatt-Sprung ({fmtPct(totals.nextStaffel.prozent)}).
               </p>
@@ -2630,12 +2645,12 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
           {availableCategories.length > 1 && (
             <div className="flex gap-2 font-body text-xs tracking-wider uppercase flex-wrap mb-8">
               <button onClick={() => setCatFilter('alle')}
-                className={`px-3 py-1.5 transition-colors ${catFilter === 'alle' ? 'border-[#D2563E] text-[#D2563E]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
+                className={`px-3 py-1.5 transition-colors ${catFilter === 'alle' ? 'border-[var(--brand-accent,#D2563E)] text-[var(--brand-accent,#D2563E)]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
                 Alle Kategorien
               </button>
               {availableCategories.map(c => (
                 <button key={c} onClick={() => setCatFilter(c)}
-                  className={`px-3 py-1.5 transition-colors ${catFilter === c ? 'border-[#D2563E] text-[#D2563E]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
+                  className={`px-3 py-1.5 transition-colors ${catFilter === c ? 'border-[var(--brand-accent,#D2563E)] text-[var(--brand-accent,#D2563E)]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
                   {CATEGORIES[c]?.label || c}
                 </button>
               ))}
@@ -2704,7 +2719,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
               <>
                 {/* MONATLICHE BELASTUNG — Hero-Element der Sidebar (Verkaufspsychologie) */}
                 {(totals.finanzierungMonat > 0 || totals.hasIncome) && (
-                  <div className="-mx-7 px-7 py-5 mb-5 bg-gradient-to-b from-[#D2563E]/5 to-transparent border-y border-[#D2563E]/15">
+                  <div className="-mx-7 px-7 py-5 mb-5 bg-gradient-to-b from-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] to-transparent border-y border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)]">
                     {/* Verbrauchskosten klein, informativ, OBERHALB der Belastung (Feedback V4) */}
                     {totals.verbrauchskostenMonat > 0 && (
                       <div className="mb-3 pb-3 border-b border-[#1C1C1A]/8">
@@ -2719,7 +2734,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     )}
                     {totals.finanzierungMonat > 0 && (
                       <div className="mb-3">
-                        <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#D2563E] mb-1">Voraussichtliche Monatsrate</p>
+                        <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[var(--brand-accent,#D2563E)] mb-1">Voraussichtliche Monatsrate</p>
                         <p className="font-display text-3xl num text-[#1C1C1A] leading-none">{fmtEUR(totals.monatlichGesamt)}</p>
                         <div className="mt-2 space-y-0.5">
                           <div className="flex justify-between font-body text-[11px] text-[#6B6961]">
@@ -2733,10 +2748,10 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         </div>
                         <p className="font-body text-[10px] text-[#6B6961] mt-1.5">Vorschau mit Standard-Konditionen — anpassbar im nächsten Schritt</p>
                         {totals.eigennutzungGewerbCount > 0 && (
-                          <div className="mt-3 pt-3 border-t border-[#D2563E]/15">
+                          <div className="mt-3 pt-3 border-t border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)]">
                             <div className="flex justify-between items-baseline">
-                              <span className="font-body text-[10px] uppercase tracking-wider text-[#D2563E] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> pro Mitarbeiter</span>
-                              <span className="font-display text-lg num text-[#D2563E]">{fmtEUR(totals.belastungProMA)}</span>
+                              <span className="font-body text-[10px] uppercase tracking-wider text-[var(--brand-accent,#D2563E)] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> pro Mitarbeiter</span>
+                              <span className="font-display text-lg num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.belastungProMA)}</span>
                             </div>
                             <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{totals.monatlichGesamt > 0 ? `${fmtEUR(totals.monatlichGesamt)} ÷ ${totals.eigennutzungGewerbCount} eigengenutzte Module` : ''}</p>
                           </div>
@@ -2770,7 +2785,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       {totals.gmCount > 0 && <div className="flex justify-between"><dt>davon Gemeinschaftsmodule</dt><dd className="num text-[#1C1C1A]">{totals.gmCount}</dd></div>}
                       {project.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(project.grundstueckGroesse)} m²</dd></div>}
                       <div className="flex justify-between"><dt>Dein Anteil</dt><dd className="num text-[#1C1C1A]">{totals.countTotal} von {totals.verkaufbareModule} verkaufbaren{totals.gmCount > 0 ? ` (${project.zielModulAnzahl} gesamt)` : ''} · {fmtPct(totals.countTotal / (totals.verkaufbareModule || 1))}</dd></div>
-                      {project.projektrabatt > 0 && <div className="flex justify-between text-[#D2563E]"><dt>Projekt-Bonus</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
+                      {project.projektrabatt > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><dt>Projekt-Bonus</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
                     </dl>
                   </div>
                 )}
@@ -2823,7 +2838,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   <div className="flex justify-between"><dt>NUF</dt><dd className="num">{fmtNum(totals.gesamtNUF)} m²</dd></div>
                   {totals.rabattPct > 0 && (priceCtx
                     ? <div className="flex justify-between text-[#6B6961]"><dt>Projektrabatt</dt><dd className="num">inkl. {fmtPct(totals.rabattPct)}</dd></div>
-                    : <div className="flex justify-between text-[#D2563E]"><dt>Rabatt gesamt</dt><dd className="num">−{fmtPct(totals.rabattPct)}</dd></div>)}
+                    : <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><dt>Rabatt gesamt</dt><dd className="num">−{fmtPct(totals.rabattPct)}</dd></div>)}
                 </dl>
 
                 {/* Mismatch-Banner: 3 mögliche Zustände */}
@@ -3075,7 +3090,7 @@ function Slider({ label, value, onChange, min, max, step, format = (v) => v, hin
     <div>
       <div className="flex justify-between items-baseline mb-2">
         <label className="font-body text-sm text-[#1C1C1A]">{label}</label>
-        <span className="font-display text-base num text-[#D2563E]">{format(value)}</span>
+        <span className="font-display text-base num text-[var(--brand-accent,#D2563E)]">{format(value)}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} className="w-full" />
       {hint && <p className="font-body text-xs text-[#6B6961] mt-1.5">{hint}</p>}
@@ -3090,7 +3105,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
       <div className="bg-white border border-[#1C1C1A]/10 p-7">
         <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
           <h3 className="font-display text-2xl">1. KfW-Förderung (privat)</h3>
-          <span className="font-body text-xs tracking-wider uppercase text-[#D2563E] bg-[#D2563E]/5 px-2 py-1">{totals.countPrivat} Modul{totals.countPrivat > 1 ? 'e' : ''}</span>
+          <span className="font-body text-xs tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-2 py-1">{totals.countPrivat} Modul{totals.countPrivat > 1 ? 'e' : ''}</span>
         </div>
         <p className="font-body text-sm text-[#6B6961] mb-7">
           Tilgungszuschuss-fähige Förderung der KfW für energieeffizientes Wohnen — bis 150.000 € pro Modul. Der Tilgungsnachlass reduziert den effektiv zurückzuzahlenden Betrag.
@@ -3103,9 +3118,9 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
         </div>
         <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 space-y-1.5 font-body text-sm">
           <div className="flex justify-between"><span className="text-[#6B6961]">KfW-Förderbetrag gesamt</span><span className="num">{fmtEUR(totals.kfwBasis)}</span></div>
-          <div className="flex justify-between text-[#D2563E]"><span>davon Tilgungsnachlass ({fmtPct(financing.kfw.tilgungsnachlass)})</span><span className="num">−{fmtEUR(totals.kfwBasis * financing.kfw.tilgungsnachlass)}</span></div>
+          <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>davon Tilgungsnachlass ({fmtPct(financing.kfw.tilgungsnachlass)})</span><span className="num">−{fmtEUR(totals.kfwBasis * financing.kfw.tilgungsnachlass)}</span></div>
           <div className="flex justify-between pt-2 border-t border-[#1C1C1A]/10"><span className="text-[#1C1C1A]">Zurückzuzahlender Betrag</span><span className="num">{fmtEUR(totals.kfwBasis * (1 - financing.kfw.tilgungsnachlass))}</span></div>
-          <div className="flex justify-between font-display text-base pt-2"><span>KfW-Monatsrate</span><span className="num text-[#D2563E]">{fmtEUR(totals.kfwRate)}</span></div>
+          <div className="flex justify-between font-display text-base pt-2"><span>KfW-Monatsrate</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.kfwRate)}</span></div>
         </div>
       </div>
 
@@ -3113,7 +3128,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
       <div className="bg-white border border-[#1C1C1A]/10 p-7">
         <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
           <h3 className="font-display text-2xl">2. GLS Bank (Restfinanzierung)</h3>
-          <span className="font-body text-xs tracking-wider uppercase text-[#D2563E] bg-[#D2563E]/5 px-2 py-1">10 J · fix</span>
+          <span className="font-body text-xs tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-2 py-1">10 J · fix</span>
         </div>
         <p className="font-body text-sm text-[#6B6961] mb-5">
           Der Auftragswert abzüglich KfW-Förderhöhe und Eigenkapital — zuzüglich optionaler Upgrades — wird über die GLS Bank finanziert.
@@ -3129,8 +3144,8 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
               const kosten = opt.proModul * (countPrivat || 0);
               return (
                 <button key={opt.id} onClick={() => setPrivatOptionen(p => ({ ...p, [opt.id]: !p[opt.id] }))}
-                  className={`w-full flex items-start gap-3 p-3 border text-left transition-colors ${aktiv ? 'border-[#D2563E] bg-[#D2563E]/5' : 'border-[#1C1C1A]/15 hover:border-[#D2563E]/40'}`}>
-                  <div className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${aktiv ? 'bg-[#D2563E] border-[#D2563E]' : 'border-[#1C1C1A]/20'}`}>
+                  className={`w-full flex items-start gap-3 p-3 border text-left transition-colors ${aktiv ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)]' : 'border-[#1C1C1A]/15 hover:border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_40%,transparent)]'}`}>
+                  <div className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${aktiv ? 'bg-[var(--brand-accent,#D2563E)] border-[var(--brand-accent,#D2563E)]' : 'border-[#1C1C1A]/20'}`}>
                     {aktiv && <Check className="w-3.5 h-3.5 text-[#F8F5F0]" strokeWidth={2.5} />}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -3145,7 +3160,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
             })}
           </div>
           {totals.privatOptionenKosten > 0 && (
-            <p className="font-body text-xs text-[#D2563E] mt-2 text-right">
+            <p className="font-body text-xs text-[var(--brand-accent,#D2563E)] mt-2 text-right">
               Upgrades gesamt: <span className="num font-medium">{fmtEUR(totals.privatOptionenKosten)}</span> → fließen in GLS-Finanzierung
             </p>
           )}
@@ -3155,9 +3170,9 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
         <div className="bg-[#F8F5F0] border border-[#1C1C1A]/8 p-4 mb-6 font-body text-sm space-y-1.5">
           <div className="flex justify-between"><span className="text-[#6B6961]">Auftragswert privat (inkl. ant. Projektkosten)</span><span className="num">{fmtEUR(totals.effPrivat)}</span></div>
           <div className="flex justify-between"><span className="text-[#6B6961]">− KfW-Förderhöhe</span><span className="num">−{fmtEUR(totals.kfwBasis)}</span></div>
-          {totals.privatOptionenKosten > 0 && <div className="flex justify-between text-[#D2563E]"><span>+ optionale Upgrades</span><span className="num">+{fmtEUR(totals.privatOptionenKosten)}</span></div>}
+          {totals.privatOptionenKosten > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>+ optionale Upgrades</span><span className="num">+{fmtEUR(totals.privatOptionenKosten)}</span></div>}
           <div className="flex justify-between"><span className="text-[#6B6961]">− Eigenkapital</span><span className="num">−{fmtEUR(ekPrivat)}</span></div>
-          <div className="flex justify-between pt-1.5 border-t border-[#1C1C1A]/10 font-display text-base"><span>= GLS-Basis</span><span className="num text-[#D2563E]">{fmtEUR(totals.glsBasis)}</span></div>
+          <div className="flex justify-between pt-1.5 border-t border-[#1C1C1A]/10 font-display text-base"><span>= GLS-Basis</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.glsBasis)}</span></div>
         </div>
         <div className="space-y-6">
           <Slider label="GLS Zinssatz" value={financing.gls.zins} onChange={v => setFinancing(f => ({...f, gls: {...f.gls, zins: v}}))} min={0.04} max={0.06} step={0.0025} format={fmtPct} hint="Üblicher Bereich 4–6 %" />
@@ -3172,7 +3187,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
               return (
                 <>
                   <div className="flex items-baseline justify-between mb-2">
-                    <span className="font-display text-base num text-[#D2563E]">{fmtEUR(ekPrivat)}</span>
+                    <span className="font-display text-base num text-[var(--brand-accent,#D2563E)]">{fmtEUR(ekPrivat)}</span>
                     <span className="font-body text-xs text-[#6B6961]">max. {fmtEUR(ekMax)}</span>
                   </div>
                   <input type="range"
@@ -3185,7 +3200,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
                     className="w-full" />
                   <div className="mt-2 flex items-center gap-2">
                     <NumberInput value={ekPrivat} onChange={v => setEkPrivat(Math.min(v, ekMax))} placeholder="0"
-                      className="flex-1 w-full px-3 py-2 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[#D2563E]" />
+                      className="flex-1 w-full px-3 py-2 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[var(--brand-accent,#D2563E)]" />
                     <span className="font-body text-xs text-[#6B6961]">€</span>
                   </div>
                   {ekMax === 0 && (
@@ -3203,7 +3218,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
           </div>
         </div>
         <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 flex justify-between font-display text-base">
-          <span>GLS-Monatsrate</span><span className="num text-[#D2563E]">{fmtEUR(totals.glsRate)}</span>
+          <span>GLS-Monatsrate</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.glsRate)}</span>
         </div>
 
         {/* Info-Hinweis zur Hausbank-Option */}
@@ -3271,7 +3286,7 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
       </div>
 
       <button onClick={() => setAktiv(!aktiv)}
-        className={`w-full px-4 py-3 font-body text-sm border transition-colors ${aktiv ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#1C1C1A] hover:border-[#D2563E]'}`}>
+        className={`w-full px-4 py-3 font-body text-sm border transition-colors ${aktiv ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#1C1C1A] hover:border-[var(--brand-accent,#D2563E)]'}`}>
         {aktiv ? 'Steuervorteile-Modellrechnung aktiv' : 'Modellrechnung mit Steuervorteilen anzeigen'}
       </button>
 
@@ -3290,7 +3305,7 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
                   const v = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
                   setIabBetrag(Math.max(0, Math.min(iabMax, isNaN(v) ? 0 : v)));
                 }}
-                className="w-32 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-display text-base text-[#7B2D8E] focus:outline-none focus:border-[#D2563E] num [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                className="w-32 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-display text-base text-[#7B2D8E] focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               <span className="font-body text-sm text-[#6B6961]">€</span>
               <span className="font-body text-xs text-[#6B6961] ml-auto">max. 50 % · {fmtEUR(iabMax)}</span>
             </div>
@@ -3303,17 +3318,17 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
           <div className="pt-4 border-t border-[#1C1C1A]/10 space-y-2 font-body text-sm">
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Modellhafte Belastung mit Steuervorteilen</p>
             <div className="flex justify-between"><span className="text-[#6B6961]">Plattform-Rate (vor Steuer)</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
-            <div className="flex justify-between text-[#D2563E]"><span>− Laufende Steuerentlastung (AfA + Zinsen × {fmtPct(financing.plattform.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
+            <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− Laufende Steuerentlastung (AfA + Zinsen × {fmtPct(financing.plattform.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
             {totals.iabEntlastungMonat > 0 && (
-              <div className="flex justify-between text-[#D2563E]"><span>− IAB-Vorteil, auf {financing.plattform.laufzeit} J verteilt</span><span className="num">−{fmtEUR(totals.iabEntlastungMonat)}</span></div>
+              <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− IAB-Vorteil, auf {financing.plattform.laufzeit} J verteilt</span><span className="num">−{fmtEUR(totals.iabEntlastungMonat)}</span></div>
             )}
-            <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Mögliche Rate nach Steuer</span><span className="num text-[#D2563E]">{fmtEUR(totals.plattformRateEff)}</span></div>
+            <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Mögliche Rate nach Steuer</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.plattformRateEff)}</span></div>
             {totals.eigennutzungGewerbCount > 0 && totals.plattformRateEff > 0 && (
               <div className="flex justify-between text-[#6B6961] text-xs"><span>pro Mitarbeiter-Modul ({totals.eigennutzungGewerbCount})</span><span className="num">{fmtEUR(totals.plattformRateEff / totals.eigennutzungGewerbCount)}</span></div>
             )}
             {iabClamped > 0 && (
               <div className="mt-3 pt-3 border-t border-[#1C1C1A]/10">
-                <div className="flex justify-between text-[#D2563E]">
+                <div className="flex justify-between text-[var(--brand-accent,#D2563E)]">
                   <span className="font-medium">Einmalige IAB-Steuerersparnis (Anschaffungsjahr)</span>
                   <span className="num font-medium">{fmtEUR(totals.iabSteuerersparnis)}</span>
                 </div>
@@ -3417,7 +3432,7 @@ function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod
         <FieldLabel required={false}>Wer übernimmt die Vermietung?</FieldLabel>
         <div className="flex gap-2">
           <button onClick={() => setVermietungDurchCoMod(false)}
-            className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${!vermietungDurchCoMod ? 'border-[#D2563E] bg-[#D2563E]/10 text-[#D2563E] ring-1 ring-[#D2563E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Selbst</button>
+            className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${!vermietungDurchCoMod ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Selbst</button>
           <button onClick={() => setVermietungDurchCoMod(true)}
             className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${vermietungDurchCoMod ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] ring-1 ring-[#7B2D8E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Durch uns bewirtschaftet</button>
         </div>
@@ -3461,8 +3476,8 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
       </p>
 
       {hasBoth && (
-        <div className="mb-8 bg-[#D2563E]/5 border border-[#D2563E]/30 p-5 flex gap-3 items-start">
-          <Info className="w-5 h-5 text-[#D2563E] shrink-0 mt-0.5" strokeWidth={1.5} />
+        <div className="mb-8 bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] p-5 flex gap-3 items-start">
+          <Info className="w-5 h-5 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={1.5} />
           <p className="font-body text-sm text-[#1C1C1A]/80">
             <span className="text-[#1C1C1A] font-medium">Mischfinanzierung erkannt.</span> {totals.countPrivat} private und {totals.countGewerb} gewerbliche Module — beide Finanzierungswege werden parallel gezeigt. Die gewerblichen Module bieten zusätzlich Steuervorteile.
           </p>
@@ -3658,10 +3673,10 @@ function Field({ label, value, onChange, type = 'text', textarea = false, placeh
       <FieldLabel required={required}>{label}</FieldLabel>
       {textarea ? (
         <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} placeholder={placeholder}
-          className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 font-body text-sm focus:outline-none focus:border-[#D2563E] resize-none" />
+          className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] resize-none" />
       ) : (
         <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+          className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
       )}
     </div>
   );
@@ -3679,7 +3694,7 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
           <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Letzter Schritt</p>
           <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">Wir <em>melden uns</em><span className="opacity-40"> …</span></h1>
           <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">Hinterlasse uns Deine Kontaktdaten — wir senden Dir Dein detailliertes, unverbindliches Angebot und melden uns persönlich.</p>
-          <div className="bg-[#D2563E]/5 border border-[#D2563E]/20 px-4 py-3 mb-6 flex items-center gap-2.5">
+          <div className="bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] px-4 py-3 mb-6 flex items-center gap-2.5">
             <span className="text-[#C5392E] font-medium text-base">*</span>
             <p className="font-body text-xs text-[#6B6961]">Pflichtangaben für die Kontaktaufnahme.</p>
           </div>
@@ -3751,7 +3766,7 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
                 <>
                   {totals.hasIncome && <div className="flex justify-between text-[#7B2D8E]"><dt>Einnahmen/Mt.</dt><dd className="num">+{fmtEUR(totals.monthlyIncomeNetto)}</dd></div>}
                   {totals.gmCount > 0 && <div className={`flex justify-between ${totals.gmEinnahmenKunde >= 0 ? 'text-[#7B2D8E]' : 'text-[#C5392E]'}`}><dt>Gemeinschaftsmodule netto/Mt.</dt><dd className="num">{totals.gmEinnahmenKunde >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}</dd></div>}
-                  <div className={`flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10 ${totals.cashflowPositive ? 'text-[#D2563E]' : ''}`}>
+                  <div className={`flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10 ${totals.cashflowPositive ? 'text-[var(--brand-accent,#D2563E)]' : ''}`}>
                     <dt>{totals.cashflowPositive ? 'Überschuss' : 'Eff. Belastung'}</dt>
                     <dd className="num">{totals.cashflowPositive ? '+' : ''}{fmtEUR(Math.abs(totals.cashflowNetto))}</dd>
                   </div>
@@ -3768,7 +3783,7 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
 function SuccessStep({ lead, onRestart }) {
   return (
     <div className="max-w-3xl mx-auto px-8 py-24 text-center">
-      <div className="w-16 h-16 rounded-full bg-[#D2563E] flex items-center justify-center mx-auto mb-8">
+      <div className="w-16 h-16 rounded-full bg-[var(--brand-accent,#D2563E)] flex items-center justify-center mx-auto mb-8">
         <Check className="w-7 h-7 text-[#F8F5F0]" strokeWidth={1.5} />
       </div>
       <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-4">Unverbindliche Angebotsanfrage eingegangen</p>
@@ -3816,12 +3831,12 @@ function AdminLogin({ onLogin }) {
         <div>
           <label className="font-body text-xs tracking-wider uppercase text-[#6B6961] block mb-1">E-Mail</label>
           <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-            className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+            className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
         </div>
         <div>
           <label className="font-body text-xs tracking-wider uppercase text-[#6B6961] block mb-1">Passwort</label>
           <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
-            className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+            className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
         </div>
         {error && <p className="text-sm text-[#C5392E] font-body">{error}</p>}
         <Button type="submit" disabled={loading} className="w-full">
@@ -4051,7 +4066,7 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Interne Notizen</p>
             <textarea value={internalNotes} onChange={e => setInternalNotes(e.target.value)}
               rows={4} placeholder="Eigene Notizen — nur intern sichtbar"
-              className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 p-3 font-body text-sm focus:outline-none focus:border-[#D2563E] resize-y" />
+              className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 p-3 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] resize-y" />
           </div>
         </div>
         <div className="flex items-center justify-end gap-3 px-8 py-5 border-t border-[#1C1C1A]/10 bg-[#F8F5F0]">
@@ -4388,36 +4403,36 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Kürzel (intern, eindeutig)</label>
                 <input type="text" value={form.kuerzel ?? ''} onChange={update('kuerzel')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               <p className="font-body text-[10px] text-[#6B6961] mt-0.5">z. B. 'CoMod Stay (LK,D,M)'</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Anzeigename</label>
                 <input type="text" value={form.display_name ?? ''} onChange={update('display_name')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Family</label>
                 <input type="text" value={form.family ?? ''} onChange={update('family')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               <p className="font-body text-[10px] text-[#6B6961] mt-0.5">z. B. 'stay', 'live', 'home'</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Kategorie</label>
-                <select value={form.category} onChange={update('category')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]">
+                <select value={form.category} onChange={update('category')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]">
                   {MODULE_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Nutzung</label>
-                <select value={form.usage} onChange={update('usage')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]">
+                <select value={form.usage} onChange={update('usage')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]">
                   {MODULE_USAGE.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Größen-Label</label>
                 <input type="number" value={form.groesse_label ?? ''} onChange={update('groesse_label')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               <p className="font-body text-[10px] text-[#6B6961] mt-0.5">z. B. 32 für 'Stay 32'</p>
               </div>
             </div>
@@ -4429,17 +4444,17 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Beschreibung (DE)</label>
                 <textarea value={form.beschreibung_de ?? ''} onChange={update('beschreibung_de')} rows={2}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Beschreibung (EN)</label>
                 <textarea value={form.beschreibung_en ?? ''} onChange={update('beschreibung_en')} rows={2}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Icon-Pfad</label>
                 <input type="text" value={form.icon_path ?? ''} onChange={update('icon_path')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">z. B. '/icons/comod_stay_lkdm.png'</p>
               </div>
             </div>
@@ -4452,7 +4467,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Bild-URL</label>
                 <input type="text" value={form.bild_url ?? ''} onChange={update('bild_url')}
                   placeholder="z. B. /modules/stay.jpg oder https://…"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <div className="flex items-center gap-3 mt-2">
                   <label className={`inline-flex items-center gap-1.5 font-body text-xs uppercase tracking-wider border px-3 py-1.5 cursor-pointer transition-colors ${imgUploading ? 'opacity-50 pointer-events-none border-[#1C1C1A]/15 text-[#6B6961]' : 'border-[#7B2D8E]/40 text-[#7B2D8E] hover:bg-[#7B2D8E]/10'}`}>
                     <Upload className="w-3.5 h-3.5" strokeWidth={2} />
@@ -4482,39 +4497,39 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Breite Korpus (cm)</label>
                 <input type="number" value={form.breite_korpus_cm ?? ''} onChange={update('breite_korpus_cm')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Länge Korpus (cm)</label>
                 <input type="number" value={form.laenge_korpus_cm ?? ''} onChange={update('laenge_korpus_cm')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Höhe (cm)</label>
                 <input type="number" value={form.hoehe_cm ?? ''} onChange={update('hoehe_cm')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">NUF (m²)</label>
                 <input type="number" value={form.nuf ?? ''} onChange={update('nuf')} step="0.01"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">BGF (m²)</label>
                 <input type="number" value={form.bgf ?? ''} onChange={update('bgf')} step="0.01"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Bei Stapelung: Gesamt-BGF über alle Geschosse</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Footprint (m²)</label>
                 <input type="number" value={form.footprint_m2 ?? ''} onChange={update('footprint_m2')} step="0.01"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">EG-Grundfläche für Stellplatz. Bei 1-geschossigen Modulen = BGF</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Anzahl Geschosse</label>
                 <input type="number" min="1" max="5" value={form.geschosse ?? 1} onChange={update('geschosse')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Standard 1, für Stack/Stapelung &gt; 1</p>
               </div>
               <div className="flex items-center gap-2">
@@ -4525,7 +4540,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
                 <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Grundmodul-Anzahl</label>
                 <input type="number" value={form.grundmodul_count ?? ''} onChange={update('grundmodul_count')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
                 <div>
                   <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Kombi-Richtung</label>
@@ -4545,24 +4560,24 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Herstellpreis (€)</label>
                 <input type="number" value={form.herst_preis ?? ''} onChange={update('herst_preis')}
-                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Marge (%)</label>
                 <input type="text" inputMode="decimal" value={margeStr} onChange={e => setMargeStr(e.target.value)}
                   placeholder="z. B. 15 oder 15,5"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Einnahmen-Indikation (€/Mt)</label>
                 <input type="number" value={form.einnahmen_indikation ?? ''} onChange={update('einnahmen_indikation')}
-                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Fee (%)</label>
                 <input type="text" inputMode="decimal" value={feeStr} onChange={e => setFeeStr(e.target.value)}
                   placeholder="z. B. 15 oder 15,5"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
             </div>
           </section>
@@ -4591,7 +4606,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Sortier-Reihenfolge</label>
                 <input type="number" value={form.sort_order ?? ''} onChange={update('sort_order')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div className="flex items-center gap-2 pt-5">
                 <input type="checkbox" id="active" checked={form.is_active} onChange={update('is_active')} />
@@ -4841,14 +4856,14 @@ function AdminModulesView({ authProfile }) {
         <div className="flex items-center gap-3">
           <button onClick={loadModules} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
           {isMaster && (
-            <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neues Modul</button>
+            <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neues Modul</button>
           )}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <input type="text" placeholder="Suche Kürzel, Family, Name …" value={search} onChange={e => setSearch(e.target.value)}
-          className="bg-white border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm w-72 focus:outline-none focus:border-[#D2563E]" />
+          className="bg-white border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm w-72 focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
         <div className="flex items-center gap-2">
           <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Nutzung:</span>
           {[['all','Alle'],['p','Privat'],['g','Gewerblich']].map(([k,l]) => (
@@ -5159,18 +5174,18 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Slug (URL-Kürzel)</label>
                 <input type="text" value={form.slug ?? ''} onChange={update('slug')}
-                  placeholder="z. B. voelk, albst" className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  placeholder="z. B. voelk, albst" className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Wird in URLs verwendet, möglichst kurz</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Projekt-Name</label>
                 <input type="text" value={form.name ?? ''} onChange={update('name')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Ort</label>
                 <input type="text" value={form.location ?? ''} onChange={update('location')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
             </div>
           </section>
@@ -5181,22 +5196,22 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Beschreibung (DE)</label>
                 <textarea value={form.description_de ?? ''} onChange={update('description_de')} rows={2}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Beschreibung (EN)</label>
                 <textarea value={form.description_en ?? ''} onChange={update('description_en')} rows={2}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Hinweistext (DE, im Akzent angezeigt)</label>
                 <textarea value={form.description2_de ?? ''} onChange={update('description2_de')} rows={2}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Hinweistext (EN)</label>
                 <textarea value={form.description2_en ?? ''} onChange={update('description2_en')} rows={2}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
             </div>
           </section>
@@ -5208,7 +5223,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Hero-Image-URL</label>
                 <input type="text" value={form.hero_image_url ?? ''} onChange={update('hero_image_url')}
                   placeholder="z. B. /projects/voelk.jpg oder https://…"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <div className="flex items-center gap-3 mt-2">
                   <label className={`inline-flex items-center gap-1.5 font-body text-xs uppercase tracking-wider border px-3 py-1.5 cursor-pointer transition-colors ${imgUploading ? 'opacity-50 pointer-events-none border-[#1C1C1A]/15 text-[#6B6961]' : 'border-[#7B2D8E]/40 text-[#7B2D8E] hover:bg-[#7B2D8E]/10'}`}>
                     <Upload className="w-3.5 h-3.5" strokeWidth={2} />
@@ -5248,12 +5263,12 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Grundstück (m²)</label>
                 <input type="number" value={form.grundstueck_groesse ?? ''} onChange={update('grundstueck_groesse')}
-                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Max. Modulanzahl</label>
                 <input type="number" value={form.max_modul_anzahl ?? ''} onChange={update('max_modul_anzahl')}
-                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Obergrenze, wieviele Module wirklich gebaut werden</p>
               </div>
             </div>
@@ -5304,7 +5319,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
             <div className="mb-4 max-w-xs">
               <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Ziel-Modulanzahl</label>
               <input type="number" value={form.ziel_modul_anzahl ?? ''} onChange={update('ziel_modul_anzahl')}
-                className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
               <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Wird benötigt, um Projekt freizugeben</p>
             </div>
             {pVerteilung.length > 0 && (
@@ -5319,7 +5334,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                     <div key={idx} className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-2">
                       <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">{projFloorName(idx, pVerteilung.length)}</p>
                       <input type="number" value={wert ?? 0} onChange={e => setVerteilungWert(idx, e.target.value)}
-                        className={`w-full px-2 py-1 bg-white border border-[#1C1C1A]/15 font-display text-base focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                        className={`w-full px-2 py-1 bg-white border border-[#1C1C1A]/15 font-display text-base focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                     </div>
                   ))}
                 </div>
@@ -5362,7 +5377,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                 <p className="font-display text-2xl num text-[#7B2D8E]">{fmtEUR(pComputedUmlage)}</p>
                 <p className="font-body text-[10px] text-[#6B6961] mt-1">
                   Gesamt einmalig: {fmtEUR(pComputedUmlage * pVerkaufbar)} auf {pVerkaufbar} verkaufbare Module{pGmCount > 0 ? ` (${pZiel || 0} − ${pGmCount} Gemeinschaft)` : ''}
-                  {form.umlage_pro_modul_einmalig > 0 && <span className="text-[#D2563E]"> · Override aktiv: {fmtEUR(form.umlage_pro_modul_einmalig)}/Modul</span>}
+                  {form.umlage_pro_modul_einmalig > 0 && <span className="text-[var(--brand-accent,#D2563E)]"> · Override aktiv: {fmtEUR(form.umlage_pro_modul_einmalig)}/Modul</span>}
                 </p>
               </div>
             </div>
@@ -5416,7 +5431,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
 
             <div className="mb-4">
               <select value="" onChange={e => { if (e.target.value) addGm(e.target.value); }}
-                className="bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]">
+                className="bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]">
                 <option value="">+ Gemeinschaftsmodul hinzufügen …</option>
                 {gewerbModule.map(p => (
                   <option key={p.kuerzel} value={p.kuerzel}>{p.displayName || p.kuerzel}</option>
@@ -5439,12 +5454,12 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                       <div>
                         <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Anzahl</p>
                         <input type="number" min="0" value={g.anzahl ?? 0} onChange={e => setGmField(idx, 'anzahl', Math.max(0, Math.floor(Number(e.target.value) || 0)))}
-                          className={`w-20 bg-white border border-[#1C1C1A]/15 px-2 py-1 font-display text-base focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                          className={`w-20 bg-white border border-[#1C1C1A]/15 px-2 py-1 font-display text-base focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                       </div>
                       <div>
                         <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Einnahmen %</p>
                         <input type="number" min="0" value={Math.round((g.einnahmen_mult ?? 1) * 100)} onChange={e => setGmField(idx, 'einnahmen_mult', Math.max(0, Number(e.target.value) || 0) / 100)}
-                          className={`w-24 bg-white border border-[#1C1C1A]/15 px-2 py-1 font-display text-base focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                          className={`w-24 bg-white border border-[#1C1C1A]/15 px-2 py-1 font-display text-base focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                       </div>
                       <button type="button" onClick={() => removeGm(idx)}
                         className="font-body text-xs text-[#C5392E] hover:underline px-2 py-2">entfernen</button>
@@ -5459,7 +5474,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Betriebskosten / Monat — Override (€)</label>
                 <input type="number" value={form.gemeinschaft_betriebskosten_monat ?? ''} onChange={update('gemeinschaft_betriebskosten_monat')}
                   placeholder="leer = aus Settings berechnet"
-                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">
                   leer/0 = Worst Case aus Settings (Pacht + NK je m² × NUF){pGm.betriebManuell ? '' : ` ≈ ${fmtEUR(pGm.betriebMonat)}/Mt.`}; Wert = manuell überschreiben
                 </p>
@@ -5474,7 +5489,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                     <p className="font-display text-xl num text-[#7B2D8E]">{fmtEUR(pGm.kostenProModulBrutto)}</p>
                     <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Gesamt: {fmtEUR(pGm.kostenGesamtBrutto)} ÷ {pVerkaufbar} verkaufbare Module</p>
                   </div>
-                  <div className={`p-3 border ${pGm.nettoProModulMonat >= 0 ? 'bg-[#7FB069]/10 border-[#7FB069]/40' : 'bg-[#D2563E]/5 border-[#D2563E]/30'}`}>
+                  <div className={`p-3 border ${pGm.nettoProModulMonat >= 0 ? 'bg-[#7FB069]/10 border-[#7FB069]/40' : 'bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)]'}`}>
                     <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Netto-Cashflow / Modul / Monat</p>
                     <p className={`font-display text-xl num ${pGm.nettoProModulMonat >= 0 ? 'text-[#5C8A47]' : 'text-[#C5392E]'}`}>{pGm.nettoProModulMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(pGm.nettoProModulMonat))}</p>
                     <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pGm.nettoProModulMonat >= 0 ? 'rechnet sich' : 'noch nicht kostendeckend'}</p>
@@ -5496,17 +5511,17 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                     <div>
                       <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Laufzeit (Jahre)</label>
                       <input type="number" value={form.gm_finanz_laufzeit ?? ''} onChange={update('gm_finanz_laufzeit')} placeholder="z. B. 20"
-                        className={`w-full bg-white border border-[#1C1C1A]/15 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                        className={`w-full bg-white border border-[#1C1C1A]/15 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                     </div>
                     <div>
                       <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Zinssatz (%)</label>
                       <input type="number" value={form.gm_finanz_zins ?? ''} onChange={update('gm_finanz_zins')} placeholder="z. B. 4"
-                        className={`w-full bg-white border border-[#1C1C1A]/15 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                        className={`w-full bg-white border border-[#1C1C1A]/15 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                     </div>
                     <div>
                       <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Restwert (€)</label>
                       <input type="number" value={form.gm_finanz_restwert ?? ''} onChange={update('gm_finanz_restwert')} placeholder="0"
-                        className={`w-full bg-white border border-[#1C1C1A]/15 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                        className={`w-full bg-white border border-[#1C1C1A]/15 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                     </div>
                   </div>
                   {gmFinAktiv ? (
@@ -5534,53 +5549,53 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Projektrabatt (%)</label>
                 <input type="text" inputMode="decimal" value={rabattStr} onChange={e => setRabattStr(e.target.value)}
                   placeholder="z. B. 5 oder 5,5"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">zusätzlich zur Mengenstaffel</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Umlage / Modul — Override (€)</label>
                 <input type="number" value={form.umlage_pro_modul_einmalig ?? ''} onChange={update('umlage_pro_modul_einmalig')}
                   placeholder="leer = berechnet"
-                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">leer/0 = berechnete Solidar-Umlage; Wert = manuell überschreiben</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Pacht / Jahr (€)</label>
                 <input type="number" value={form.pacht_jahr ?? ''} onChange={update('pacht_jahr')}
-                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">wird auf Ziel-Anzahl umgelegt</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Provision (%, Override)</label>
                 <input type="text" inputMode="decimal" value={provisionStr} onChange={e => setProvisionStr(e.target.value)}
                   placeholder="leer = global"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">leer = globaler Default {String(+((PROV || 0) * 100).toFixed(2)).replace('.', ',')} %</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Projekt-Marge (%, Override)</label>
                 <input type="text" inputMode="decimal" value={margeStr} onChange={e => setMargeStr(e.target.value)}
                   placeholder="leer = Modul-Marge"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">ersetzt die Modul-Marge (Pilotprojekte)</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Einnahmen-Faktor (%)</label>
                 <input type="text" inputMode="decimal" value={faktorStr} onChange={e => setFaktorStr(e.target.value)}
                   placeholder="z. B. 50 oder 150"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">100 = unverändert · 50 = Hälfte · 150 = ×1,5</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Transport / Modul (€, netto)</label>
                 <input type="number" value={form.transport_pro_modul ?? ''} onChange={update('transport_pro_modul')}
-                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Durchleitung, ohne Marge/Provision</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Aufstellung / Modul (€, netto)</label>
                 <input type="number" value={form.aufstellung_pro_modul ?? ''} onChange={update('aufstellung_pro_modul')}
-                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] ${NO_SPINNER}`} />
+                  className={`w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${NO_SPINNER}`} />
                 <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Aufbau & Anschluss, ohne Marge/Provision</p>
               </div>
               <div className="flex items-center gap-2 pt-5">
@@ -5595,10 +5610,10 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {fassaden.map(f => (
                 <button key={f.id} onClick={() => setForm(form => ({...form, fassaden_variante_id: f.id}))}
-                  className={`text-left p-3 border transition-colors ${form.fassaden_variante_id === f.id ? 'border-[#D2563E] bg-[#D2563E]/5' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
+                  className={`text-left p-3 border transition-colors ${form.fassaden_variante_id === f.id ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
                   <div className="flex items-center justify-between">
-                    <span className={`font-body text-sm ${form.fassaden_variante_id === f.id ? 'text-[#D2563E]' : 'text-[#1C1C1A]'}`}>{f.label_de}</span>
-                    {form.fassaden_variante_id === f.id && <Check className="w-4 h-4 text-[#D2563E]" />}
+                    <span className={`font-body text-sm ${form.fassaden_variante_id === f.id ? 'text-[var(--brand-accent,#D2563E)]' : 'text-[#1C1C1A]'}`}>{f.label_de}</span>
+                    {form.fassaden_variante_id === f.id && <Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)]" />}
                   </div>
                   <p className="font-body text-xs text-[#6B6961] mt-1">
                     {f.ist_auf_anfrage ? 'Individuelle Konfiguration auf Anfrage' :
@@ -5654,7 +5669,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
               <div className="max-w-xs">
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Sortier-Reihenfolge</label>
                 <input type="number" value={form.sort_order ?? ''} onChange={update('sort_order')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               </div>
             </div>
           </section>
@@ -5782,7 +5797,7 @@ function AdminProjectsView({ authProfile }) {
         </div>
         <div className="flex items-center gap-3">
           <button onClick={loadAll} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
-          <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neues Projekt</button>
+          <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neues Projekt</button>
         </div>
       </div>
 
@@ -6026,7 +6041,7 @@ function AdminSettingsView() {
               // Beim Verlassen: Buffer auf saubere Anzeige normalisieren
               setPctBuffers(b => ({ ...b, [def.key]: pctToStr(settings[def.key]) }));
             }}
-            className={`flex-1 bg-[#F8F5F0] border ${changed ? 'border-[#7B2D8E]' : 'border-[#1C1C1A]/10'} px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num`} />
+            className={`flex-1 bg-[#F8F5F0] border ${changed ? 'border-[#7B2D8E]' : 'border-[#1C1C1A]/10'} px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num`} />
           <span className="font-body text-xs text-[#6B6961]">%</span>
         </div>
       );
@@ -6037,7 +6052,7 @@ function AdminSettingsView() {
         <div className="flex items-center gap-2">
           <input type="number" step={step} value={val ?? ''}
             onChange={e => updateSetting(def.key, e.target.value === '' ? null : Number(e.target.value))}
-            className={`flex-1 bg-[#F8F5F0] border ${changed ? 'border-[#7B2D8E]' : 'border-[#1C1C1A]/10'} px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+            className={`flex-1 bg-[#F8F5F0] border ${changed ? 'border-[#7B2D8E]' : 'border-[#1C1C1A]/10'} px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num ${NO_SPINNER}`} />
           <span className="font-body text-xs text-[#6B6961]">€</span>
         </div>
       );
@@ -6047,7 +6062,7 @@ function AdminSettingsView() {
         <div className="flex items-center gap-2">
           <input type="number" value={val ?? ''}
             onChange={e => updateSetting(def.key, e.target.value === '' ? null : Number(e.target.value))}
-            className={`flex-1 bg-[#F8F5F0] border ${changed ? 'border-[#7B2D8E]' : 'border-[#1C1C1A]/10'} px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num`} />
+            className={`flex-1 bg-[#F8F5F0] border ${changed ? 'border-[#7B2D8E]' : 'border-[#1C1C1A]/10'} px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num`} />
           {def.type === 'years' && <span className="font-body text-xs text-[#6B6961]">Jahre</span>}
         </div>
       );
@@ -6095,7 +6110,7 @@ function AdminSettingsView() {
             <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-3 items-center">
               <input type="number" value={row.ab ?? 0}
                 onChange={e => updateRow(i, 'ab', Number(e.target.value) || 0)}
-                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num ${NO_SPINNER}`} />
               <div className="flex items-center gap-2">
                 <input type="text" inputMode="decimal"
                   value={pctBuffers[`RABATT_${i}`] ?? pctToStr(row.prozent)}
@@ -6108,7 +6123,7 @@ function AdminSettingsView() {
                   onBlur={() => {
                     setPctBuffers(b => ({ ...b, [`RABATT_${i}`]: pctToStr(list[i]?.prozent) }));
                   }}
-                  className="flex-1 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num" />
+                  className="flex-1 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num" />
                 <span className="font-body text-xs text-[#6B6961]">%</span>
               </div>
               <button onClick={() => removeRow(i)} title="Zeile entfernen"
@@ -6184,16 +6199,16 @@ function AdminSettingsView() {
               <input type="number" value={row.maxMod ?? ''}
                 placeholder="unbegrenzt"
                 onChange={e => updateRow(i, 'maxMod', e.target.value === '' ? null : Number(e.target.value))}
-                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num ${NO_SPINNER}`} />
               <input type="number" value={row.arch ?? 0}
                 onChange={e => updateRow(i, 'arch', Number(e.target.value) || 0)}
-                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num ${NO_SPINNER}`} />
               <input type="number" value={row.eing ?? 0}
                 onChange={e => updateRow(i, 'eing', Number(e.target.value) || 0)}
-                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num ${NO_SPINNER}`} />
               <input type="number" value={row.pm ?? 0}
                 onChange={e => updateRow(i, 'pm', Number(e.target.value) || 0)}
-                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+                className={`bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num ${NO_SPINNER}`} />
               <button onClick={() => removeRow(i)} title="Zeile entfernen"
                 className="text-[#C5392E]/60 hover:text-[#C5392E] p-1.5">
                 <Trash2 className="w-4 h-4" />
@@ -6253,11 +6268,11 @@ function AdminSettingsView() {
             <div key={row.id || i} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 items-center">
               <input type="text" value={row.label ?? ''}
                 onChange={e => updateRow(i, 'label', e.target.value)}
-                className="bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+                className="bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
               <div className="flex items-center gap-2">
                 <input type="number" value={row.netto ?? 0}
                   onChange={e => updateRow(i, 'netto', Number(e.target.value) || 0)}
-                  className={`flex-1 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E] num ${NO_SPINNER}`} />
+                  className={`flex-1 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num ${NO_SPINNER}`} />
                 <span className="font-body text-xs text-[#6B6961]">€/m²</span>
               </div>
               <div className="font-body text-xs text-[#6B6961]">
@@ -6321,7 +6336,7 @@ function AdminSettingsView() {
             : SETTING_DEFS.filter(d => d.cat === c.key).some(d => JSON.stringify(settings[d.key]) !== JSON.stringify(original[d.key]));
           return (
             <button key={c.key} onClick={() => setActiveCat(c.key)}
-              className={`font-body text-sm tracking-wider uppercase px-4 py-2 border-b-2 transition-colors -mb-px ${activeCat === c.key ? 'border-[#D2563E] text-[#1C1C1A]' : 'border-transparent text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+              className={`font-body text-sm tracking-wider uppercase px-4 py-2 border-b-2 transition-colors -mb-px ${activeCat === c.key ? 'border-[var(--brand-accent,#D2563E)] text-[#1C1C1A]' : 'border-transparent text-[#6B6961] hover:text-[#1C1C1A]'}`}>
               {c.label}
               {catDirty && <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[#7B2D8E]" />}
             </button>
@@ -6486,10 +6501,10 @@ function AdminBackupsView({ authUser, authProfile }) {
             type="text" value={label} onChange={e => setLabel(e.target.value)}
             placeholder="Bezeichnung (optional, z. B. „vor Rabattstaffel-Umbau“)"
             maxLength={120}
-            className="flex-1 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
+            className="flex-1 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
           <button
             onClick={createSnapshot} disabled={creating}
-            className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 flex items-center justify-center gap-2 shrink-0">
+            className="font-body text-xs tracking-wider uppercase bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 flex items-center justify-center gap-2 shrink-0">
             <Cloud className="w-3.5 h-3.5" /> {creating ? 'Sichere …' : 'Snapshot erstellen'}
           </button>
         </div>
@@ -6557,7 +6572,7 @@ function AdminContentBlockEdit({ block, authUser, onClose, onSaved, onDeleted })
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const update = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }));
-  const inputCls = 'w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[#D2563E]';
+  const inputCls = 'w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]';
 
   async function save() {
     setError(null);
@@ -6642,7 +6657,7 @@ function AdminContentBlockEdit({ block, authUser, onClose, onSaved, onDeleted })
           </div>
           <div className="flex items-center gap-3">
             <button onClick={onClose} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-4 py-2.5">Abbrechen</button>
-            <button onClick={save} disabled={saving} className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] disabled:opacity-50 text-white px-5 py-2.5 flex items-center gap-2"><Check className="w-3.5 h-3.5" /> {saving ? 'Speichere …' : 'Speichern'}</button>
+            <button onClick={save} disabled={saving} className="font-body text-xs tracking-wider uppercase bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] disabled:opacity-50 text-white px-5 py-2.5 flex items-center gap-2"><Check className="w-3.5 h-3.5" /> {saving ? 'Speichere …' : 'Speichern'}</button>
           </div>
         </div>
       </div>
@@ -6692,7 +6707,7 @@ function AdminContentBlocksView({ authUser, authProfile }) {
         </div>
         <div className="flex items-center gap-3">
           <button onClick={loadAll} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
-          <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neuer Block</button>
+          <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neuer Block</button>
         </div>
       </div>
 
@@ -6748,7 +6763,7 @@ function AdminPanel({ authUser, authProfile }) {
           <div className="flex items-center gap-1 -ml-1">
             {tabs.map(t => (
               <button key={t.key} onClick={() => !t.disabled && setTab(t.key)} disabled={t.disabled}
-                className={`font-body text-sm tracking-wider uppercase px-4 py-2 border-b-2 transition-colors ${tab === t.key ? 'border-[#D2563E] text-[#1C1C1A]' : t.disabled ? 'border-transparent text-[#6B6961]/50 cursor-not-allowed' : 'border-transparent text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                className={`font-body text-sm tracking-wider uppercase px-4 py-2 border-b-2 transition-colors ${tab === t.key ? 'border-[var(--brand-accent,#D2563E)] text-[#1C1C1A]' : t.disabled ? 'border-transparent text-[#6B6961]/50 cursor-not-allowed' : 'border-transparent text-[#6B6961] hover:text-[#1C1C1A]'}`}>
                 {t.label}{t.disabled && <span className="ml-1 text-[10px] text-[#6B6961]">·bald</span>}
               </button>
             ))}
@@ -6823,6 +6838,8 @@ export default function App() {
   const [authProfile, setAuthProfile] = useState(null);
   // Partner-Link /p/{slug}: undefined = noch nicht aufgelöst, null = kein Link, string = Workspace-ID
   const [linkWs, setLinkWs] = useState(undefined);
+  // Aktives Branding (Logo + Akzentfarbe) des Betrachter-Workspaces; null = CoMod-Standard
+  const [brand, setBrand] = useState(null);
   useEffect(() => {
     let cancelled = false;
     async function checkSession() {
@@ -6882,6 +6899,17 @@ export default function App() {
     const ws = linkWs || sessionWs || null;
     Promise.all([loadProjectsFromDb(ws), loadProductsFromDb(ws)])
       .then(([p, m]) => { if (p || m) setProductsTick(t => t + 1); });
+    // Branding (Logo + Akzentfarbe) anwenden: Partner-Kontext → Workspace-Branding, sonst CoMod-Standard.
+    if (ws) {
+      loadWorkspaceBranding(ws).then(b => {
+        setBrand(b);
+        if (b && b.accent) document.documentElement.style.setProperty('--brand-accent', b.accent);
+        else document.documentElement.style.removeProperty('--brand-accent');
+      });
+    } else {
+      setBrand(null);
+      document.documentElement.style.removeProperty('--brand-accent');
+    }
   }, [linkWs, authUser, authProfile]);
 
   // Scroll-to-Top bei jedem Schrittwechsel — sonst landet der User unten in der Sidebar
@@ -7123,7 +7151,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#F8F5F0] text-[#1C1C1A] font-body">
       <FontStyles />
-      <Header step={Math.floor(step)} onJump={jumpToStep} view={view} setView={setView} />
+      <Header step={Math.floor(step)} onJump={jumpToStep} view={view} setView={setView} brandLogoUrl={brand?.logoUrl} />
 
       {view === 'admin' ? <AdminGate authUser={authUser} authProfile={authProfile} />
         : step === 0 ? <WelcomeStep onSelect={handleTypeSelect} />
