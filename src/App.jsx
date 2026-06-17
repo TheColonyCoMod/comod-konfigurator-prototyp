@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.98';
+const APP_VERSION = '0.9.99';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -267,7 +267,15 @@ const ICON_MAP = {
 };
 
 function getModulIcon(kuerzel) {
-  return ICON_MAP[kuerzel] ? `/icons/${ICON_MAP[kuerzel]}` : null;
+  if (!kuerzel) return null;
+  if (ICON_MAP[kuerzel]) return `/icons/${ICON_MAP[kuerzel]}`;
+  // Unmöblierte Module teilen den Grundriss mit der möblierten Variante:
+  // fehlt ein Icon für "… (…,D)", nimm das von "… (…,D,M)".
+  if (kuerzel.endsWith(')') && !kuerzel.endsWith(',M)')) {
+    const moeb = kuerzel.replace(/\)$/, ',M)');
+    if (ICON_MAP[moeb]) return `/icons/${ICON_MAP[moeb]}`;
+  }
+  return null;
 }
 
 // Display-Name: bevorzugt displayName-Property, sonst kuerzel
