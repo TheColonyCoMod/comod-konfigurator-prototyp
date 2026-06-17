@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.81';
+const APP_VERSION = '0.9.84';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -178,15 +178,16 @@ function withPrices(p) {
 // nur über den Herstellungspreis-Rabatt, sondern auch über die korrespondierende Reduktion
 // von Marge und Provision.
 // margeOverride (optional): Projekt-Marge ersetzt im Projekt die Modul-Marge. null/undefined = Modul-Marge.
-function calcRabattiertePreise(product, rabattPct, margeOverride) {
+function calcRabattiertePreise(product, rabattPct, margeOverride, provisionOverride) {
   const marge = (margeOverride != null) ? margeOverride
               : (product.marge != null ? product.marge : MARGE_STD);
+  const prov  = (provisionOverride != null) ? provisionOverride : PROV; // Projekt-Override > globaler Default
   const herstRabattiert = product.herst * (1 - rabattPct);
   const grundpreis = herstRabattiert * marge;
-  const provision = herstRabattiert * PROV;
+  const provision = herstRabattiert * prov;
   const netto = herstRabattiert + grundpreis + provision;
   const brutto = netto * (1 + UST);
-  const baseNetto = product.herst * (1 + marge + PROV); // ungerabattete Referenz mit eff. Marge
+  const baseNetto = product.herst * (1 + marge + prov); // ungerabattete Referenz mit eff. Marge + Provision
   return { netto, brutto, rabattEUR: baseNetto - netto };
 }
 
@@ -195,7 +196,7 @@ function calcRabattiertePreise(product, rabattPct, margeOverride) {
 // Sonst Listenpreis wie bisher. Einmalige Projektkosten bleiben weiterhin AUSSEN vor (Feedback V7).
 function effectiveModulPreis(product, isPureGewerb, priceCtx) {
   if (priceCtx) {
-    const r = calcRabattiertePreise(product, priceCtx.rabattPct || 0, priceCtx.projMarge);
+    const r = calcRabattiertePreise(product, priceCtx.rabattPct || 0, priceCtx.projMarge, priceCtx.projProvision);
     return isPureGewerb ? r.netto : r.brutto;
   }
   return isPureGewerb ? product.netto : product.brutto;
@@ -367,6 +368,7 @@ function mapDbProjectToFrontend(db) {
     heroImageUrl: db.hero_image_url || null,
     projektrabatt: Number(db.projektrabatt || 0),
     projektMarge: (db.projekt_marge == null ? null : Number(db.projekt_marge)),
+    provisionPct: (db.provision_pct == null ? null : Number(db.provision_pct)),
     einnahmenFaktor: (db.einnahmen_faktor == null ? 1 : Number(db.einnahmen_faktor)),
     transportProModul: Number(db.transport_pro_modul || 0),
     aufstellungProModul: Number(db.aufstellung_pro_modul || 0),
@@ -948,6 +950,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const rabattPct = getRabatt(rabattBasis) + (project ? project.projektrabatt : 0);
   // Projekt-Overrides (Etappe 1): wirken nur im Projekt-Kontext, sonst neutral
   const projMargeOverride = (project && project.projektMarge != null) ? project.projektMarge : undefined; // ersetzt Modul-Marge
+  const projProvisionOverride = (project && project.provisionPct != null) ? project.provisionPct : undefined; // ersetzt globalen PROV-Default
   const einnahmenFaktor   = project ? (project.einnahmenFaktor ?? 1) : 1;                                  // Faktor auf alle Vermietungs-Einnahmen
   const tpaNettoProModul  = project ? ((Number(project.transportProModul) || 0) + (Number(project.aufstellungProModul) || 0)) : 0; // Transport + Aufstellung (netto, Durchleitung)
   const nextStaffel = getNextRabattSchwelle(rabattBasis);
@@ -1029,7 +1032,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
 
   // Rabatt wirkt nur auf Herstellungskosten (siehe calcRabattiertePreise); Projekt-Marge ersetzt ggf. die Modul-Marge
   const rabattPreiseSum = (items) => items.reduce((acc, x) => {
-    const r = calcRabattiertePreise(x, rabattPct, projMargeOverride);
+    const r = calcRabattiertePreise(x, rabattPct, projMargeOverride, projProvisionOverride);
     return { netto: acc.netto + x.count * r.netto, brutto: acc.brutto + x.count * r.brutto };
   }, { netto: 0, brutto: 0 });
   const privatSum = rabattPreiseSum(privatItems);
@@ -1043,9 +1046,10 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const effGewerbBrutto = effGewerbNetto * (1 + UST);
   // Ersparnis durch Projekt-Mengenrabatt (vs. Listenpreis ohne Rabatt) — zur ehrlichen Gegenüberstellung
   const _projMargeOverride = (project && project.projektMarge != null) ? project.projektMarge : undefined;
+  const _projProvisionOverride = (project && project.provisionPct != null) ? project.provisionPct : undefined;
   const mengenrabattErsparnis = project ? lineItems.reduce((s, it) => {
-    const ohne = calcRabattiertePreise(it, 0, _projMargeOverride);
-    const mit = calcRabattiertePreise(it, rabattPct, _projMargeOverride);
+    const ohne = calcRabattiertePreise(it, 0, _projMargeOverride, _projProvisionOverride);
+    const mit = calcRabattiertePreise(it, rabattPct, _projMargeOverride, _projProvisionOverride);
     const diff = it.usage === 'p' ? (ohne.brutto - mit.brutto) : (ohne.netto - mit.netto);
     return s + it.count * diff;
   }, 0) : 0;
@@ -2503,7 +2507,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
   // Projektbezogene Modulpreise auf den Karten: nur bei Projekt-Beitritt, mit stabilem Projekt-Rabatt
   // (totals.rabattPct basiert im Projekt auf der Ziel-Modulanzahl) und ggf. Projekt-Marge.
   const priceCtx = project
-    ? { rabattPct: totals.rabattPct || 0, projMarge: (project.projektMarge != null ? project.projektMarge : undefined) }
+    ? { rabattPct: totals.rabattPct || 0, projMarge: (project.projektMarge != null ? project.projektMarge : undefined), projProvision: (project.provisionPct != null ? project.provisionPct : undefined) }
     : null;
   // Mindestflächenbedarf anzeigen wenn:
   // - Gewerbekunde ohne eigene Fläche (suche selbst / sucht für mich)
@@ -4575,6 +4579,133 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
   );
 }
 
+/* Partner-Sicht auf ein Modul: read-only Netto-Preis (Herstellkosten × (1 + CoMod-Marge)),
+   KEINE Herstell-/Marge-Felder, nur Sichtbarkeits-Toggle für den eigenen Workspace.
+   Modul-Stammdaten schreibt der Partner nicht (RLS: modules = master-only). */
+function AdminModulePartnerView({ module, authProfile, onClose }) {
+  const wsId = authProfile?.workspace_id || null;
+  const netto = (Number(module?.herst_preis) || 0) * (1 + (Number(module?.marge) || 0));
+  const [visible, setVisible] = useState(true);
+  const [origVisible, setOrigVisible] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!module?.id || !wsId) { setLoading(false); return; }
+    let cancelled = false;
+    (async () => {
+      const { data, error: e } = await supabase
+        .from('module_visibility')
+        .select('id')
+        .eq('module_id', module.id)
+        .eq('scope_type', 'workspace')
+        .eq('scope_id', wsId)
+        .eq('hidden', true)
+        .limit(1);
+      if (cancelled) return;
+      if (e) setError(e.message);
+      const isHidden = Array.isArray(data) && data.length > 0;
+      setVisible(!isHidden);
+      setOrigVisible(!isHidden);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [module?.id, wsId]);
+
+  async function save() {
+    if (!wsId) { setError('Kein Workspace zugeordnet.'); return; }
+    if (visible === origVisible) { onClose(); return; }
+    setSaving(true); setError(null); setSaved(false);
+    let res;
+    if (!visible) {
+      // ausblenden → hidden-Zeile anlegen
+      res = await supabase.from('module_visibility')
+        .insert({ module_id: module.id, scope_type: 'workspace', scope_id: wsId, hidden: true });
+    } else {
+      // sichtbar → hidden-Zeile entfernen
+      res = await supabase.from('module_visibility')
+        .delete()
+        .eq('module_id', module.id)
+        .eq('scope_type', 'workspace')
+        .eq('scope_id', wsId)
+        .eq('hidden', true);
+    }
+    if (res.error) { setError(res.error.message); setSaving(false); return; }
+    setOrigVisible(visible);
+    setSaved(true); setSaving(false);
+    setTimeout(() => onClose(), 600);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 sm:py-8" onClick={onClose}>
+      <div className="bg-white max-w-2xl w-full" onClick={e => e.stopPropagation()}
+        style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', overflowX: 'hidden' }}>
+        <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
+          <div>
+            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Modul</p>
+            <h2 className="font-display text-3xl tracking-tight">{module.display_name || module.kuerzel || '—'}</h2>
+            {module.family && <p className="font-body text-xs text-[#6B6961] mt-1">{module.family} · {module.category}</p>}
+          </div>
+          <button onClick={onClose} className="text-[#6B6961] hover:text-[#1C1C1A] p-2"><Plus className="w-5 h-5 rotate-45" /></button>
+        </div>
+
+        <div className="p-8 space-y-7">
+          {module.bild_url && (
+            <div className="w-full aspect-[3/2] bg-[#F8F5F0] border border-[#1C1C1A]/10 overflow-hidden">
+              <img src={module.bild_url} alt={module.display_name || ''} className="w-full h-full object-cover" />
+            </div>
+          )}
+
+          {module.beschreibung_de && (
+            <p className="font-body text-sm text-[#3A3A36] leading-relaxed">{module.beschreibung_de}</p>
+          )}
+
+          <section>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Eckdaten</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+              {module.nuf != null && <div><p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961]">NUF</p><p className="font-body text-sm">{module.nuf} m²</p></div>}
+              {module.bgf != null && <div><p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961]">BGF</p><p className="font-body text-sm">{module.bgf} m²</p></div>}
+              {module.geschosse != null && <div><p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961]">Geschosse</p><p className="font-body text-sm">{module.geschosse}</p></div>}
+              {module.kueche && <div><p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961]">Küche</p><p className="font-body text-sm">{module.kueche}</p></div>}
+              <div><p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961]">Möbliert</p><p className="font-body text-sm">{module.moebliert ? 'Ja' : 'Nein'}</p></div>
+            </div>
+          </section>
+
+          <section className="bg-[#F4ECF6]/40 border border-[#7B2D8E]/20 p-5">
+            <p className="font-body text-[10px] uppercase tracking-wider text-[#7B2D8E] mb-1">Netto-Preis (inkl. CoMod-Marge)</p>
+            <p className="font-display text-3xl num text-[#7B2D8E]">{fmtEUR(netto)}</p>
+            <p className="font-body text-[11px] text-[#6B6961] mt-1.5">Netto-Einkaufspreis. Deine Provision und die USt. kommen im Angebot obendrauf.</p>
+          </section>
+
+          <section className="border-l-4 border-[#7B2D8E]/30 pl-4 -ml-4">
+            <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] mb-3">Sichtbarkeit in Deinem Konfigurator</p>
+            {loading ? (
+              <p className="font-body text-sm text-[#6B6961]">Lade …</p>
+            ) : !wsId ? (
+              <p className="font-body text-sm text-[#C5392E]">Kein Workspace zugeordnet — bitte an CoMod wenden.</p>
+            ) : (
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={visible} onChange={e => setVisible(e.target.checked)} />
+                <span className="font-body text-sm">In meinem Konfigurator anzeigen</span>
+              </label>
+            )}
+          </section>
+
+          {error && <div className="p-3 bg-[#FAE5E2] border border-[#C5392E]/30 font-body text-sm text-[#C5392E]">Fehler: {error}</div>}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-8 py-5 border-t border-[#1C1C1A]/10 bg-[#F8F5F0]">
+          {saved && <span className="font-body text-xs text-[#7FB069] flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Gespeichert</span>}
+          <button onClick={onClose} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-4 py-2">Schließen</button>
+          <Button onClick={save} disabled={saving || loading || !wsId}>{saving ? 'Speichere …' : 'Sichtbarkeit speichern'}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminModulesView({ authProfile }) {
   const [modules, setModules] = useState([]);
   const [workspaces, setWorkspaces] = useState([]);
@@ -4584,6 +4715,12 @@ function AdminModulesView({ authProfile }) {
   const [usageFilter, setUsageFilter] = useState('all');
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'active' | 'inactive'
   const [editing, setEditing] = useState(undefined); // undefined = nichts | null = neu | object = bearbeiten
+  const isMaster = authProfile?.role === 'master_admin';
+  // Partner sehen weder Herstellpreis noch Marge → schmalere Spalten-Definition (beide Literale
+  // müssen wörtlich im Quelltext stehen, damit Tailwind sie generiert).
+  const gridCls = isMaster
+    ? 'grid-cols-[2fr_0.8fr_0.8fr_0.6fr_1fr_1fr_0.5fr]'
+    : 'grid-cols-[2fr_0.8fr_0.8fr_0.6fr_1.2fr]';
 
   async function loadModules() {
     setLoading(true); setError(null);
@@ -4629,12 +4766,14 @@ function AdminModulesView({ authProfile }) {
         <div>
           <h1 className="font-display text-4xl tracking-tight mb-2">Module</h1>
           <p className="font-body text-sm text-[#6B6961]">
-            {filtered.length} von {modules.length} {modules.length === 1 ? 'Modul' : 'Modulen'} · global gepflegt
+            {filtered.length} von {modules.length} {modules.length === 1 ? 'Modul' : 'Modulen'} · {isMaster ? 'global gepflegt' : 'Sichtbarkeit für Deinen Konfigurator'}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={loadModules} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
-          <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neues Modul</button>
+          {isMaster && (
+            <button onClick={() => setEditing(null)} className="font-body text-xs tracking-wider uppercase bg-[#D2563E] hover:bg-[#B04528] text-white px-4 py-2 flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Neues Modul</button>
+          )}
         </div>
       </div>
 
@@ -4648,10 +4787,12 @@ function AdminModulesView({ authProfile }) {
           ))}
         </div>
         <div className="flex items-center gap-2 ml-auto">
+          {isMaster && <>
           <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Status:</span>
           {[['all','Alle'],['active','Aktiv'],['inactive','Inaktiv']].map(([k,l]) => (
             <button key={k} onClick={() => setActiveFilter(k)} className={`px-3 py-1 text-xs font-body uppercase tracking-wider border ${activeFilter === k ? 'border-[#1C1C1A] text-[#1C1C1A]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:border-[#1C1C1A]/30'}`}>{l}</button>
           ))}
+          </>}
         </div>
       </div>
 
@@ -4664,11 +4805,14 @@ function AdminModulesView({ authProfile }) {
       ) : (
         <div className="bg-white border border-[#1C1C1A]/10 overflow-x-auto">
           <div className="min-w-[900px]">
-            <div className="grid grid-cols-[2fr_0.8fr_0.8fr_0.6fr_1fr_1fr_0.5fr] gap-3 px-5 py-4 border-b border-[#1C1C1A]/10 font-body text-xs tracking-wider uppercase text-[#6B6961]">
-              <div>Modul</div><div>Family</div><div>Kategorie</div><div>Nutz.</div><div className="text-right">Herst-Preis</div><div className="text-right">Marge</div><div className="text-center">Aktiv</div>
+            <div className={`grid ${gridCls} gap-3 px-5 py-4 border-b border-[#1C1C1A]/10 font-body text-xs tracking-wider uppercase text-[#6B6961]`}>
+              <div>Modul</div><div>Family</div><div>Kategorie</div><div>Nutz.</div>
+              {isMaster
+                ? <><div className="text-right">Herst-Preis</div><div className="text-right">Marge</div><div className="text-center">Aktiv</div></>
+                : <div className="text-right">Partner-Preis</div>}
             </div>
             {filtered.map(m => (
-              <button key={m.id} onClick={() => setEditing(m)} className="w-full text-left grid grid-cols-[2fr_0.8fr_0.8fr_0.6fr_1fr_1fr_0.5fr] gap-3 px-5 py-3.5 border-b border-[#1C1C1A]/5 last:border-b-0 font-body text-sm items-center hover:bg-[#F8F5F0]/50 transition-colors">
+              <button key={m.id} onClick={() => setEditing(m)} className={`w-full text-left grid ${gridCls} gap-3 px-5 py-3.5 border-b border-[#1C1C1A]/5 last:border-b-0 font-body text-sm items-center hover:bg-[#F8F5F0]/50 transition-colors`}>
                 <div>
                   <p className="text-[#1C1C1A]">{m.display_name || m.kuerzel}</p>
                   {m.kuerzel !== m.display_name && <p className="text-[10px] text-[#6B6961]">{m.kuerzel}</p>}
@@ -4678,18 +4822,26 @@ function AdminModulesView({ authProfile }) {
                 <div className="text-xs">
                   <span className="px-1.5 py-0.5 border border-[#1C1C1A]/10 bg-[#F8F5F0] uppercase tracking-wider">{m.usage}</span>
                 </div>
-                <div className="text-right num">{fmtEUR(m.herst_preis || 0)}</div>
-                <div className="text-right num text-[#6B6961]">{((m.marge || 0) * 100).toFixed(1)} %</div>
-                <div className="text-center">
-                  {m.is_active ? <Check className="w-3.5 h-3.5 text-[#7FB069] inline" /> : <span className="text-[10px] text-[#6B6961] uppercase tracking-wider">aus</span>}
-                </div>
+                {isMaster ? (
+                  <>
+                    <div className="text-right num">{fmtEUR(m.herst_preis || 0)}</div>
+                    <div className="text-right num text-[#6B6961]">{((m.marge || 0) * 100).toFixed(1)} %</div>
+                    <div className="text-center">
+                      {m.is_active ? <Check className="w-3.5 h-3.5 text-[#7FB069] inline" /> : <span className="text-[10px] text-[#6B6961] uppercase tracking-wider">aus</span>}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-right num">{fmtEUR((m.herst_preis || 0) * (1 + (m.marge || 0)))}</div>
+                )}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {editing !== undefined && <AdminModuleEdit module={editing} workspaces={workspaces} authProfile={authProfile} onClose={() => setEditing(undefined)} onSaved={handleSaved} />}
+      {editing !== undefined && (isMaster
+        ? <AdminModuleEdit module={editing} workspaces={workspaces} authProfile={authProfile} onClose={() => setEditing(undefined)} onSaved={handleSaved} />
+        : <AdminModulePartnerView module={editing} authProfile={authProfile} onClose={() => setEditing(undefined)} />)}
     </div>
   );
 }
@@ -4720,8 +4872,8 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
     description2_de: '',
     description2_en: '',
     hero_image_url: '',
-    ziel_modul_anzahl: 20,
-    max_modul_anzahl: 30,
+    ziel_modul_anzahl: 0,
+    max_modul_anzahl: 0,
     grundstueck_groesse: null,
     projektrabatt: 0,
     projekt_marge: null,
@@ -5326,7 +5478,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted }) {
                 <input type="text" inputMode="decimal" value={provisionStr} onChange={e => setProvisionStr(e.target.value)}
                   placeholder="leer = global"
                   className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[#D2563E]" />
-                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">leer = globaler Default 3,5 %</p>
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">leer = globaler Default {String(+((PROV || 0) * 100).toFixed(2)).replace('.', ',')} %</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Projekt-Marge (%, Override)</label>
@@ -6621,7 +6773,7 @@ export default function App() {
         items: totals.lineItems.map(it => {
           // Effektiver Preis = tatsächlich angewandter Rabatt (Projekt/Menge) + ggf. Projekt-Marge.
           // Listenpreis (netto/brutto) bleibt unverändert für die Nachvollziehbarkeit.
-          const _eff = calcRabattiertePreise(it, totals.rabattPct || 0, (project && project.projektMarge != null) ? project.projektMarge : undefined);
+          const _eff = calcRabattiertePreise(it, totals.rabattPct || 0, (project && project.projektMarge != null) ? project.projektMarge : undefined, (project && project.provisionPct != null) ? project.provisionPct : undefined);
           return {
             kuerzel: it.kuerzel,
             family: it.family,
@@ -6720,7 +6872,7 @@ export default function App() {
           finanzen_snapshot: { ...(lead.finanzen || {}), project_name: lead.pfad?.project?.name || null, project_location: lead.pfad?.project?.location || null },
           gewerb_config_snapshot: lead.pfad?.gewerbConfig,
           angewandter_rabatt_pct: lead.finanzen?.rabattPct,
-          angewandte_provision_pct: 0.035, // bis Provision pro Workspace in DB-Settings gelesen wird
+          angewandte_provision_pct: (project && project.provisionPct != null) ? project.provisionPct : PROV,
           einmalig_gesamt: Math.round(lead.finanzen?.bruttoGesamt ?? 0),
           monatlich_gesamt: Math.round(lead.finanzen?.monatlichGesamt ?? 0),
           verbrauchskosten_monat: Math.round(lead.finanzen?.verbrauchskostenMonat ?? 0),
