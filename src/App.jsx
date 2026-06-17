@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.95';
+const APP_VERSION = '0.9.96';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4807,12 +4807,26 @@ function AdminModulesView({ authProfile }) {
   const [usageFilter, setUsageFilter] = useState('all');
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'active' | 'inactive'
   const [editing, setEditing] = useState(undefined); // undefined = nichts | null = neu | object = bearbeiten
+  const [hiddenSet, setHiddenSet] = useState(new Set()); // Partner: im eigenen Workspace ausgeblendete Modul-IDs
   const isMaster = authProfile?.role === 'master_admin';
   // Partner sehen weder Herstellpreis noch Marge → schmalere Spalten-Definition (beide Literale
   // müssen wörtlich im Quelltext stehen, damit Tailwind sie generiert).
   const gridCls = isMaster
     ? 'grid-cols-[2fr_0.8fr_0.8fr_0.6fr_1fr_1fr_0.5fr]'
-    : 'grid-cols-[2fr_0.8fr_0.8fr_0.6fr_1.2fr]';
+    : 'grid-cols-[2fr_0.8fr_0.8fr_0.6fr_0.9fr_1.2fr]';
+
+  // Partner: welche Module sind im EIGENEN Workspace ausgeblendet? (für die Sichtbarkeits-Badges)
+  async function loadHidden() {
+    if (isMaster || !authProfile?.workspace_id) { setHiddenSet(new Set()); return; }
+    try {
+      const { data } = await supabase.from('module_visibility')
+        .select('module_id')
+        .eq('scope_type', 'workspace')
+        .eq('scope_id', authProfile.workspace_id)
+        .eq('hidden', true);
+      setHiddenSet(new Set((data || []).map(r => r.module_id)));
+    } catch { setHiddenSet(new Set()); }
+  }
 
   async function loadModules() {
     setLoading(true); setError(null);
@@ -4824,6 +4838,7 @@ function AdminModulesView({ authProfile }) {
     if (mRes.error) setError(mRes.error.message);
     else setModules(mRes.data || []);
     if (!wRes.error) setWorkspaces(wRes.data || []);
+    await loadHidden();
     setLoading(false);
   }
 
@@ -4901,7 +4916,7 @@ function AdminModulesView({ authProfile }) {
               <div>Modul</div><div>Family</div><div>Kategorie</div><div>Nutz.</div>
               {isMaster
                 ? <><div className="text-right">Herst-Preis</div><div className="text-right">Marge</div><div className="text-center">Aktiv</div></>
-                : <div className="text-right">Partner-Preis</div>}
+                : <><div className="text-center">Sichtbar</div><div className="text-right">Partner-Preis</div></>}
             </div>
             {filtered.map(m => (
               <button key={m.id} onClick={() => setEditing(m)} className={`w-full text-left grid ${gridCls} gap-3 px-5 py-3.5 border-b border-[#1C1C1A]/5 last:border-b-0 font-body text-sm items-center hover:bg-[#F8F5F0]/50 transition-colors`}>
@@ -4923,7 +4938,14 @@ function AdminModulesView({ authProfile }) {
                     </div>
                   </>
                 ) : (
-                  <div className="text-right num">{fmtEUR((m.herst_preis || 0) * (1 + (m.marge || 0)))}</div>
+                  <>
+                    <div className="text-center">
+                      {hiddenSet.has(m.id)
+                        ? <span className="inline-block px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-sm" style={{ color: '#C5392E', backgroundColor: '#FAE5E2' }}>Verborgen</span>
+                        : <span className="inline-block px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-sm" style={{ color: '#5E8C3F', backgroundColor: '#EFF7EA' }}>Sichtbar</span>}
+                    </div>
+                    <div className="text-right num">{fmtEUR((m.herst_preis || 0) * (1 + (m.marge || 0)))}</div>
+                  </>
                 )}
               </button>
             ))}
@@ -4933,7 +4955,7 @@ function AdminModulesView({ authProfile }) {
 
       {editing !== undefined && (isMaster
         ? <AdminModuleEdit module={editing} workspaces={workspaces} authProfile={authProfile} onClose={() => setEditing(undefined)} onSaved={handleSaved} />
-        : <AdminModulePartnerView module={editing} authProfile={authProfile} onClose={() => setEditing(undefined)} />)}
+        : <AdminModulePartnerView module={editing} authProfile={authProfile} onClose={() => { setEditing(undefined); loadHidden(); }} />)}
     </div>
   );
 }
