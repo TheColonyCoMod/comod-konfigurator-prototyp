@@ -9,7 +9,7 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.80';
+const APP_VERSION = '0.9.81';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -359,6 +359,7 @@ let PROJECTS_TEMPLATES = [
 function mapDbProjectToFrontend(db) {
   return {
     id: db.slug,                                        // Frontend nutzt Slug als id
+    workspaceId: db.workspace_id || null,               // für Partner-Zuordnung (Leads, Sichtbarkeit)
     name: db.name,
     location: db.location || '',
     description: db.description_de || '',
@@ -6400,8 +6401,7 @@ function AdminPanel({ authUser, authProfile }) {
     { key: 'leads',    label: 'Leads' },
     { key: 'modules',  label: 'Module' },
     { key: 'projects', label: 'Projekte' },
-    { key: 'settings', label: 'Settings' },
-    ...(authProfile?.role === 'master_admin' ? [{ key: 'texte', label: 'Texte' }, { key: 'backups', label: 'Backups' }] : []),
+    ...(authProfile?.role === 'master_admin' ? [{ key: 'settings', label: 'Settings' }, { key: 'texte', label: 'Texte' }, { key: 'backups', label: 'Backups' }] : []),
   ];
   return (
     <div className="max-w-7xl mx-auto px-8 py-12">
@@ -6612,7 +6612,7 @@ export default function App() {
         customerType, // 'privat' | 'gewerblich'
         privatMode,   // 'eigen' | 'projekt'
         modulart,     // 'privat' | 'business' | 'beides'
-        project: project ? { id: project.id, name: project.name } : null,
+        project: project ? { id: project.id, name: project.name, location: project.location, workspace_id: project.workspaceId } : null,
         gewerbConfig: effectiveGewerbConfig, // enthält flaecheStatus, geschosse, zielModulAnzahl, geschossVerteilung, pvAnteil, pacht
       },
 
@@ -6699,7 +6699,7 @@ export default function App() {
           if (pr?.id) dbProjectId = pr.id;
         }
         const dbLead = {
-          workspace_id: '00000000-0000-0000-0000-000000000001', // CoMod-Default-Workspace
+          workspace_id: lead.pfad?.project?.workspace_id || '00000000-0000-0000-0000-000000000001', // Partner-Workspace des Projekts, sonst CoMod-Default
           project_id: dbProjectId,
           source_url: typeof window !== 'undefined' ? window.location.pathname : null,
           customer_type: lead.pfad?.customerType,
