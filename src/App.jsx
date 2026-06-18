@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.114';
+const APP_VERSION = '0.9.115';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -360,6 +360,12 @@ function mapDbModuleToFrontend(db) {
     // Anzahl Geschosse — Standard 1, für Stack-Module ggf. 2 oder 3 (Stapelung)
     // Wirkt sich auf Flächenbedarf (Footprint) aus
     geschosse: db.geschosse != null ? Number(db.geschosse) : 1,
+    // Geometrie-Inputs für die fassadenabhängige Flächen-Neuberechnung (Projekt-Fassade)
+    laengeKorpusCm: db.laenge_korpus_cm != null ? Number(db.laenge_korpus_cm) : null,
+    breiteKorpusCm: db.breite_korpus_cm != null ? Number(db.breite_korpus_cm) : null,
+    isKombi: !!db.is_kombimodul,
+    grundmodulCount: db.grundmodul_count != null ? Number(db.grundmodul_count) : 1,
+    flaecheOverride: !!db.flaeche_override,
   };
   // Optionale Felder nur setzen wenn vorhanden (Frontend prüft mit `in` oder undefined)
   if (db.display_name && db.display_name !== db.kuerzel) base.displayName = db.display_name;
@@ -490,6 +496,14 @@ function mapDbProjectToFrontend(db) {
 const CO_MOD_WS_ID = '00000000-0000-0000-0000-000000000001';
 async function loadProjectsFromDb(viewerWorkspaceId = null) {
   try {
+    // Fassadenstärken (dicke_cm) je Variante laden, um sie ans Projekt zu hängen
+    let fassadeMap = {};
+    try {
+      const { data: fv } = await supabase.from('fassaden_varianten').select('id, dicke_cm');
+      (fv || []).forEach(f => { if (f.dicke_cm != null) fassadeMap[f.id] = Number(f.dicke_cm); });
+    } catch { /* ohne Map gilt Default 24 cm */ }
+    const withFacade = (arr) => (arr || []).map(mapDbProjectToFrontend)
+      .map(p => ({ ...p, fassadeDickeCm: fassadeMap[p.fassadenVarianteId] != null ? fassadeMap[p.fassadenVarianteId] : 24 }));
     let data, error;
     if (viewerWorkspaceId) {
       // Partner-Sicht
@@ -513,7 +527,7 @@ async function loadProjectsFromDb(viewerWorkspaceId = null) {
       data = res.data; error = res.error;
       if (error) { console.warn('[Supabase] Projekt-Load (Partner) Fehler:', error.message); return false; }
       // Partner-Sicht ist autoritativ — auch ein leeres Ergebnis übernehmen (kein Fallback auf Templates).
-      PROJECTS_TEMPLATES = (data || []).map(mapDbProjectToFrontend);
+      PROJECTS_TEMPLATES = withFacade(data);
       console.log(`[Supabase] ${PROJECTS_TEMPLATES.length} Partner-Projekte (ws ${viewerWorkspaceId}) geladen`);
       return true;
     }
@@ -534,7 +548,7 @@ async function loadProjectsFromDb(viewerWorkspaceId = null) {
     data = res.data; error = res.error;
     if (error) { console.warn('[Supabase] Projekt-Load Fehler:', error.message); return false; }
     if (!data || data.length === 0) { console.warn('[Supabase] Keine Live-Projekte in DB, Fallback aktiv'); return false; }
-    PROJECTS_TEMPLATES = data.map(mapDbProjectToFrontend);
+    PROJECTS_TEMPLATES = withFacade(data);
     console.log(`[Supabase] ${PROJECTS_TEMPLATES.length} Projekte aus DB geladen`);
     return true;
   } catch (e) {
@@ -1050,13 +1064,16 @@ function isModeToggleable(product) {
 }
 
 function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag }) {
+  // Fassadenstärke: Projektwert (sonst Default 24 cm) → wirkt auf BGF/Footprint
+  const facadeM = (project?.fassadeDickeCm != null ? Number(project.fassadeDickeCm) : 24) / 100;
   const lineItems = Object.entries(selections)
     .filter(([_, count]) => count > 0)
     .map(([kuerzel, count]) => {
       const p = ALL_PRODUCTS.find(x => x.kuerzel === kuerzel);
       if (!p) return null;
+      const fl = flaechenFuerFassade(p, facadeM);
       const mode = isModeToggleable(p) ? (modes[kuerzel] || getDefaultMode(p.usage)) : getDefaultMode(p.usage);
-      return { ...p, count, mode };
+      return { ...p, nuf: fl.nuf, bgf: fl.bgf, footprint: fl.footprint, count, mode };
     })
     .filter(Boolean);
 
@@ -2459,7 +2476,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 }
 
 // FamilyCard – Standard für alle anderen Familien
-function FamilyCard({ familyId, products, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb, priceCtx }) {
+function FamilyCard({ familyId, products, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb, priceCtx, facadeM }) {
   // Defensive: Falls für eine Family kein Label hinterlegt ist, mit Defaults weitermachen statt zu crashen
   const fam = FAMILY_LABELS[familyId] || { label: products[0]?.kuerzel || familyId, desc: '' };
   const defaultVariant = useMemo(() => {
@@ -2551,7 +2568,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
             <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
             <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
             <div className="flex gap-3 text-[#6B6961] text-[11px]">
-              <span>{product.nuf} m² NUF</span><span>·</span><span>{product.bgf} m² BGF</span>
+              <span>{flaechenFuerFassade(product, facadeM ?? 0.24).nuf} m² NUF</span><span>·</span><span>{flaechenFuerFassade(product, facadeM ?? 0.24).bgf} m² BGF</span>
               {calcModulEinheiten(product) > 1 && <><span>·</span><span className="text-[#7B2D8E]">{calcModulEinheiten(product)} Einheiten</span></>}
             </div>
             <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
@@ -2675,6 +2692,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
   const showAddInCat = showAddCombined && (catFilter === 'alle' || catFilter === 'ergaenzung');
 
   const hasProjectOrConfig = !!(project || gewerbConfig);
+  // Fassadenstärke des Projekts (sonst Default 24 cm) — für fassadenabhängige BGF/Footprint auf den Karten
+  const projectFacadeM = (project?.fassadeDickeCm != null ? Number(project.fassadeDickeCm) : 24) / 100;
   // Projektbezogene Modulpreise auf den Karten: nur bei Projekt-Beitritt, mit stabilem Projekt-Rabatt
   // (totals.rabattPct basiert im Projekt auf der Ziel-Modulanzahl) und ggf. Projekt-Marge.
   const priceCtx = project
@@ -2758,7 +2777,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       modes={modes} setModes={setModes}
                       einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
                       variantState={variantState} setVariantState={setVariantState}
-                      isPureGewerb={isPureGewerb} priceCtx={priceCtx} />
+                      isPureGewerb={isPureGewerb} priceCtx={priceCtx} facadeM={projectFacadeM} />
                   ))}
                   {catId === 'ergaenzung' && showAddInCat && (
                     <AddFamilyCard selections={selections} setSelections={setSelections}
@@ -4353,6 +4372,23 @@ function computeFlaechen(m, facadeM = 0.24) {
     bgf: r1(floorBGF * floors),     // Gesamt-BGF über alle Geschosse
     footprint: r1(floorBGF),        // EG-Grundfläche
   };
+}
+
+// Flächen eines (Frontend-)Produkts für eine bestimmte Fassadenstärke.
+// Override oder fehlende Maße → gespeicherte Werte; sonst Neuberechnung aus der Geometrie.
+function flaechenFuerFassade(product, facadeM = 0.24) {
+  if (!product) return { nuf: 0, bgf: 0, footprint: 0 };
+  if (product.flaecheOverride || !product.laengeKorpusCm || !product.breiteKorpusCm) {
+    return { nuf: product.nuf, bgf: product.bgf, footprint: product.footprint };
+  }
+  const r = computeFlaechen({
+    laenge_korpus_cm: product.laengeKorpusCm,
+    breite_korpus_cm: product.breiteKorpusCm,
+    is_kombimodul: product.isKombi,
+    grundmodul_count: product.grundmodulCount,
+    geschosse: product.geschosse,
+  }, facadeM);
+  return r || { nuf: product.nuf, bgf: product.bgf, footprint: product.footprint };
 }
 
 const MODULE_CATEGORIES = [
