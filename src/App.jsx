@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.118';
+const APP_VERSION = '0.9.119';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2295,7 +2295,7 @@ function findVariantProduct(products, variant) {
 }
 
 // AddFamilyCard – für die zusammengeführte Add-Karte im 'Beides'-Modus
-function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProjectOrConfig, addUsageState, setAddUsageState, isPureGewerb, priceCtx }) {
+function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProjectOrConfig, addUsageState, setAddUsageState, isPureGewerb, priceCtx, facadeM }) {
   // addUsageState = 'p' | 'g' (für die ganze Add-Karte)
   const wantUsage = addUsageState || 'g'; // Default gewerblich (Hauptanwendungsfall)
   const hasP = PRODUCTS.privat.some(p => p.family === 'add');
@@ -2431,6 +2431,22 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <div className="space-y-1 text-xs font-body">
             <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
             <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
+            <div className="flex gap-4 pt-0.5">
+              <div className="leading-tight">
+                <div className="num text-xs text-[#1C1C1A]">{flaechenFuerFassade(product, facadeM ?? 0.24).nuf} m²</div>
+                <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">NUF</div>
+              </div>
+              <div className="leading-tight">
+                <div className="num text-xs text-[#1C1C1A]">{flaechenFuerFassade(product, facadeM ?? 0.24).bgf} m²</div>
+                <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">BGF</div>
+              </div>
+              {calcModulEinheiten(product) > 1 && (
+                <div className="leading-tight">
+                  <div className="num text-xs text-[#7B2D8E]">{calcModulEinheiten(product)}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">Einheiten</div>
+                </div>
+              )}
+            </div>
             <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
             <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis</p>
           </div>
@@ -2596,9 +2612,21 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
             <div className="space-y-1 text-xs font-body">
               <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
               <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
-              <div className="flex gap-3 text-[#6B6961] text-[11px]">
-                <span>{flaechenFuerFassade(product, facadeM ?? 0.24).nuf} m² NUF</span><span>·</span><span>{flaechenFuerFassade(product, facadeM ?? 0.24).bgf} m² BGF</span>
-                {calcModulEinheiten(product) > 1 && <><span>·</span><span className="text-[#7B2D8E]">{calcModulEinheiten(product)} Einheiten</span></>}
+              <div className="flex gap-4 pt-0.5">
+                <div className="leading-tight">
+                  <div className="num text-xs text-[#1C1C1A]">{flaechenFuerFassade(product, facadeM ?? 0.24).nuf} m²</div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">NUF</div>
+                </div>
+                <div className="leading-tight">
+                  <div className="num text-xs text-[#1C1C1A]">{flaechenFuerFassade(product, facadeM ?? 0.24).bgf} m²</div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">BGF</div>
+                </div>
+                {calcModulEinheiten(product) > 1 && (
+                  <div className="leading-tight">
+                    <div className="num text-xs text-[#7B2D8E]">{calcModulEinheiten(product)}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">Einheiten</div>
+                  </div>
+                )}
               </div>
               <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
               <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis</p>
@@ -2786,7 +2814,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     <AddFamilyCard selections={selections} setSelections={setSelections}
                       einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
                       addUsageState={addUsageState} setAddUsageState={setAddUsageState}
-                      isPureGewerb={isPureGewerb} priceCtx={priceCtx} />
+                      isPureGewerb={isPureGewerb} priceCtx={priceCtx} facadeM={projectFacadeM} />
                   )}
                 </div>
               </div>
@@ -2802,7 +2830,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   <AddFamilyCard selections={selections} setSelections={setSelections}
                     einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
                     addUsageState={addUsageState} setAddUsageState={setAddUsageState}
-                    isPureGewerb={isPureGewerb} priceCtx={priceCtx} />
+                    isPureGewerb={isPureGewerb} priceCtx={priceCtx} facadeM={projectFacadeM} />
                 </div>
               </div>
             )}
