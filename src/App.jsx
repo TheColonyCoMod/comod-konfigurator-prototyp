@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.108';
+const APP_VERSION = '0.9.109';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4881,16 +4881,30 @@ function AdminModulePartnerView({ module, authProfile, onClose }) {
     if (!wsId) { setError('Kein Workspace zugeordnet.'); return; }
     if (visible === origVisible) { onClose(); return; }
     setSaving(true); setError(null); setSaved(false);
+
+    // Zwilling(e) ermitteln, damit gemergte Module (Modell B) gemeinsam ein-/ausgeblendet werden
+    const ids = [module.id];
+    try {
+      const { data: tw } = await supabase.from('modules').select('id').eq('mirror_of', module.id).is('deleted_at', null);
+      (tw || []).forEach(t => { if (!ids.includes(t.id)) ids.push(t.id); });
+      if (module.mirror_of) {
+        if (!ids.includes(module.mirror_of)) ids.push(module.mirror_of);
+        const { data: sib } = await supabase.from('modules').select('id').eq('mirror_of', module.mirror_of).is('deleted_at', null);
+        (sib || []).forEach(s => { if (!ids.includes(s.id)) ids.push(s.id); });
+      }
+    } catch { /* ohne Zwilling weiter */ }
+
     let res;
     if (!visible) {
-      // ausblenden → hidden-Zeile anlegen
+      // ausblenden → bestehende Zeilen entfernen (Dubletten vermeiden) und für alle ids hidden anlegen
+      await supabase.from('module_visibility').delete().in('module_id', ids).eq('scope_type', 'workspace').eq('scope_id', wsId);
       res = await supabase.from('module_visibility')
-        .insert({ module_id: module.id, scope_type: 'workspace', scope_id: wsId, hidden: true });
+        .insert(ids.map(id => ({ module_id: id, scope_type: 'workspace', scope_id: wsId, hidden: true })));
     } else {
-      // sichtbar → hidden-Zeile entfernen
+      // sichtbar → hidden-Zeilen für alle ids entfernen
       res = await supabase.from('module_visibility')
         .delete()
-        .eq('module_id', module.id)
+        .in('module_id', ids)
         .eq('scope_type', 'workspace')
         .eq('scope_id', wsId)
         .eq('hidden', true);
