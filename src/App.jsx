@@ -9,7 +9,20 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const APP_VERSION = '0.9.101';
+// Benachrichtigungs-Mails über die Edge Function (Strato-SMTP). Secret kommt aus der
+// Vercel-Umgebungsvariable VITE_NOTIFY_SECRET (nicht im Code). Fehlt es, passiert nichts (fail-soft).
+const NOTIFY_FN = 'dynamic-service';
+const NOTIFY_SECRET = import.meta.env?.VITE_NOTIFY_SECRET || '';
+async function sendNotify(subject, text) {
+  if (!NOTIFY_SECRET) return;
+  try {
+    await supabase.functions.invoke(NOTIFY_FN, { body: { secret: NOTIFY_SECRET, subject, text } });
+  } catch (e) {
+    console.warn('[Notify] konnte nicht senden:', e?.message || e);
+  }
+}
+
+const APP_VERSION = '0.9.102';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -5275,6 +5288,20 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
       res = await supabase.from('projects').update(payload).eq('id', project.id).select('*').single();
     }
     if (res.error) { setError(res.error.message); setSaving(false); return; }
+    // Benachrichtigung an CoMod bei Partner-Projekt-Änderungen (nur Partner, nicht Master; fail-soft)
+    if (authProfile?.role === 'partner_admin') {
+      try {
+        const p = res.data || {};
+        const subject = `Partner-Projekt ${isNew ? 'angelegt' : 'geändert'}: ${p.name || '—'}`;
+        const text = [
+          `Projekt: ${p.name || '—'}${p.location ? ', ' + p.location : ''}`,
+          `Status: ${p.status || '—'}`,
+          `Aktion: ${isNew ? 'neu angelegt' : 'aktualisiert'}`,
+          authProfile.email ? `Bearbeitet von: ${authProfile.email}` : `Workspace: ${authProfile.workspace_id || '—'}`,
+        ].filter(Boolean).join('\n');
+        sendNotify(subject, text);
+      } catch { /* best-effort */ }
+    }
     setSaved(true); setSaving(false);
     setTimeout(() => { onSaved(res.data); }, 600);
   }
@@ -7402,6 +7429,27 @@ export default function App() {
           console.warn('[Supabase] Lead-Insert Fehler:', error.message);
         } else {
           console.log('[Supabase] Lead in DB gespeichert, ID:', data?.id);
+          // Benachrichtigung an CoMod (fail-soft)
+          try {
+            const c = lead.contact || {};
+            const fin = lead.finanzen || {};
+            const proj = lead.pfad?.project;
+            const nf = (n) => Math.round(n || 0).toLocaleString('de-DE');
+            const subject = `Neuer Lead: ${[c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Unbekannt'}${proj?.name ? ' — ' + proj.name : ''}`;
+            const text = [
+              `Name: ${[c.anrede, c.vorname, c.nachname].filter(Boolean).join(' ') || '—'}`,
+              c.firma ? `Firma: ${c.firma}` : null,
+              `E-Mail: ${c.email || '—'}`,
+              c.telefon ? `Telefon: ${c.telefon}` : null,
+              (c.plz || c.ort) ? `Ort: ${[c.plz, c.ort].filter(Boolean).join(' ')}` : null,
+              `Projekt: ${proj?.name || 'CoMod-Hauptkonfigurator'}${proj?.location ? ', ' + proj.location : ''}`,
+              `Nutzung: ${lead.pfad?.customerType || '—'} / ${lead.pfad?.modulart || '—'}`,
+              `Module: ${lead.module?.countTotal ?? 0} (NUF ${lead.module?.gesamtNUF ?? 0} m², BGF ${lead.module?.gesamtBGF ?? 0} m²)`,
+              `Einmalig: ${nf(fin.bruttoGesamt)} €  ·  Monatlich: ${nf(fin.monatlichGesamt)} €`,
+              c.notiz ? `Notiz: ${c.notiz}` : null,
+            ].filter(Boolean).join('\n');
+            sendNotify(subject, text);
+          } catch { /* Benachrichtigung best-effort */ }
         }
       } catch (e) {
         console.warn('[Supabase] Lead-Insert Verbindungsfehler:', e.message);
