@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.102';
+const APP_VERSION = '0.9.103';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -3839,10 +3839,6 @@ function SuccessStep({ lead, onRestart }) {
       <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-4">Unverbindliche Angebotsanfrage eingegangen</p>
       <h1 className="font-display text-5xl md:text-6xl leading-tight tracking-tight mb-6">Danke, <em>{lead?.contact?.vorname}</em><span className="opacity-40"> …</span></h1>
       <p className="font-body text-lg text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">Wir haben Deine Anfrage erhalten und melden uns innerhalb von 1–2 Werktagen mit einem detaillierten, unverbindlichen Angebot.</p>
-      <div className="bg-white border border-[#1C1C1A]/10 p-6 inline-flex items-center gap-3 font-body text-sm text-[#6B6961] mb-10">
-        <Sparkles className="w-4 h-4 text-[#7B2D8E]" strokeWidth={1.5} />
-        Im Live-System würden jetzt automatisch E-Mail + Pipedrive-Eintrag erstellt.
-      </div>
       <div><Button onClick={onRestart} variant="secondary">Neue Konfiguration starten</Button></div>
     </div>
   );
