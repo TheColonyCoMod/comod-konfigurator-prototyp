@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.104';
+const APP_VERSION = '0.9.105';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -7091,7 +7091,7 @@ function AdminPartnersView({ authProfile }) {
     if (password.length < 8) { setResult({ error: 'Passwort zu kurz (mind. 8 Zeichen).' }); return; }
     setBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-partner', {
+      const { data, error } = await supabase.functions.invoke('clever-api', { // = create-partner-Funktion (Slug bleibt 'clever-api')
         body: { name: name.trim(), slug: s, email: email.trim(), password, firstName: firstName.trim(), lastName: lastName.trim() },
       });
       let payload = data;
