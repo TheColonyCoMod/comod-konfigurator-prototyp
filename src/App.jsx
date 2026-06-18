@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.106';
+const APP_VERSION = '0.9.107';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -131,6 +131,31 @@ function slugify(s) {
   return (s || '').toLowerCase()
     .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+}
+
+// Einladungs-Mail: Standard-Vorlage + Platzhalter-Ersetzer ({{firstName}} usw.)
+const DEFAULT_INVITE_SUBJECT = 'Deine Zugänge zum CoMod-Konfigurator';
+const DEFAULT_INVITE_BODY = `Hallo {{firstName}},
+
+hier sind Deine Zugänge zum CoMod-Konfigurator.
+
+Dein Konfigurator (für Deine Kund:innen):
+{{link}}
+
+Dein Backend (Projekte & Branding verwalten):
+{{loginUrl}} → oben rechts „Admin" → anmelden mit:
+E-Mail: {{email}}
+Passwort: {{password}}
+
+Bitte behandle das Passwort vertraulich und ändere es nach dem ersten Login.
+
+Viele Grüße
+CoMod`;
+
+function fillTemplate(tpl, vars) {
+  let out = (tpl || '').replace(/\{\{(\w+)\}\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : ''));
+  out = out.replace(/Hallo\s+,/, 'Hallo,'); // falls Vorname leer bleibt
+  return out;
 }
 
 const FAMILIES_PRIVAT = ['live', 'home', 'add', 'stack'];
@@ -7060,6 +7085,33 @@ function AdminPartnersView({ authProfile }) {
   const [result, setResult] = useState(null);
   const [partners, setPartners] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
+  const [tplSubject, setTplSubject] = useState(DEFAULT_INVITE_SUBJECT);
+  const [tplBody, setTplBody] = useState(DEFAULT_INVITE_BODY);
+  const [tplOpen, setTplOpen] = useState(false);
+  const [tplSaving, setTplSaving] = useState(false);
+  const [tplMsg, setTplMsg] = useState('');
+
+  async function loadTemplate() {
+    try {
+      const { data } = await supabase.from('settings').select('value').eq('workspace_id', CO_MOD).eq('key', 'invite_template').maybeSingle();
+      const v = data?.value ? (typeof data.value === 'string' ? JSON.parse(data.value) : data.value) : null;
+      if (v?.subject) setTplSubject(v.subject);
+      if (v?.body) setTplBody(v.body);
+    } catch { /* Standardvorlage behalten */ }
+  }
+
+  async function saveTemplate() {
+    setTplSaving(true); setTplMsg('');
+    try {
+      await supabase.from('settings').delete().eq('workspace_id', CO_MOD).eq('key', 'invite_template');
+      const { error } = await supabase.from('settings').insert({ workspace_id: CO_MOD, key: 'invite_template', value: { subject: tplSubject, body: tplBody } });
+      setTplMsg(error ? ('Fehler: ' + error.message) : 'Gespeichert ✓');
+    } catch (e) {
+      setTplMsg('Fehler: ' + (e?.message || 'unbekannt'));
+    } finally {
+      setTplSaving(false);
+    }
+  }
 
   async function loadPartners() {
     setLoadingList(true);
@@ -7069,7 +7121,7 @@ function AdminPartnersView({ authProfile }) {
     } catch { setPartners([]); }
     setLoadingList(false);
   }
-  useEffect(() => { loadPartners(); }, []);
+  useEffect(() => { loadPartners(); loadTemplate(); }, []);
 
   const effectiveSlug = slugEdited ? slug : slugify(name);
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://konfigurator.comod.haus';
@@ -7089,17 +7141,23 @@ function AdminPartnersView({ authProfile }) {
     if (!/^[a-z0-9-]{2,}$/.test(s)) { setResult({ error: 'Slug ungültig (nur a–z, 0–9, Bindestrich).' }); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) { setResult({ error: 'Bitte eine gültige E-Mail angeben.' }); return; }
     if (password.length < 8) { setResult({ error: 'Passwort zu kurz (mind. 8 Zeichen).' }); return; }
+    const vars = {
+      firstName: firstName.trim(), lastName: lastName.trim(), name: name.trim(),
+      slug: s, link: `${origin}/p/${s}`, loginUrl: origin, email: email.trim(), password,
+    };
+    const inviteSubject = fillTemplate(tplSubject, vars);
+    const inviteText = fillTemplate(tplBody, vars);
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke('dynamic-service', { // eine Funktion, action steuert die Aufgabe
-        body: { action: 'create_partner', name: name.trim(), slug: s, email: email.trim(), password, firstName: firstName.trim(), lastName: lastName.trim() },
+        body: { action: 'create_partner', name: name.trim(), slug: s, email: email.trim(), password, firstName: firstName.trim(), lastName: lastName.trim(), inviteSubject, inviteText },
       });
       let payload = data;
       if (error && error.context && typeof error.context.json === 'function') {
         try { payload = await error.context.json(); } catch { /* ignore */ }
       }
       if (payload?.ok) {
-        setResult({ ok: true, name: name.trim(), slug: s, email: email.trim(), password });
+        setResult({ ok: true, name: name.trim(), slug: s, email: email.trim(), password, emailSent: !!payload.emailSent, emailError: payload.emailError || null, inviteText });
         setName(''); setSlug(''); setSlugEdited(false); setFirstName(''); setLastName(''); setEmail(''); setPassword(''); setShowPw(false);
         loadPartners();
       } else {
@@ -7115,14 +7173,10 @@ function AdminPartnersView({ authProfile }) {
   const inputCls = 'w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]';
   const labelCls = 'font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] block mb-1';
 
-  const inviteText = result?.ok
-    ? `Hallo${firstName ? ' ' + firstName : ''},\n\nhier Deine Zugänge zum CoMod-Konfigurator:\n\nDein Konfigurator (für Kund:innen):\n${origin}/p/${result.slug}\n\nDein Backend:\n${origin} → oben rechts „Admin" → einloggen mit:\n• E-Mail: ${result.email}\n• Passwort: ${result.password}\n\nBitte das Passwort vertraulich behandeln.\n\nViele Grüße`
-    : '';
-
   return (
     <div className="max-w-3xl">
       <h2 className="font-display text-2xl tracking-tight mb-1">Partner anlegen</h2>
-      <p className="font-body text-sm text-[#6B6961] mb-8">Legt Account, Workspace und Zugang in einem Schritt an. Den Einladungstext kannst Du danach kopieren und versenden.</p>
+      <p className="font-body text-sm text-[#6B6961] mb-8">Account, Workspace und Zugang werden in einem Schritt angelegt. Die Einladung geht automatisch per Mail an den Partner (in Kopie an Dich). Den Text legst Du unter „Einladungs-Mail · Vorlage" fest.</p>
 
       <div className="border border-[#1C1C1A]/10 bg-white p-6 mb-8 flex flex-col gap-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -7170,16 +7224,51 @@ function AdminPartnersView({ authProfile }) {
         </div>
       </div>
 
+      <div className="border border-[#1C1C1A]/10 bg-white mb-8">
+        <button onClick={() => setTplOpen(o => !o)} className="w-full flex items-center justify-between px-6 py-3 text-left">
+          <span className="font-body text-xs tracking-[0.15em] uppercase text-[#6B6961]">Einladungs-Mail · Vorlage</span>
+          <span className="font-body text-xs text-[#6B6961]">{tplOpen ? 'schließen' : 'bearbeiten'}</span>
+        </button>
+        {tplOpen && (
+          <div className="px-6 pb-6 flex flex-col gap-3 border-t border-[#1C1C1A]/8 pt-4">
+            <p className="font-body text-xs text-[#6B6961]">{'Platzhalter (werden beim Anlegen automatisch ersetzt): {{firstName}}, {{name}}, {{email}}, {{password}}, {{link}} (Konfigurator-Link), {{loginUrl}} (Backend-Adresse).'}</p>
+            <div>
+              <label className={labelCls}>Betreff</label>
+              <input className={inputCls} value={tplSubject} onChange={e => setTplSubject(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Text</label>
+              <textarea value={tplBody} onChange={e => setTplBody(e.target.value)}
+                className="w-full h-64 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-xs leading-relaxed focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button onClick={saveTemplate} disabled={tplSaving}
+                className="px-4 py-2 font-body text-xs tracking-wider uppercase text-[#F8F5F0] bg-[#1C1C1A] hover:bg-[#333] transition-colors disabled:opacity-50">
+                {tplSaving ? 'Speichert …' : 'Vorlage speichern'}
+              </button>
+              <button onClick={() => { setTplSubject(DEFAULT_INVITE_SUBJECT); setTplBody(DEFAULT_INVITE_BODY); setTplMsg('Standard wiederhergestellt (noch nicht gespeichert)'); }}
+                className="font-body text-xs uppercase tracking-wider text-[#6B6961] hover:text-[#1C1C1A] px-1">Standard</button>
+              {tplMsg && <span className="font-body text-xs text-[#6B6961]">{tplMsg}</span>}
+            </div>
+          </div>
+        )}
+      </div>
+
       {result?.ok && (
         <div className="border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_40%,transparent)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_6%,transparent)] p-6 mb-8">
           <p className="font-display text-lg mb-3">Partner „{result.name}" angelegt ✓</p>
+          {result.emailSent ? (
+            <p className="font-body text-sm text-green-700 mb-3">Einladung per Mail an {result.email} verschickt (Kopie an konfigurator@comod.haus).</p>
+          ) : (
+            <p className="font-body text-sm text-red-600 mb-3">Einladung wurde NICHT automatisch verschickt{result.emailError ? ': ' + result.emailError : ''}. Bitte den Text unten kopieren und manuell senden.</p>
+          )}
           <div className="font-body text-sm text-[#1C1C1A] flex flex-col gap-1 mb-4">
             <span>Konfigurator: <a className="underline" href={`${origin}/p/${result.slug}`} target="_blank" rel="noreferrer">{origin}/p/{result.slug}</a></span>
             <span>Login-E-Mail: {result.email}</span>
             <span>Passwort: <span className="num">{result.password}</span></span>
           </div>
-          <label className={labelCls}>Einladungstext (kopieren &amp; versenden)</label>
-          <textarea readOnly value={inviteText} onFocus={e => e.target.select()}
+          <label className={labelCls}>Verschickter Einladungstext (zum Nachschlagen / erneut senden)</label>
+          <textarea readOnly value={result.inviteText || ''} onFocus={e => e.target.select()}
             className="w-full h-44 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-xs leading-relaxed focus:outline-none" />
         </div>
       )}
