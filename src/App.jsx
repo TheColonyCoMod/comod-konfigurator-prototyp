@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.119';
+const APP_VERSION = '0.9.120';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -365,6 +365,7 @@ function mapDbModuleToFrontend(db) {
     breiteKorpusCm: db.breite_korpus_cm != null ? Number(db.breite_korpus_cm) : null,
     isKombi: !!db.is_kombimodul,
     grundmodulCount: db.grundmodul_count != null ? Number(db.grundmodul_count) : 1,
+    stackLevels: Array.isArray(db.stack_levels) ? db.stack_levels : null,
     flaecheOverride: !!db.flaeche_override,
   };
   // Optionale Felder nur setzen wenn vorhanden (Frontend prüft mit `in` oder undefined)
@@ -4386,18 +4387,44 @@ function AdminLeadsView({ authUser, authProfile }) {
 // Flächen aus der Geometrie ableiten (einstöckige Kombination nur über die Längsseiten).
 // Wandstärken: 18 cm Stirnseiten (Länge), 13 cm Längsseiten (Breite). Fassade f (m) ringsum für die BGF.
 // NUF ist fassadenunabhängig; BGF/Footprint hängen von der Fassadenstärke ab.
+// Mittel-Grundmodul (= CoMod Stay): fest 7,0 × 3,5 m, gleiche Wandstärke/Fassade wie die großen Module
+const MITTEL_LEN_M = 7.0;
+const MITTEL_WID_M = 3.5;
+const WALL_STIRN_M = 0.18;   // Stirnseiten (an der Länge)
+const WALL_LAENGS_M = 0.13;  // Längsseiten (an der Breite)
+
 function computeFlaechen(m, facadeM = 0.24) {
   const Lc = (Number(m.laenge_korpus_cm) || 0) / 100;
   const Wc = (Number(m.breite_korpus_cm) || 0) / 100;
   if (!Lc || !Wc) return null;
+  const r1 = (x) => Math.round(x * 10) / 10;
+  const nufPerSize = (L, W) => Math.max(0, L - 2 * WALL_STIRN_M) * Math.max(0, W - 2 * WALL_LAENGS_M);
+  // Block-BGF einer Längs-Reihe aus n gleichen Modulen (Breite wächst, Länge bleibt)
+  const blockBGF = (L, W, n) => n > 0 ? (L + 2 * facadeM) * (W * n + 2 * facadeM) : 0;
+
+  // --- Stack-Ebenen mit gemischten Größen (groß/mittel) je Ebene, EG zuerst ---
+  const levels = Array.isArray(m.stack_levels) ? m.stack_levels.filter(lv => lv && ((Number(lv.g) || 0) > 0 || (Number(lv.m) || 0) > 0)) : null;
+  if (levels && levels.length) {
+    const nufG = nufPerSize(Lc, Wc);
+    const nufM = nufPerSize(MITTEL_LEN_M, MITTEL_WID_M);
+    let nuf = 0, bgf = 0, footprint = 0;
+    levels.forEach((lv, idx) => {
+      const g = Math.max(0, Number(lv.g) || 0);
+      const mm = Math.max(0, Number(lv.m) || 0);
+      nuf += g * nufG + mm * nufM;
+      // je Größe eine eigene Längs-Reihe, summiert (pragmatische, leicht konservative Näherung)
+      const lvBGF = blockBGF(Lc, Wc, g) + blockBGF(MITTEL_LEN_M, MITTEL_WID_M, mm);
+      bgf += lvBGF;
+      if (idx === 0) footprint = lvBGF; // EG = Grundstücksbedarf (unterste/größte Ebene)
+    });
+    return { nuf: r1(nuf), bgf: r1(bgf), footprint: r1(footprint) };
+  }
+
+  // --- Standard: einstöckig oder gleichmäßige Stapelung ---
   const count  = (m.is_kombimodul && Number(m.grundmodul_count) > 0) ? Number(m.grundmodul_count) : 1;
   const floors = Number(m.geschosse) > 0 ? Number(m.geschosse) : 1;
-  const nufPer = Math.max(0, Lc - 2 * 0.18) * Math.max(0, Wc - 2 * 0.13);
-  // Kombination nur über die Längsseiten → Breite wächst, Länge bleibt
-  const blockL = Lc;
-  const blockW = Wc * count;
-  const floorBGF = (blockL + 2 * facadeM) * (blockW + 2 * facadeM);
-  const r1 = (x) => Math.round(x * 10) / 10;
+  const nufPer = nufPerSize(Lc, Wc);
+  const floorBGF = blockBGF(Lc, Wc, count);
   return {
     nuf: r1(nufPer * count * floors),
     bgf: r1(floorBGF * floors),     // Gesamt-BGF über alle Geschosse
@@ -4418,6 +4445,7 @@ function flaechenFuerFassade(product, facadeM = 0.24) {
     is_kombimodul: product.isKombi,
     grundmodul_count: product.grundmodulCount,
     geschosse: product.geschosse,
+    stack_levels: product.stackLevels,
   }, facadeM);
   return r || { nuf: product.nuf, bgf: product.bgf, footprint: product.footprint };
 }
@@ -4459,6 +4487,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
     flaeche_override: false,
     groesse_label: null,
     geschosse: 1,
+    stack_levels: null,
     herst_preis: 0,
     marge: 0.15,
     einnahmen_indikation: null,
@@ -4482,7 +4511,21 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
   }, [form.family]);
   // Auto-Flächen aus der Geometrie (Default-Fassade 24 cm). Override schaltet auf manuelle Werte.
   const autoFlaechen = useMemo(() => computeFlaechen(form, 0.24),
-    [form.laenge_korpus_cm, form.breite_korpus_cm, form.is_kombimodul, form.grundmodul_count, form.geschosse]);
+    [form.laenge_korpus_cm, form.breite_korpus_cm, form.is_kombimodul, form.grundmodul_count, form.geschosse, form.stack_levels]);
+  // Stack-Ebenen (gemischte Größen groß/mittel je Ebene, EG zuerst)
+  const stackOn = Array.isArray(form.stack_levels);
+  const levelLabel = (i) => (['EG', 'OG', 'DG'][i] || `Ebene ${i + 1}`);
+  const toggleStack = (on) => setForm(f => on
+    ? { ...f, stack_levels: (Array.isArray(f.stack_levels) && f.stack_levels.length) ? f.stack_levels : [{ g: Math.max(1, Number(f.grundmodul_count) || 1), m: 0 }] }
+    : { ...f, stack_levels: null });
+  const setLevel = (idx, key, val) => setForm(f => {
+    const lv = (Array.isArray(f.stack_levels) ? f.stack_levels : []).map(x => ({ g: Number(x.g) || 0, m: Number(x.m) || 0 }));
+    if (!lv[idx]) lv[idx] = { g: 0, m: 0 };
+    lv[idx][key] = Math.max(0, parseInt(val, 10) || 0);
+    return { ...f, stack_levels: lv };
+  });
+  const addLevel = () => setForm(f => ({ ...f, stack_levels: [...(Array.isArray(f.stack_levels) ? f.stack_levels : []), { g: 0, m: 0 }] }));
+  const removeLevel = (idx) => setForm(f => ({ ...f, stack_levels: (Array.isArray(f.stack_levels) ? f.stack_levels : []).filter((_, i) => i !== idx) }));
   // B-Modell / Verfügbarkeit: Häkchen „Privat" und „Gewerblich". Bei Merge-Familien (Live/Add/Stack)
   // sind beide frei wählbar (≥1); „beides" erzeugt den gewerblichen Zwilling. secondaryOn = Zwilling existiert.
   const [secondaryOn, setSecondaryOn] = useState(false);
@@ -4598,6 +4641,16 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
       if (auto) { payload.nuf = auto.nuf; payload.bgf = auto.bgf; payload.footprint_m2 = auto.footprint; }
     }
     payload.flaeche_override = !!form.flaeche_override;
+    // Stack-Ebenen normalisieren + abgeleitete Felder synchron halten (sonst null = keine Stapelung)
+    if (Array.isArray(form.stack_levels) && form.stack_levels.length) {
+      const lv = form.stack_levels.map(x => ({ g: Math.max(0, Number(x.g) || 0), m: Math.max(0, Number(x.m) || 0) }));
+      payload.stack_levels = lv;
+      payload.geschosse = lv.length;
+      payload.is_kombimodul = true;
+      payload.grundmodul_count = Math.max(1, lv[0].g + lv[0].m);
+    } else {
+      payload.stack_levels = null;
+    }
     let res;
     if (isNew) {
       res = await supabase.from('modules').insert(payload).select('*').single();
@@ -4892,6 +4945,33 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
                   </select>
                 </div>
               </>}
+            </div>
+            <div className="mt-4 pt-4 border-t border-[#1C1C1A]/10">
+              <label className="flex items-center gap-2 mb-1">
+                <input type="checkbox" checked={stackOn} onChange={e => toggleStack(e.target.checked)} />
+                <span className="font-body text-sm">Stack-Ebenen (gemischte Größen je Ebene)</span>
+              </label>
+              <p className="font-body text-[10px] text-[#6B6961] mb-3">Pro Ebene Anzahl großer und mittlerer Module (mittel = Stay, 7 × 3,5 m). EG zuerst. NUF/BGF je Ebene summiert, Footprint = EG.</p>
+              {stackOn && (
+                <div className="space-y-2 max-w-xl">
+                  <div className="grid grid-cols-[3.5rem_1fr_1fr_4rem] gap-3 items-center font-body text-[10px] uppercase tracking-wider text-[#6B6961]">
+                    <span>Ebene</span><span>Große</span><span>Mittlere (Stay)</span><span></span>
+                  </div>
+                  {form.stack_levels.map((lv, i) => (
+                    <div key={i} className="grid grid-cols-[3.5rem_1fr_1fr_4rem] gap-3 items-center">
+                      <span className="font-body text-sm text-[#1C1C1A]">{levelLabel(i)}</span>
+                      <input type="number" min="0" value={lv.g ?? 0} onChange={e => setLevel(i, 'g', e.target.value)}
+                        className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
+                      <input type="number" min="0" value={lv.m ?? 0} onChange={e => setLevel(i, 'm', e.target.value)}
+                        className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
+                      <button type="button" onClick={() => removeLevel(i)} disabled={form.stack_levels.length <= 1}
+                        className="font-body text-[11px] text-[#6B6961] hover:text-[#C5392E] disabled:opacity-30 disabled:hover:text-[#6B6961]">entfernen</button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={addLevel}
+                    className="font-body text-xs text-[var(--brand-accent,#D2563E)] hover:underline">+ Ebene hinzufügen</button>
+                </div>
+              )}
             </div>
           </section>
 
