@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.111';
+const APP_VERSION = '0.9.114';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4333,6 +4333,28 @@ function AdminLeadsView({ authUser, authProfile }) {
    ADMIN-MODULE: Liste + Edit-Modal
    ============================================================================ */
 
+// Flächen aus der Geometrie ableiten (einstöckige Kombination nur über die Längsseiten).
+// Wandstärken: 18 cm Stirnseiten (Länge), 13 cm Längsseiten (Breite). Fassade f (m) ringsum für die BGF.
+// NUF ist fassadenunabhängig; BGF/Footprint hängen von der Fassadenstärke ab.
+function computeFlaechen(m, facadeM = 0.24) {
+  const Lc = (Number(m.laenge_korpus_cm) || 0) / 100;
+  const Wc = (Number(m.breite_korpus_cm) || 0) / 100;
+  if (!Lc || !Wc) return null;
+  const count  = (m.is_kombimodul && Number(m.grundmodul_count) > 0) ? Number(m.grundmodul_count) : 1;
+  const floors = Number(m.geschosse) > 0 ? Number(m.geschosse) : 1;
+  const nufPer = Math.max(0, Lc - 2 * 0.18) * Math.max(0, Wc - 2 * 0.13);
+  // Kombination nur über die Längsseiten → Breite wächst, Länge bleibt
+  const blockL = Lc;
+  const blockW = Wc * count;
+  const floorBGF = (blockL + 2 * facadeM) * (blockW + 2 * facadeM);
+  const r1 = (x) => Math.round(x * 10) / 10;
+  return {
+    nuf: r1(nufPer * count * floors),
+    bgf: r1(floorBGF * floors),     // Gesamt-BGF über alle Geschosse
+    footprint: r1(floorBGF),        // EG-Grundfläche
+  };
+}
+
 const MODULE_CATEGORIES = [
   { key: 'wohnen',     label: 'Wohnen' },
   { key: 'arbeit',     label: 'Arbeit' },
@@ -4367,6 +4389,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
     nuf: null,
     bgf: null,
     footprint_m2: null,
+    flaeche_override: false,
     groesse_label: null,
     geschosse: 1,
     herst_preis: 0,
@@ -4383,6 +4406,16 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
+  // Family als Dropdown (vorhandene wählen) + Möglichkeit, eine neue Family anzulegen
+  const [familyMode, setFamilyMode] = useState('select');
+  const familyOptions = useMemo(() => {
+    const set = new Set([...PRODUCTS.privat, ...PRODUCTS.gewerblich].map(p => p.family).filter(Boolean));
+    if (form.family) set.add(form.family);
+    return [...set].sort();
+  }, [form.family]);
+  // Auto-Flächen aus der Geometrie (Default-Fassade 24 cm). Override schaltet auf manuelle Werte.
+  const autoFlaechen = useMemo(() => computeFlaechen(form, 0.24),
+    [form.laenge_korpus_cm, form.breite_korpus_cm, form.is_kombimodul, form.grundmodul_count, form.geschosse]);
   // B-Modell / Verfügbarkeit: Häkchen „Privat" und „Gewerblich". Bei Merge-Familien (Live/Add/Stack)
   // sind beide frei wählbar (≥1); „beides" erzeugt den gewerblichen Zwilling. secondaryOn = Zwilling existiert.
   const [secondaryOn, setSecondaryOn] = useState(false);
@@ -4492,6 +4525,12 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
       wantTwinCalc = availP && availG;
     }
     const payload = { ...rest, marge: margeNum, fee: feeNum, usage: effUsage };
+    // Flächen automatisch aus der Geometrie (Default-Fassade 24 cm) — außer manueller Override ist aktiv
+    if (!form.flaeche_override) {
+      const auto = computeFlaechen(form, 0.24);
+      if (auto) { payload.nuf = auto.nuf; payload.bgf = auto.bgf; payload.footprint_m2 = auto.footprint; }
+    }
+    payload.flaeche_override = !!form.flaeche_override;
     let res;
     if (isNew) {
       res = await supabase.from('modules').insert(payload).select('*').single();
@@ -4592,9 +4631,25 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Family</label>
-                <input type="text" value={form.family ?? ''} onChange={update('family')}
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
-              <p className="font-body text-[10px] text-[#6B6961] mt-0.5">z. B. 'stay', 'live', 'home'</p>
+                {familyMode === 'new' ? (
+                  <div className="flex gap-1.5">
+                    <input type="text" value={form.family ?? ''} onChange={update('family')} placeholder="neue Family, z. B. lager"
+                      className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
+                    <button type="button" onClick={() => setFamilyMode('select')} className="font-body text-[11px] text-[#6B6961] hover:text-[#1C1C1A] px-2 whitespace-nowrap">Liste</button>
+                  </div>
+                ) : (
+                  <select value={familyOptions.includes(form.family) ? form.family : ''}
+                    onChange={e => {
+                      if (e.target.value === '__new__') { setForm(f => ({ ...f, family: '' })); setFamilyMode('new'); }
+                      else setForm(f => ({ ...f, family: e.target.value }));
+                    }}
+                    className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]">
+                    <option value="" disabled>— Family wählen —</option>
+                    {familyOptions.map(f => <option key={f} value={f}>{f}</option>)}
+                    <option value="__new__">+ neue Family …</option>
+                  </select>
+                )}
+              <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Vorhandene wählen oder neue anlegen (vermeidet Tippfehler).</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Kategorie</label>
@@ -4713,20 +4768,37 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">NUF (m²)</label>
-                <input type="number" value={form.nuf ?? ''} onChange={update('nuf')} step="0.01"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
+                <input type="number" step="0.01" disabled={!form.flaeche_override}
+                  value={form.flaeche_override ? (form.nuf ?? '') : (autoFlaechen?.nuf ?? form.nuf ?? '')}
+                  onChange={update('nuf')}
+                  className={`w-full border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${form.flaeche_override ? 'bg-[#F8F5F0]' : 'bg-[#1C1C1A]/[0.03] text-[#6B6961]'}`} />
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">BGF (m²)</label>
-                <input type="number" value={form.bgf ?? ''} onChange={update('bgf')} step="0.01"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
-                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Bei Stapelung: Gesamt-BGF über alle Geschosse</p>
+                <input type="number" step="0.01" disabled={!form.flaeche_override}
+                  value={form.flaeche_override ? (form.bgf ?? '') : (autoFlaechen?.bgf ?? form.bgf ?? '')}
+                  onChange={update('bgf')}
+                  className={`w-full border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${form.flaeche_override ? 'bg-[#F8F5F0]' : 'bg-[#1C1C1A]/[0.03] text-[#6B6961]'}`} />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Auto: Gesamt-BGF über alle Geschosse (Fassade 24 cm)</p>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Footprint (m²)</label>
-                <input type="number" value={form.footprint_m2 ?? ''} onChange={update('footprint_m2')} step="0.01"
-                  className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
-                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">EG-Grundfläche für Stellplatz. Bei 1-geschossigen Modulen = BGF</p>
+                <input type="number" step="0.01" disabled={!form.flaeche_override}
+                  value={form.flaeche_override ? (form.footprint_m2 ?? '') : (autoFlaechen?.footprint ?? form.footprint_m2 ?? '')}
+                  onChange={update('footprint_m2')}
+                  className={`w-full border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)] ${form.flaeche_override ? 'bg-[#F8F5F0]' : 'bg-[#1C1C1A]/[0.03] text-[#6B6961]'}`} />
+                <p className="font-body text-[10px] text-[#6B6961] mt-0.5">EG-Grundfläche für Stellplatz. Einstöckig = BGF</p>
+              </div>
+              <div className="sm:col-span-2 lg:col-span-3 flex items-center gap-2 pt-1">
+                <input type="checkbox" id="flaeche_ov" checked={!!form.flaeche_override}
+                  onChange={e => {
+                    const on = e.target.checked;
+                    setForm(f => on
+                      ? { ...f, flaeche_override: true, nuf: f.nuf ?? autoFlaechen?.nuf ?? null, bgf: f.bgf ?? autoFlaechen?.bgf ?? null, footprint_m2: f.footprint_m2 ?? autoFlaechen?.footprint ?? null }
+                      : { ...f, flaeche_override: false });
+                  }} />
+                <label htmlFor="flaeche_ov" className="font-body text-sm">Flächen manuell überschreiben</label>
+                <span className="font-body text-[11px] text-[#6B6961]">{form.flaeche_override ? '(manuelle Werte aktiv)' : '(werden automatisch aus Maßen + Kombi berechnet)'}</span>
               </div>
               <div>
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Anzahl Geschosse</label>
