@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.117';
+const APP_VERSION = '0.9.118';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2368,7 +2368,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
   return (
     <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${familyTotal > 0 ? 'border-[var(--brand-accent,#D2563E)] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]' : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
       {/* Hero-Image: Grundriss groß, weißer Hintergrund (Feedback V4) */}
-      <div className="relative bg-white flex items-center justify-center px-2 py-2" style={{ minHeight: '200px' }}>
+      <div className="relative bg-white flex items-center justify-center px-2 py-2 shrink-0" style={{ height: '224px' }}>
         {product.usage === 'g' && (
           <div className="absolute top-0 right-0 w-[96px] h-[96px] overflow-hidden pointer-events-none z-10">
             <span className="absolute font-body text-[9px] tracking-[0.12em] uppercase text-white text-center"
@@ -2380,7 +2380,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
         {(() => {
           const iconPath = getModulIcon(product.kuerzel);
           return iconPath ? (
-            <img src={iconPath} alt={`Grundriss ${getDisplayName(product)}`} className="max-h-56 w-auto object-contain" loading="lazy" />
+            <img src={iconPath} alt={`Grundriss ${getDisplayName(product)}`} className="max-h-full w-auto object-contain" loading="lazy" />
           ) : (
             <ModuleIcon nuf={product.nuf} />
           );
@@ -2532,7 +2532,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
         : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
 
       {/* Hero: feste Höhe, weißer HG. Bevorzugt das hochgeladene Modul-Bild, sonst Grundriss-Icon, sonst Platzhalter. */}
-      <div className="relative bg-white flex items-center justify-center px-2 py-2 shrink-0" style={{ height: '200px' }}>
+      <div className="relative bg-white flex items-center justify-center px-2 py-2 shrink-0" style={{ height: '224px' }}>
         {product.usage === 'g' && (
           <div className="absolute top-0 right-0 w-[96px] h-[96px] overflow-hidden pointer-events-none z-10">
             <span className="absolute font-body text-[9px] tracking-[0.12em] uppercase text-white text-center"
