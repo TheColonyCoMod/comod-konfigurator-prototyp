@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.115';
+const APP_VERSION = '0.9.116';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2526,13 +2526,13 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
   const showsIncome = isModeToggleable(product) && mode === 'einnahmen';
 
   return (
-    <div className={`border transition-all duration-300 overflow-hidden flex flex-col ${
+    <div className={`border transition-all duration-300 overflow-hidden flex flex-col h-full ${
       familyTotal > 0
         ? (showsIncome && product.usage === 'g' ? 'border-[#7B2D8E] bg-white shadow-[0_4px_20px_-8px_rgba(168,139,90,0.25)]' : 'border-[var(--brand-accent,#D2563E)] bg-white shadow-[0_4px_20px_-8px_rgba(60,84,70,0.15)]')
         : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
 
-      {/* Hero-Image: Grundriss groß, weißer Hintergrund, minimales Padding (Feedback V4) */}
-      <div className="relative bg-white flex items-center justify-center px-2 py-2" style={{ minHeight: '200px' }}>
+      {/* Hero: feste Höhe, weißer HG. Bevorzugt das hochgeladene Modul-Bild, sonst Grundriss-Icon, sonst Platzhalter. */}
+      <div className="relative bg-white flex items-center justify-center px-2 py-2 shrink-0" style={{ height: '208px' }}>
         {product.usage === 'g' && (
           <div className="absolute top-0 right-0 w-[96px] h-[96px] overflow-hidden pointer-events-none z-10">
             <span className="absolute font-body text-[9px] tracking-[0.12em] uppercase text-white text-center"
@@ -2542,28 +2542,55 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
           </div>
         )}
         {(() => {
+          if (product.bildUrl) return <img src={product.bildUrl} alt={getDisplayName(product)} className="max-h-full max-w-full object-contain" loading="lazy" />;
           const iconPath = getModulIcon(product.kuerzel);
-          return iconPath ? (
-            <img src={iconPath} alt={`Grundriss ${getDisplayName(product)}`} className="max-h-56 w-auto object-contain" loading="lazy" />
-          ) : (
-            <ModuleIcon nuf={product.nuf} />
-          );
+          return iconPath
+            ? <img src={iconPath} alt={`Grundriss ${getDisplayName(product)}`} className="max-h-full w-auto object-contain" loading="lazy" />
+            : <ModuleIcon nuf={product.nuf} />;
         })()}
         {familyTotal > 0 && (
           <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} gewählt</span>
         )}
       </div>
 
-      {/* Textteil dezent farblich abgesetzt vom weißen Hero — flex-1 füllt die restliche Höhe der Karte */}
-      <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1">
-        <div className="flex items-baseline justify-between gap-2 mb-1">
-          <h4 className="font-display text-xl leading-tight">{fam.label}</h4>
-        </div>
-        <p className="font-body text-xs text-[#6B6961] leading-snug mb-4">{fam.desc}</p>
+      {/* Textteil — Spalte; Preis+Button werden per mt-auto immer unten bündig gehalten */}
+      <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1 flex flex-col">
+        <h4 className="font-display text-xl leading-tight mb-1">{fam.label}</h4>
+        <p className="font-body text-xs text-[#6B6961] leading-snug mb-4 min-h-[2rem]">{fam.desc || product.beschr || fam.label}</p>
 
+        {/* Größe + Möblierung */}
         <VariantPicker products={products} selectedVariant={variant} setSelectedVariant={setVar} />
 
-        <div className="flex items-end justify-between gap-4 pt-4 mt-4 border-t border-[#1C1C1A]/10">
+        {/* Nutzung (gewerblich / privat) */}
+        <AvailabilityToggle product={product} mode={mode} onChange={setMode} />
+
+        {showsIncome && (
+          <div className="mt-3 px-3 py-2 bg-[#7B2D8E]/10 border border-[#7B2D8E]/25 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="w-3.5 h-3.5 text-[#7B2D8E]" strokeWidth={2} />
+              <span className="font-body text-xs text-[#1C1C1A]">Mietindikation / Monat</span>
+            </div>
+            <span className="font-display text-sm num text-[#1C1C1A]">{fmtEUR(product.einnahmen)}</span>
+          </div>
+        )}
+
+        {familyTotal > count && (
+          <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
+            <p className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] mb-1.5">Alle Varianten in dieser Familie</p>
+            <div className="space-y-1">
+              {products.filter(p => (selections[p.kuerzel] || 0) > 0).map(p => (
+                <div key={p.kuerzel} className="flex justify-between gap-2 font-body text-xs">
+                  <span className="text-[#6B6961]">{selections[p.kuerzel]}× <span className="text-[#1C1C1A]">{getDisplayName(p)}</span></span>
+                  <button onClick={() => setSelections(prev => { const n = {...prev}; delete n[p.kuerzel]; return n; })}
+                    className="text-[#6B6961] hover:text-[#C5392E] transition-colors text-[10px]">entfernen</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Preis + Hinzufügen — immer bündig unten */}
+        <div className="mt-auto flex items-end justify-between gap-4 pt-4 border-t border-[#1C1C1A]/10">
           <div className="space-y-1 text-xs font-body">
             <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
             <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
@@ -2595,33 +2622,6 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
             )}
           </div>
         </div>
-
-        <AvailabilityToggle product={product} mode={mode} onChange={setMode} />
-
-        {showsIncome && (
-          <div className="mt-3 px-3 py-2 bg-[#7B2D8E]/10 border border-[#7B2D8E]/25 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-[#7B2D8E]" strokeWidth={2} />
-              <span className="font-body text-xs text-[#1C1C1A]">Mietindikation / Monat</span>
-            </div>
-            <span className="font-display text-sm num text-[#1C1C1A]">{fmtEUR(product.einnahmen)}</span>
-          </div>
-        )}
-
-        {familyTotal > count && (
-          <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
-            <p className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] mb-1.5">Alle Varianten in dieser Familie</p>
-            <div className="space-y-1">
-              {products.filter(p => (selections[p.kuerzel] || 0) > 0).map(p => (
-                <div key={p.kuerzel} className="flex justify-between gap-2 font-body text-xs">
-                  <span className="text-[#6B6961]">{selections[p.kuerzel]}× <span className="text-[#1C1C1A]">{getDisplayName(p)}</span></span>
-                  <button onClick={() => setSelections(prev => { const n = {...prev}; delete n[p.kuerzel]; return n; })}
-                    className="text-[#6B6961] hover:text-[#C5392E] transition-colors text-[10px]">entfernen</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
