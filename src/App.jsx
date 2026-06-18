@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.107';
+const APP_VERSION = '0.9.108';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4172,6 +4172,21 @@ function AdminLeadsView({ authUser, authProfile }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all'); // 'all' | '7d' | '30d'
   const [selectedLead, setSelectedLead] = useState(null);
+  const [delConfirm, setDelConfirm] = useState(false);
+  const [delBusy, setDelBusy] = useState(false);
+  const [delMsg, setDelMsg] = useState('');
+
+  async function deleteAllLeads() {
+    setDelBusy(true); setDelMsg('');
+    try {
+      const { data, error } = await supabase.functions.invoke('dynamic-service', { body: { action: 'delete_all_leads' } });
+      let payload = data;
+      if (error && error.context && typeof error.context.json === 'function') { try { payload = await error.context.json(); } catch { /* ignore */ } }
+      if (payload?.ok) { setDelConfirm(false); setDelMsg(`${payload.deleted ?? ''} Leads gelöscht.`); loadLeads(); }
+      else { setDelMsg(payload?.error || error?.message || 'Löschen fehlgeschlagen.'); }
+    } catch (e) { setDelMsg(e?.message || 'Verbindungsfehler.'); }
+    finally { setDelBusy(false); }
+  }
 
   async function loadLeads() {
     setLoading(true); setError(null);
@@ -4208,8 +4223,23 @@ function AdminLeadsView({ authUser, authProfile }) {
             {filteredLeads.length} von {leads.length} {leads.length === 1 ? 'Lead' : 'Leads'}
           </p>
         </div>
-        <button onClick={loadLeads} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {authProfile?.role === 'master_admin' && (
+            delConfirm ? (
+              <div className="flex items-center gap-2">
+                <span className="font-body text-xs text-[#C5392E]">Wirklich ALLE {leads.length} Leads unwiderruflich löschen?</span>
+                <button onClick={deleteAllLeads} disabled={delBusy} className="font-body text-xs tracking-wider uppercase text-white bg-[#C5392E] hover:bg-[#A12C23] px-3 py-2 disabled:opacity-50">{delBusy ? 'Löscht …' : 'Ja, alle löschen'}</button>
+                <button onClick={() => setDelConfirm(false)} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10">Abbrechen</button>
+              </div>
+            ) : (
+              <button onClick={() => { setDelMsg(''); setDelConfirm(true); }} disabled={leads.length === 0}
+                className="font-body text-xs tracking-wider uppercase text-[#C5392E] hover:text-[#A12C23] px-3 py-2 border border-[#C5392E]/30 hover:border-[#C5392E]/60 disabled:opacity-40 disabled:hover:text-[#C5392E]">Alle Leads löschen</button>
+            )
+          )}
+          <button onClick={loadLeads} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-2 border border-[#1C1C1A]/10 hover:border-[#1C1C1A]/30">Neu laden</button>
+        </div>
       </div>
+      {delMsg && <p className="font-body text-xs text-[#6B6961] mb-4 -mt-4">{delMsg}</p>}
 
       <div className="flex flex-wrap gap-3 mb-6">
         <div className="flex items-center gap-2">
@@ -7085,6 +7115,21 @@ function AdminPartnersView({ authProfile }) {
   const [result, setResult] = useState(null);
   const [partners, setPartners] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [delBusy, setDelBusy] = useState(false);
+  const [listMsg, setListMsg] = useState('');
+
+  async function doDeletePartner(p) {
+    setDelBusy(true); setListMsg('');
+    try {
+      const { data, error } = await supabase.functions.invoke('dynamic-service', { body: { action: 'delete_partner', workspaceId: p.id } });
+      let payload = data;
+      if (error && error.context && typeof error.context.json === 'function') { try { payload = await error.context.json(); } catch { /* ignore */ } }
+      if (payload?.ok) { setConfirmDel(null); setListMsg(`Partner „${p.name}" gelöscht.`); loadPartners(); }
+      else { setListMsg(payload?.error || error?.message || 'Löschen fehlgeschlagen.'); }
+    } catch (e) { setListMsg(e?.message || 'Verbindungsfehler.'); }
+    finally { setDelBusy(false); }
+  }
   const [tplSubject, setTplSubject] = useState(DEFAULT_INVITE_SUBJECT);
   const [tplBody, setTplBody] = useState(DEFAULT_INVITE_BODY);
   const [tplOpen, setTplOpen] = useState(false);
@@ -7274,6 +7319,7 @@ function AdminPartnersView({ authProfile }) {
       )}
 
       <h3 className="font-body text-xs tracking-[0.15em] uppercase text-[#6B6961] mb-3">Bestehende Partner</h3>
+      {listMsg && <p className="font-body text-xs text-[#6B6961] mb-3">{listMsg}</p>}
       {loadingList ? (
         <p className="font-body text-sm text-[#6B6961]">Lädt …</p>
       ) : partners.length === 0 ? (
@@ -7286,7 +7332,18 @@ function AdminPartnersView({ authProfile }) {
                 <span className="font-body text-sm text-[#1C1C1A]">{p.name}</span>
                 <span className="font-body text-xs text-[#6B6961] ml-2">/p/{p.slug}</span>
               </div>
-              <a className="font-body text-xs text-[#6B6961] hover:text-[#1C1C1A] underline" href={`${origin}/p/${p.slug}`} target="_blank" rel="noreferrer">Link öffnen</a>
+              {confirmDel === p.id ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-body text-xs text-[#C5392E]">Partner inkl. Account, Projekte &amp; Leads löschen?</span>
+                  <button onClick={() => doDeletePartner(p)} disabled={delBusy} className="font-body text-xs tracking-wider uppercase text-white bg-[#C5392E] hover:bg-[#A12C23] px-3 py-1.5 disabled:opacity-50">{delBusy ? 'Löscht …' : 'Ja, löschen'}</button>
+                  <button onClick={() => setConfirmDel(null)} className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] px-3 py-1.5 border border-[#1C1C1A]/10">Abbrechen</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <a className="font-body text-xs text-[#6B6961] hover:text-[#1C1C1A] underline" href={`${origin}/p/${p.slug}`} target="_blank" rel="noreferrer">Link öffnen</a>
+                  <button onClick={() => { setListMsg(''); setConfirmDel(p.id); }} className="font-body text-xs text-[#C5392E]/80 hover:text-[#C5392E]">Löschen</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
