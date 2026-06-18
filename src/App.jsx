@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.103';
+const APP_VERSION = '0.9.104';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -124,6 +124,13 @@ function makeTwinKuerzel(kuerzel, family) {
   if (family === 'add')   return (kuerzel || '').replace('CoMod Add ', 'CoMod Add B ');
   if (family === 'stack') return (kuerzel || '').endsWith(' B') ? kuerzel : `${kuerzel || ''} B`;
   return `${kuerzel || ''} B`;
+}
+
+// URL-tauglichen Slug aus einem Namen ableiten (für Partner-Links /p/{slug})
+function slugify(s) {
+  return (s || '').toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 }
 
 const FAMILIES_PRIVAT = ['live', 'home', 'add', 'stack'];
@@ -7039,6 +7046,166 @@ function AdminBrandingView({ authProfile }) {
   );
 }
 
+function AdminPartnersView({ authProfile }) {
+  const CO_MOD = '00000000-0000-0000-0000-000000000001';
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [partners, setPartners] = useState([]);
+  const [loadingList, setLoadingList] = useState(true);
+
+  async function loadPartners() {
+    setLoadingList(true);
+    try {
+      const { data } = await supabase.from('workspaces').select('id, name, slug').neq('id', CO_MOD).order('name');
+      setPartners(data || []);
+    } catch { setPartners([]); }
+    setLoadingList(false);
+  }
+  useEffect(() => { loadPartners(); }, []);
+
+  const effectiveSlug = slugEdited ? slug : slugify(name);
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://konfigurator.comod.haus';
+
+  function genPw() {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let p = '';
+    for (let i = 0; i < 12; i++) p += chars[Math.floor(Math.random() * chars.length)];
+    setPassword(p + '!7');
+    setShowPw(true);
+  }
+
+  async function createPartner() {
+    setResult(null);
+    const s = effectiveSlug.trim();
+    if (!name.trim()) { setResult({ error: 'Bitte einen Namen angeben.' }); return; }
+    if (!/^[a-z0-9-]{2,}$/.test(s)) { setResult({ error: 'Slug ungültig (nur a–z, 0–9, Bindestrich).' }); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) { setResult({ error: 'Bitte eine gültige E-Mail angeben.' }); return; }
+    if (password.length < 8) { setResult({ error: 'Passwort zu kurz (mind. 8 Zeichen).' }); return; }
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-partner', {
+        body: { name: name.trim(), slug: s, email: email.trim(), password, firstName: firstName.trim(), lastName: lastName.trim() },
+      });
+      let payload = data;
+      if (error && error.context && typeof error.context.json === 'function') {
+        try { payload = await error.context.json(); } catch { /* ignore */ }
+      }
+      if (payload?.ok) {
+        setResult({ ok: true, name: name.trim(), slug: s, email: email.trim(), password });
+        setName(''); setSlug(''); setSlugEdited(false); setFirstName(''); setLastName(''); setEmail(''); setPassword(''); setShowPw(false);
+        loadPartners();
+      } else {
+        setResult({ error: payload?.error || error?.message || 'Unbekannter Fehler.' });
+      }
+    } catch (e) {
+      setResult({ error: e?.message || 'Verbindungsfehler.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const inputCls = 'w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]';
+  const labelCls = 'font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] block mb-1';
+
+  const inviteText = result?.ok
+    ? `Hallo${firstName ? ' ' + firstName : ''},\n\nhier Deine Zugänge zum CoMod-Konfigurator:\n\nDein Konfigurator (für Kund:innen):\n${origin}/p/${result.slug}\n\nDein Backend:\n${origin} → oben rechts „Admin" → einloggen mit:\n• E-Mail: ${result.email}\n• Passwort: ${result.password}\n\nBitte das Passwort vertraulich behandeln.\n\nViele Grüße`
+    : '';
+
+  return (
+    <div className="max-w-3xl">
+      <h2 className="font-display text-2xl tracking-tight mb-1">Partner anlegen</h2>
+      <p className="font-body text-sm text-[#6B6961] mb-8">Legt Account, Workspace und Zugang in einem Schritt an. Den Einladungstext kannst Du danach kopieren und versenden.</p>
+
+      <div className="border border-[#1C1C1A]/10 bg-white p-6 mb-8 flex flex-col gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Partner-Name</label>
+            <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="z. B. Lagom Hospitality" />
+          </div>
+          <div>
+            <label className={labelCls}>Slug (Link)</label>
+            <input className={inputCls} value={effectiveSlug}
+              onChange={e => { setSlug(slugify(e.target.value)); setSlugEdited(true); }} placeholder="lagom" />
+            <p className="font-body text-[11px] text-[#6B6961] mt-1">{origin}/p/{effectiveSlug || '…'}</p>
+          </div>
+          <div>
+            <label className={labelCls}>Ansprechpartner — Vorname</label>
+            <input className={inputCls} value={firstName} onChange={e => setFirstName(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Ansprechpartner — Nachname</label>
+            <input className={inputCls} value={lastName} onChange={e => setLastName(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>E-Mail (Login)</label>
+            <input className={inputCls} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@firma.de" />
+          </div>
+          <div>
+            <label className={labelCls}>Vorläufiges Passwort</label>
+            <div className="relative">
+              <input className={`${inputCls} pr-20`} type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <button type="button" onClick={() => setShowPw(s => !s)} tabIndex={-1} aria-label={showPw ? 'verbergen' : 'anzeigen'}
+                  className="text-[#6B6961] hover:text-[#1C1C1A] p-1">{showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                <button type="button" onClick={genPw} className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] hover:text-[#1C1C1A] px-1">Gen</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 flex-wrap pt-1">
+          <button onClick={createPartner} disabled={busy}
+            className="px-6 py-2.5 font-body text-xs tracking-wider uppercase text-[#F8F5F0] bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] transition-colors disabled:opacity-50">
+            {busy ? 'Legt an …' : 'Partner anlegen'}
+          </button>
+          {result?.error && <p className="font-body text-xs text-red-600">{result.error}</p>}
+        </div>
+      </div>
+
+      {result?.ok && (
+        <div className="border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_40%,transparent)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_6%,transparent)] p-6 mb-8">
+          <p className="font-display text-lg mb-3">Partner „{result.name}" angelegt ✓</p>
+          <div className="font-body text-sm text-[#1C1C1A] flex flex-col gap-1 mb-4">
+            <span>Konfigurator: <a className="underline" href={`${origin}/p/${result.slug}`} target="_blank" rel="noreferrer">{origin}/p/{result.slug}</a></span>
+            <span>Login-E-Mail: {result.email}</span>
+            <span>Passwort: <span className="num">{result.password}</span></span>
+          </div>
+          <label className={labelCls}>Einladungstext (kopieren &amp; versenden)</label>
+          <textarea readOnly value={inviteText} onFocus={e => e.target.select()}
+            className="w-full h-44 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-3 py-2 font-body text-xs leading-relaxed focus:outline-none" />
+        </div>
+      )}
+
+      <h3 className="font-body text-xs tracking-[0.15em] uppercase text-[#6B6961] mb-3">Bestehende Partner</h3>
+      {loadingList ? (
+        <p className="font-body text-sm text-[#6B6961]">Lädt …</p>
+      ) : partners.length === 0 ? (
+        <p className="font-body text-sm text-[#6B6961]">Noch keine Partner angelegt.</p>
+      ) : (
+        <div className="border border-[#1C1C1A]/10 bg-white divide-y divide-[#1C1C1A]/8">
+          {partners.map(p => (
+            <div key={p.id} className="px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <span className="font-body text-sm text-[#1C1C1A]">{p.name}</span>
+                <span className="font-body text-xs text-[#6B6961] ml-2">/p/{p.slug}</span>
+              </div>
+              <a className="font-body text-xs text-[#6B6961] hover:text-[#1C1C1A] underline" href={`${origin}/p/${p.slug}`} target="_blank" rel="noreferrer">Link öffnen</a>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminPanel({ authUser, authProfile }) {
   const [tab, setTab] = useState('leads'); // 'leads' | 'modules' | 'projects' | 'settings' | 'backups'
   async function logout() { await supabase.auth.signOut(); }
@@ -7047,7 +7214,7 @@ function AdminPanel({ authUser, authProfile }) {
     { key: 'modules',  label: 'Module' },
     { key: 'projects', label: 'Projekte' },
     ...(authProfile?.role === 'partner_admin' ? [{ key: 'branding', label: 'Branding' }] : []),
-    ...(authProfile?.role === 'master_admin' ? [{ key: 'settings', label: 'Settings' }, { key: 'texte', label: 'Texte' }, { key: 'backups', label: 'Backups' }] : []),
+    ...(authProfile?.role === 'master_admin' ? [{ key: 'partner', label: 'Partner' }, { key: 'settings', label: 'Settings' }, { key: 'texte', label: 'Texte' }, { key: 'backups', label: 'Backups' }] : []),
   ];
   return (
     <div className="max-w-7xl mx-auto px-8 py-12">
@@ -7072,6 +7239,7 @@ function AdminPanel({ authUser, authProfile }) {
       {tab === 'modules'  && <AdminModulesView authProfile={authProfile} />}
       {tab === 'projects' && <AdminProjectsView authProfile={authProfile} />}
       {tab === 'branding' && <AdminBrandingView authProfile={authProfile} />}
+      {tab === 'partner'  && <AdminPartnersView authProfile={authProfile} />}
       {tab === 'settings' && <AdminSettingsView />}
       {tab === 'backups'  && <AdminBackupsView authUser={authUser} authProfile={authProfile} />}
       {tab === 'texte'    && <AdminContentBlocksView authUser={authUser} authProfile={authProfile} />}
