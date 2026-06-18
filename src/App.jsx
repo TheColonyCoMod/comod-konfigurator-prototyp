@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.116';
+const APP_VERSION = '0.9.117';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2532,7 +2532,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
         : 'border-[#1C1C1A]/10 bg-white hover:border-[#1C1C1A]/25'}`}>
 
       {/* Hero: feste Höhe, weißer HG. Bevorzugt das hochgeladene Modul-Bild, sonst Grundriss-Icon, sonst Platzhalter. */}
-      <div className="relative bg-white flex items-center justify-center px-2 py-2 shrink-0" style={{ height: '208px' }}>
+      <div className="relative bg-white flex items-center justify-center px-2 py-2 shrink-0" style={{ height: '200px' }}>
         {product.usage === 'g' && (
           <div className="absolute top-0 right-0 w-[96px] h-[96px] overflow-hidden pointer-events-none z-10">
             <span className="absolute font-body text-[9px] tracking-[0.12em] uppercase text-white text-center"
@@ -2542,7 +2542,7 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
           </div>
         )}
         {(() => {
-          if (product.bildUrl) return <img src={product.bildUrl} alt={getDisplayName(product)} className="max-h-full max-w-full object-contain" loading="lazy" />;
+          if (product.bildUrl) return <img src={product.bildUrl} alt={getDisplayName(product)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />;
           const iconPath = getModulIcon(product.kuerzel);
           return iconPath
             ? <img src={iconPath} alt={`Grundriss ${getDisplayName(product)}`} className="max-h-full w-auto object-contain" loading="lazy" />
@@ -2554,25 +2554,12 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
       </div>
 
       {/* Textteil — Spalte; Preis+Button werden per mt-auto immer unten bündig gehalten */}
-      <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1 flex flex-col">
+      <div className="p-5 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1 flex flex-col">
         <h4 className="font-display text-xl leading-tight mb-1">{fam.label}</h4>
-        <p className="font-body text-xs text-[#6B6961] leading-snug mb-4 min-h-[2rem]">{fam.desc || product.beschr || fam.label}</p>
+        <p className="font-body text-xs text-[#6B6961] leading-snug mb-3 truncate">{fam.desc || product.beschr || fam.label}</p>
 
         {/* Größe + Möblierung */}
         <VariantPicker products={products} selectedVariant={variant} setSelectedVariant={setVar} />
-
-        {/* Nutzung (gewerblich / privat) */}
-        <AvailabilityToggle product={product} mode={mode} onChange={setMode} />
-
-        {showsIncome && (
-          <div className="mt-3 px-3 py-2 bg-[#7B2D8E]/10 border border-[#7B2D8E]/25 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-[#7B2D8E]" strokeWidth={2} />
-              <span className="font-body text-xs text-[#1C1C1A]">Mietindikation / Monat</span>
-            </div>
-            <span className="font-display text-sm num text-[#1C1C1A]">{fmtEUR(product.einnahmen)}</span>
-          </div>
-        )}
 
         {familyTotal > count && (
           <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
@@ -2589,37 +2576,53 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
           </div>
         )}
 
-        {/* Preis + Hinzufügen — immer bündig unten */}
-        <div className="mt-auto flex items-end justify-between gap-4 pt-4 border-t border-[#1C1C1A]/10">
-          <div className="space-y-1 text-xs font-body">
-            <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
-            <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
-            <div className="flex gap-3 text-[#6B6961] text-[11px]">
-              <span>{flaechenFuerFassade(product, facadeM ?? 0.24).nuf} m² NUF</span><span>·</span><span>{flaechenFuerFassade(product, facadeM ?? 0.24).bgf} m² BGF</span>
-              {calcModulEinheiten(product) > 1 && <><span>·</span><span className="text-[#7B2D8E]">{calcModulEinheiten(product)} Einheiten</span></>}
+        {/* Unten angedockt: Nutzung + Mietindikation + Preis — Blöcke immer an gleicher Stelle */}
+        <div className="mt-auto">
+          {/* Nutzung (gewerblich / privat) */}
+          <AvailabilityToggle product={product} mode={mode} onChange={setMode} />
+
+          {showsIncome && (
+            <div className="mt-3 px-3 py-2 bg-[#7B2D8E]/10 border border-[#7B2D8E]/25 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-[#7B2D8E]" strokeWidth={2} />
+                <span className="font-body text-xs text-[#1C1C1A]">Mietindikation / Monat</span>
+              </div>
+              <span className="font-display text-sm num text-[#1C1C1A]">{fmtEUR(product.einnahmen)}</span>
             </div>
-            <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
-            <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {count > 0 ? (
-              <>
-                <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] flex items-center justify-center transition-colors">
-                  <Minus className="w-4 h-4" strokeWidth={1.5} />
+          )}
+
+          {/* Preis + Hinzufügen — immer bündig ganz unten */}
+          <div className="flex items-end justify-between gap-4 pt-4 mt-3 border-t border-[#1C1C1A]/10">
+            <div className="space-y-1 text-xs font-body">
+              <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
+              <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
+              <div className="flex gap-3 text-[#6B6961] text-[11px]">
+                <span>{flaechenFuerFassade(product, facadeM ?? 0.24).nuf} m² NUF</span><span>·</span><span>{flaechenFuerFassade(product, facadeM ?? 0.24).bgf} m² BGF</span>
+                {calcModulEinheiten(product) > 1 && <><span>·</span><span className="text-[#7B2D8E]">{calcModulEinheiten(product)} Einheiten</span></>}
+              </div>
+              <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
+              <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {count > 0 ? (
+                <>
+                  <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] flex items-center justify-center transition-colors">
+                    <Minus className="w-4 h-4" strokeWidth={1.5} />
+                  </button>
+                  <input type="number" min={0} max={999} value={count}
+                    onChange={e => setExact(e.target.value)}
+                    onFocus={e => e.target.select()}
+                    className="font-display text-xl num w-12 text-center bg-transparent border-b border-[#1C1C1A]/15 focus:border-[var(--brand-accent,#D2563E)] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                  <button onClick={() => adjust(1)} className="w-9 h-9 rounded-full bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] text-[#F8F5F0] flex items-center justify-center transition-colors">
+                    <Plus className="w-4 h-4" strokeWidth={1.5} />
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] transition-colors">
+                  <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Hinzufügen
                 </button>
-                <input type="number" min={0} max={999} value={count}
-                  onChange={e => setExact(e.target.value)}
-                  onFocus={e => e.target.select()}
-                  className="font-display text-xl num w-12 text-center bg-transparent border-b border-[#1C1C1A]/15 focus:border-[var(--brand-accent,#D2563E)] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                <button onClick={() => adjust(1)} className="w-9 h-9 rounded-full bg-[var(--brand-accent,#D2563E)] hover:bg-[#B04528] text-[#F8F5F0] flex items-center justify-center transition-colors">
-                  <Plus className="w-4 h-4" strokeWidth={1.5} />
-                </button>
-              </>
-            ) : (
-              <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] transition-colors">
-                <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Hinzufügen
-              </button>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
