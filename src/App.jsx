@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.109';
+const APP_VERSION = '0.9.110';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4378,14 +4378,21 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
-  // B-Modell: Hat dieses (Primär-)Modul einen gewerblichen Zwilling? Steuert das „Verfügbar für"-Häkchen.
+  // B-Modell / Verfügbarkeit: Häkchen „Privat" und „Gewerblich". Bei Merge-Familien (Live/Add/Stack)
+  // sind beide frei wählbar (≥1); „beides" erzeugt den gewerblichen Zwilling. secondaryOn = Zwilling existiert.
   const [secondaryOn, setSecondaryOn] = useState(false);
+  const [availP, setAvailP] = useState((module?.usage ?? 'p') !== 'g');
+  const [availG, setAvailG] = useState((module?.usage ?? 'p') === 'g');
   useEffect(() => {
-    if (!module?.id) { setSecondaryOn(false); return; }
+    if (!module?.id) { setSecondaryOn(false); setAvailP((module?.usage ?? 'p') !== 'g'); setAvailG((module?.usage ?? 'p') === 'g'); return; }
     let cancelled = false;
     (async () => {
       const { data } = await supabase.from('modules').select('id').eq('mirror_of', module.id).is('deleted_at', null);
-      if (!cancelled) setSecondaryOn(!!(data && data.length));
+      const twin = !!(data && data.length);
+      if (cancelled) return;
+      setSecondaryOn(twin);
+      setAvailP(module.usage === 'p');
+      setAvailG(module.usage === 'g' || twin);
     })();
     return () => { cancelled = true; };
   }, [module?.id]);
@@ -4470,7 +4477,16 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
     const margeNum = strToPct(margeStr);
     const feeNum   = strToPct(feeStr);
     const { id, created_at, updated_at, deleted_at, ...rest } = form;
-    const payload = { ...rest, marge: margeNum, fee: feeNum };
+    // Verfügbarkeit → Nutzung des Primär-Datensatzes + ob ein gewerblicher Zwilling gewünscht ist
+    const isMerge = !!TWIN_FAMILY[form.family];
+    let effUsage = form.usage;
+    let wantTwinCalc = false;
+    if (!isNew && isMerge) {
+      if (!availP && !availG) { setError('Bitte mindestens eine Nutzung (Privat oder Gewerblich) wählen.'); setSaving(false); return; }
+      effUsage = availP ? 'p' : 'g'; // bei „beides" trägt der Primär-Datensatz Privat, der Zwilling Gewerblich
+      wantTwinCalc = availP && availG;
+    }
+    const payload = { ...rest, marge: margeNum, fee: feeNum, usage: effUsage };
     let res;
     if (isNew) {
       res = await supabase.from('modules').insert(payload).select('*').single();
@@ -4507,7 +4523,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
         .select('id').eq('mirror_of', primaryId).is('deleted_at', null);
       const existing = (mirrors && mirrors[0]) ? mirrors[0].id : null;
       const twinFamily = TWIN_FAMILY[res.data.family];
-      const wantTwin = secondaryOn && !!twinFamily && res.data.usage === 'p';
+      const wantTwin = wantTwinCalc && !!twinFamily && res.data.usage === 'p';
       if (wantTwin && existing) {
         // Spiegeln: gemeinsame Felder übernehmen, Identität bewahren
         const { usage, family, kuerzel, mirror_of, sort_order, id, created_at, updated_at, deleted_at, ...shared } = res.data;
@@ -4587,25 +4603,27 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
                   <select value={form.usage} onChange={update('usage')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]">
                     {MODULE_USAGE.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                   </select>
-                ) : (
+                ) : TWIN_FAMILY[form.family] ? (
                   <div className="flex flex-col gap-1.5 pt-1">
-                    {[['p', 'Privat'], ['g', 'Gewerblich']].map(([u, lbl]) => {
-                      const isPrimary = form.usage === u;
-                      const canSecondary = !!TWIN_FAMILY[form.family] && form.usage === 'p' && u === 'g';
-                      const checked = isPrimary || (canSecondary && secondaryOn);
-                      const disabled = isPrimary || !canSecondary;
-                      return (
-                        <label key={u} className={`flex items-center gap-2 font-body text-sm ${disabled && !isPrimary ? 'opacity-40' : 'cursor-pointer'}`}>
-                          <input type="checkbox" checked={checked} disabled={disabled}
-                            onChange={e => setSecondaryOn(e.target.checked)} className="accent-[var(--brand-accent,#D2563E)]" />
-                          {lbl}{isPrimary && <span className="text-[10px] text-[#6B6961] uppercase tracking-wider">Basis</span>}
-                        </label>
-                      );
-                    })}
-                    {!TWIN_FAMILY[form.family] && (
-                      <p className="font-body text-[11px] text-[#6B6961] leading-snug">Diese Modulart unterstützt nur die Basis-Nutzung.</p>
-                    )}
+                    {[['p', 'Privat', availP, setAvailP], ['g', 'Gewerblich', availG, setAvailG]].map(([u, lbl, val, setter]) => (
+                      <label key={u} className="flex items-center gap-2 font-body text-sm cursor-pointer">
+                        <input type="checkbox" checked={val}
+                          onChange={e => {
+                            const v = e.target.checked;
+                            // mind. eine Nutzung muss aktiv bleiben
+                            if (!v && ((u === 'p' && !availG) || (u === 'g' && !availP))) return;
+                            setter(v);
+                          }}
+                          className="accent-[var(--brand-accent,#D2563E)]" />
+                        {lbl}
+                      </label>
+                    ))}
+                    <p className="font-body text-[11px] text-[#6B6961] leading-snug">Mind. eine Nutzung. „Beides" erzeugt automatisch eine private und eine gewerbliche Variante; „nur gewerblich" führt das Modul ohne „B" als rein gewerbliches.</p>
                   </div>
+                ) : (
+                  <select value={form.usage} onChange={update('usage')} className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]">
+                    {MODULE_USAGE.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                  </select>
                 )}
               </div>
               <div>
