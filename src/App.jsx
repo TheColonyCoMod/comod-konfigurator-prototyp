@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.110';
+const APP_VERSION = '0.9.111';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2619,26 +2619,31 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
   // Helper: nimmt einen Posten mit { brutto, netto } und gibt den anzuzeigenden Wert
   const showPrice = (item) => isPureGewerb && item?.netto != null ? item.netto : (item?.brutto ?? item);
 
-  // Welche Familien sollen gezeigt werden?
-  const familyIdsToShow = useMemo(() => {
-    if (modulart === 'privat') return FAMILIES_PRIVAT;
-    if (modulart === 'business') return FAMILIES_BUSINESS;
-    // 'beides': alle Familien außer Add — Add wird durch die kombinierte AddFamilyCard ersetzt
-    return [...FAMILIES_PRIVAT.filter(f => f !== 'add'),
-            ...FAMILIES_BUSINESS.filter(f => f !== 'addb')];
-  }, [modulart]);
+  // Welche Familien sollen gezeigt werden? Rein-gewerbliche Module mit eigener Family (z. B. 'lager')
+  // werden automatisch ergänzt, ohne dass die festen Listen angefasst werden müssen.
+  const knownFamilies = new Set([...FAMILIES_PRIVAT, ...FAMILIES_BUSINESS]);
+  const extraGFamilies = [...new Set(PRODUCTS.gewerblich.map(p => p.family).filter(Boolean))].filter(f => !knownFamilies.has(f));
+  const familyIdsToShow = modulart === 'privat'
+    ? FAMILIES_PRIVAT
+    : modulart === 'business'
+      ? [...FAMILIES_BUSINESS, ...extraGFamilies]
+      // 'beides': Add wird durch die kombinierte AddFamilyCard ersetzt
+      : [...FAMILIES_PRIVAT.filter(f => f !== 'add'), ...FAMILIES_BUSINESS.filter(f => f !== 'addb'), ...extraGFamilies];
 
   const hasAnyAdd = PRODUCTS.privat.some(p => p.family === 'add') || PRODUCTS.gewerblich.some(p => p.family === 'addb');
   const showAddCombined = modulart === 'beides' && hasAnyAdd;
 
   const productsByFamily = useMemo(() => {
     const groups = {};
+    // Quelle passend zur Nutzung: privat → privat, business → gewerblich, beides → beide
+    const src = modulart === 'privat' ? PRODUCTS.privat
+      : modulart === 'business' ? PRODUCTS.gewerblich
+      : [...PRODUCTS.privat, ...PRODUCTS.gewerblich];
     for (const fid of familyIdsToShow) {
-      const all = [...PRODUCTS.privat, ...PRODUCTS.gewerblich];
-      groups[fid] = all.filter(p => p.family === fid);
+      groups[fid] = src.filter(p => p.family === fid);
     }
     return groups;
-  }, [familyIdsToShow]);
+  }, [familyIdsToShow, modulart]);
 
   const [catFilter, setCatFilter] = useState('alle');
   const availableCategories = useMemo(() => {
