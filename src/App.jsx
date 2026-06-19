@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.123';
+const APP_VERSION = '0.9.124';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -3443,7 +3443,7 @@ function GewerblichFinanzPanel({ totals, financing, setFinancing }) {
   return (
     <div className="bg-white border border-[#1C1C1A]/10 p-7">
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-        <h3 className="font-display text-2xl">Gewerbe-Finanzierung (gewerblich)</h3>
+        <h3 className="font-display text-2xl">Gewerbe-Finanzierung</h3>
         <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">{totals.countGewerb} Modul{totals.countGewerb > 1 ? 'e' : ''}</span>
       </div>
       <p className="font-body text-sm text-[#6B6961] mb-7 num">Effektive Kosten netto {fmtEUR(totals.effGewerbNetto)}</p>
@@ -3454,7 +3454,7 @@ function GewerblichFinanzPanel({ totals, financing, setFinancing }) {
       </div>
       <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 space-y-1.5 font-body text-sm">
         <div className="flex justify-between"><span className="text-[#6B6961]">Finanzierungs-Basis</span><span className="num">{fmtEUR(totals.plattformBasis)}</span></div>
-        <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Plattform-Monatsrate</span><span className="num text-[#7B2D8E]">{fmtEUR(totals.plattformRate)}</span></div>
+        <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Gewerbe-Monatsrate</span><span className="num text-[#7B2D8E]">{fmtEUR(totals.plattformRate)}</span></div>
       </div>
       <p className="font-body text-[11px] text-[#6B6961] mt-4 italic leading-relaxed">
         Hinweis: Bei gewerblicher Nutzung wird die Finanzierung üblicherweise ohne Eigenkapital-Beteiligung abgeschlossen. Steuerliche Vorteile (z. B. Investitionsabzugsbetrag IAB) wirken sich über die Steuererklärung aus, nicht über die Raten — siehe Steuerblock unten.
@@ -3472,7 +3472,7 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
   return (
     <div className="bg-[#F8F5F0] border border-dashed border-[#1C1C1A]/20 p-7">
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-        <h3 className="font-display text-2xl flex items-center gap-2"><Receipt className="w-5 h-5 text-[#6B6961]" strokeWidth={1.5} />Mögliche Steuervorteile (B2B)</h3>
+        <h3 className="font-display text-2xl flex items-center gap-2"><Receipt className="w-5 h-5 text-[#6B6961]" strokeWidth={1.5} />Mögliche Steuervorteile</h3>
         <span className="font-body text-xs tracking-wider uppercase text-[#6B6961] bg-white px-2 py-1 border border-[#1C1C1A]/15">Optional</span>
       </div>
       <p className="font-body text-sm text-[#6B6961] mb-5 leading-relaxed">
@@ -3517,7 +3517,7 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
           </div>
           <div className="pt-4 border-t border-[#1C1C1A]/10 space-y-2 font-body text-sm">
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Modellhafte Belastung mit Steuervorteilen</p>
-            <div className="flex justify-between"><span className="text-[#6B6961]">Plattform-Rate (vor Steuer)</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
+            <div className="flex justify-between"><span className="text-[#6B6961]">Gewerbe-Rate (vor Steuer)</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
             <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− Laufende Steuerentlastung (AfA + Zinsen × {fmtPct(financing.plattform.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
             {totals.iabEntlastungMonat > 0 && (
               <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− IAB-Vorteil, auf {financing.plattform.laufzeit} J verteilt</span><span className="num">−{fmtEUR(totals.iabEntlastungMonat)}</span></div>
