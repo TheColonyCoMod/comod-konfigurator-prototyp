@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.121';
+const APP_VERSION = '0.9.122';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2496,9 +2496,21 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 }
 
 // FamilyCard – Standard für alle anderen Familien
-function FamilyCard({ familyId, products, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb, priceCtx, facadeM }) {
+function FamilyCard({ familyId, products: propProducts, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb, priceCtx, facadeM, usageToggle }) {
+  // Zwillings-Umschaltung: privat-Familie ↔ gewerblicher Zwilling (z. B. live ↔ liveb).
+  // Nur aktiv, wenn der Aufrufer es erlaubt (im „beides"-Pfad). Schaltet die angezeigten Produkte um.
+  const twinFamId = TWIN_FAMILY[familyId];
+  const twinProducts = (usageToggle && twinFamId && twinFamId !== familyId)
+    ? [...PRODUCTS.privat, ...PRODUCTS.gewerblich].filter(p => p.family === twinFamId)
+    : [];
+  const canToggle = usageToggle && twinProducts.length > 0;
+  const [twinUsage, setTwinUsage] = useState('p');
+  const effUsage = canToggle ? twinUsage : 'p';
+  const products = (effUsage === 'g') ? twinProducts : propProducts;
+  const vKey = (effUsage === 'g') ? twinFamId : familyId;
+
   // Defensive: Falls für eine Family kein Label hinterlegt ist, mit Defaults weitermachen statt zu crashen
-  const fam = FAMILY_LABELS[familyId] || { label: products[0]?.kuerzel || familyId, desc: '' };
+  const fam = FAMILY_LABELS[familyId] || { label: propProducts[0]?.kuerzel || familyId, desc: '' };
   const defaultVariant = useMemo(() => {
     const first = products[0];
     return {
@@ -2507,8 +2519,8 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
       groesse: first.groesse,
     };
   }, [products]);
-  const variant = variantState[familyId] || defaultVariant;
-  const setVar = (newV) => setVariantState(prev => ({ ...prev, [familyId]: newV }));
+  const variant = variantState[vKey] || defaultVariant;
+  const setVar = (newV) => setVariantState(prev => ({ ...prev, [vKey]: newV }));
 
   const product = findVariantProduct(products, variant) || products[0];
   const count = selections[product.kuerzel] || 0;
@@ -2519,6 +2531,21 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
     for (const p of products) total += selections[p.kuerzel] || 0;
     return total;
   }, [products, selections]);
+
+  // Beim Wechsel der Nutzung die jeweils andere Zwillings-Familie leeren (analog Add-Karte)
+  function switchTwinUsage(nu) {
+    if (nu === effUsage) return;
+    const clearFam = nu === 'g' ? familyId : twinFamId;
+    setSelections(prev => {
+      const next = { ...prev };
+      for (const k of Object.keys(next)) {
+        const p = ALL_PRODUCTS.find(x => x.kuerzel === k);
+        if (p && p.family === clearFam) delete next[k];
+      }
+      return next;
+    });
+    setTwinUsage(nu);
+  }
 
   function adjust(delta) {
     const k = product.kuerzel;
@@ -2577,6 +2604,25 @@ function FamilyCard({ familyId, products, selections, setSelections, modes, setM
       <div className="p-5 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1 flex flex-col">
         <h4 className="font-display text-xl leading-tight mb-1">{fam.label}</h4>
         <p className="font-body text-xs text-[#6B6961] leading-snug mb-3 truncate">{fam.desc || product.beschr || fam.label}</p>
+
+        {canToggle && (
+          <div className="mb-3 pb-3 border-b border-[#1C1C1A]/8">
+            <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">Nutzung &amp; Finanzierung</p>
+            <div className="flex gap-1">
+              <button onClick={() => switchTwinUsage('p')}
+                className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${effUsage === 'p' ? 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                <Home className="w-3 h-3" strokeWidth={2} /> Privat (KfW/GLS)
+              </button>
+              <button onClick={() => switchTwinUsage('g')}
+                className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${effUsage === 'g' ? 'bg-[#7B2D8E] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                <Briefcase className="w-3 h-3" strokeWidth={2} /> Gewerblich (Plattform)
+              </button>
+            </div>
+            <p className="font-body text-[11px] text-[#6B6961] mt-1.5 leading-snug">
+              {effUsage === 'p' ? 'Eigennutzung zum Wohnen. Brutto-Preis, KfW/GLS-Finanzierung.' : 'Z. B. Büro/Praxis für die Selbstständigkeit. Netto-Preis, Plattform-Finanzierung mit Steuervorteilen.'}
+            </p>
+          </div>
+        )}
 
         {/* Größe + Möblierung */}
         <VariantPicker products={products} selectedVariant={variant} setSelectedVariant={setVar} />
@@ -2675,12 +2721,16 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
   // werden automatisch ergänzt, ohne dass die festen Listen angefasst werden müssen.
   const knownFamilies = new Set([...FAMILIES_PRIVAT, ...FAMILIES_BUSINESS]);
   const extraGFamilies = [...new Set(PRODUCTS.gewerblich.map(p => p.family).filter(Boolean))].filter(f => !knownFamilies.has(f));
+  // Gewerbliche Zwillinge (z. B. liveb), deren privater Partner gezeigt wird → im „beides"-Pfad ausblenden,
+  // sie werden über den Privat/Gewerblich-Toggle der Privat-Karte erreichbar (nicht für stack, das ist eine Familie).
+  const beidesShownPrivat = FAMILIES_PRIVAT.filter(f => f !== 'add');
+  const suppressedTwins = new Set(beidesShownPrivat.map(f => TWIN_FAMILY[f]).filter(t => t && !FAMILIES_PRIVAT.includes(t)));
   const familyIdsToShow = modulart === 'privat'
     ? FAMILIES_PRIVAT
     : modulart === 'business'
       ? [...FAMILIES_BUSINESS, ...extraGFamilies]
-      // 'beides': Add wird durch die kombinierte AddFamilyCard ersetzt
-      : [...FAMILIES_PRIVAT.filter(f => f !== 'add'), ...FAMILIES_BUSINESS.filter(f => f !== 'addb'), ...extraGFamilies];
+      // 'beides': Add → kombinierte AddFamilyCard; gewerbliche Zwillinge → Toggle der Privat-Karte
+      : [...beidesShownPrivat, ...FAMILIES_BUSINESS.filter(f => f !== 'addb' && !suppressedTwins.has(f)), ...extraGFamilies];
 
   const hasAnyAdd = PRODUCTS.privat.some(p => p.family === 'add') || PRODUCTS.gewerblich.some(p => p.family === 'addb');
   const showAddCombined = modulart === 'beides' && hasAnyAdd;
@@ -2812,7 +2862,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       modes={modes} setModes={setModes}
                       einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
                       variantState={variantState} setVariantState={setVariantState}
-                      isPureGewerb={isPureGewerb} priceCtx={priceCtx} facadeM={projectFacadeM} />
+                      isPureGewerb={isPureGewerb} priceCtx={priceCtx} facadeM={projectFacadeM}
+                      usageToggle={modulart === 'beides' && !!TWIN_FAMILY[fid] && TWIN_FAMILY[fid] !== fid && !FAMILIES_PRIVAT.includes(TWIN_FAMILY[fid]) && PRODUCTS.gewerblich.some(p => p.family === TWIN_FAMILY[fid])} />
                   ))}
                   {catId === 'ergaenzung' && showAddInCat && (
                     <AddFamilyCard selections={selections} setSelections={setSelections}
