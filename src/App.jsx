@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.125';
+const APP_VERSION = '0.9.126';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1982,7 +1982,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-4">
             <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">2</span> Geschossigkeit</h3>
             <FieldLabel required hint="Beeinflusst die maximale Modulanzahl">Wie viele Geschosse sind geplant?</FieldLabel>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { n: 1, label: '1 Geschoss', sub: 'eingeschossig' },
                 { n: 2, label: '2 Geschosse', sub: 'EG + OG' },
@@ -1990,8 +1990,8 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
               ].map(g => (
                 <button key={g.n} onClick={() => setGeschosse(g.n)}
                   className={`p-4 border text-left transition-colors flex items-center gap-3 ${config.geschosse === g.n ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-                  <Layers className="w-5 h-5 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
-                  <div><p className="font-body text-sm text-[#1C1C1A]">{g.label}</p><p className="font-body text-xs text-[#6B6961]">{g.sub}</p></div>
+                  <Layers className="w-5 h-5 shrink-0 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
+                  <div className="min-w-0"><p className="font-body text-sm text-[#1C1C1A] leading-tight">{g.label}</p><p className="font-body text-xs text-[#6B6961] leading-tight">{g.sub}</p></div>
                 </button>
               ))}
             </div>
@@ -2755,12 +2755,12 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
   // sie werden über den Privat/Gewerblich-Toggle der Privat-Karte erreichbar (nicht für stack, das ist eine Familie).
   const beidesShownPrivat = FAMILIES_PRIVAT.filter(f => f !== 'add');
   const suppressedTwins = new Set(beidesShownPrivat.map(f => TWIN_FAMILY[f]).filter(t => t && !FAMILIES_PRIVAT.includes(t)));
-  const familyIdsToShow = modulart === 'privat'
+  const familyIdsToShow = [...new Set(modulart === 'privat'
     ? FAMILIES_PRIVAT
     : modulart === 'business'
       ? [...FAMILIES_BUSINESS, ...extraGFamilies]
       // 'beides': Add → kombinierte AddFamilyCard; gewerbliche Zwillinge → Toggle der Privat-Karte
-      : [...beidesShownPrivat, ...FAMILIES_BUSINESS.filter(f => f !== 'addb' && !suppressedTwins.has(f)), ...extraGFamilies];
+      : [...beidesShownPrivat, ...FAMILIES_BUSINESS.filter(f => f !== 'addb' && !suppressedTwins.has(f)), ...extraGFamilies])];
 
   const hasAnyAdd = PRODUCTS.privat.some(p => p.family === 'add') || PRODUCTS.gewerblich.some(p => p.family === 'addb');
   const showAddCombined = modulart === 'beides' && hasAnyAdd;
