@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.122';
+const APP_VERSION = '0.9.123';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -802,10 +802,26 @@ function calcModulEinheiten(product) {
   if (!product || !product.bgf) return 1;
   // CoMod Double ist ein einzelnes großes Modul (wie Live) — zählt für Flächenbedarf als 1 Einheit
   if (product.family === 'double') return 1;
-  // Stellplatz-Einheiten basieren auf der EG-Grundfläche (footprint), nicht auf der Gesamt-BGF.
-  // Bei Stack: 72 m² Footprint → 2 Einheiten (nicht 130/36 = 4).
+  // Stellplatz-Einheiten = Anzahl belegter Grundmodul-Stellplätze (Grundkontakt), fassadenunabhängig.
+  // Standard-Grundmodul-Korpus = 10,5 × 3,5 m; mittleres Modul (Stay) = 7,0 × 3,5 m.
+  const STD = 10.5 * 3.5;
+  const MITTEL = 7.0 * 3.5;
+  const corpusOne = ((Number(product.laengeKorpusCm) || 0) / 100) * ((Number(product.breiteKorpusCm) || 0) / 100);
+  if (corpusOne > 0) {
+    let area;
+    if (Array.isArray(product.stackLevels) && product.stackLevels.length) {
+      const eg = product.stackLevels[0] || {};
+      area = (Number(eg.g) || 0) * corpusOne + (Number(eg.m) || 0) * MITTEL; // nur EG belegt Stellplätze
+    } else if (product.isKombi && Number(product.grundmodulCount) > 0) {
+      area = corpusOne * Number(product.grundmodulCount);
+    } else {
+      area = corpusOne;
+    }
+    return Math.max(1, Math.round(area / STD));
+  }
+  // Fallback ohne Korpusmaße: über Footprint/BGF (gerundet, damit ein Standardmodul = 1 bleibt)
   const footprint = (product.footprint != null && product.footprint > 0) ? product.footprint : product.bgf;
-  return Math.max(1, Math.ceil(footprint / ZIEL_MODUL_BGF));
+  return Math.max(1, Math.round(footprint / ZIEL_MODUL_BGF));
 }
 
 function defaultGeschossVerteilung(zielwert, geschosse) {
@@ -1732,12 +1748,12 @@ function ModulartStep({ onSelect, onBack }) {
       finanzhinweis: 'KfW + GLS' },
     { id: 'business', icon: Briefcase, title: 'Module für Dein Business',
       subtitle: 'Lager, Büro, Praxis, Studio',
-      desc: 'Gewerbliche Module für Selbstständige, Freiberufler oder Investments. Finanzierung über unsere Plattform — mit Steuervorteilen wie AfA und Vorsteuerabzug.',
-      finanzhinweis: 'Plattform-Finanzierung' },
+      desc: 'Gewerbliche Module für Selbstständige, Freiberufler oder Investments. Gewerbe-Finanzierung — mit Steuervorteilen wie AfA und Vorsteuerabzug.',
+      finanzhinweis: 'Gewerbe-Finanzierung' },
     { id: 'beides', icon: Users, title: 'Beides',
       subtitle: 'Privatwohnen UND Business',
       desc: 'Z. B. Wohnung für die Familie + Büro oder Praxis. Beide Modul-Arten parallel — mit der jeweils passenden Finanzierungslogik.',
-      finanzhinweis: 'KfW + GLS + Plattform' },
+      finanzhinweis: 'KfW + GLS + Gewerbe-Finanzierung' },
   ];
   return (
     <div className="max-w-6xl mx-auto px-8 py-12">
@@ -2406,15 +2422,15 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <div className="flex gap-1">
             <button onClick={() => switchUsage('p')}
               className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${usageState === 'p' ? 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-              <Home className="w-3 h-3" strokeWidth={2} /> Privat (KfW/GLS)
+              <Home className="w-3 h-3" strokeWidth={2} /> Privat genutzt
             </button>
             <button onClick={() => switchUsage('g')}
               className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${usageState === 'g' ? 'bg-[#7B2D8E] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-              <Briefcase className="w-3 h-3" strokeWidth={2} /> Gewerblich (Plattform)
+              <Briefcase className="w-3 h-3" strokeWidth={2} /> Gewerblich genutzt
             </button>
           </div>
           <p className="font-body text-[11px] text-[#6B6961] mt-1.5 leading-snug">
-            {usageState === 'p' ? 'Z. B. Hobby-Werkstatt, Gartenhaus. Brutto-Preis, KfW/GLS-Finanzierung.' : 'Z. B. Lager, Büro, Praxis. Netto-Preis, Plattform-Finanzierung mit Steuervorteilen.'}
+            {usageState === 'p' ? 'Z. B. Hobby-Werkstatt, Gartenhaus. Brutto-Preis, KfW/GLS-Finanzierung.' : 'Z. B. Lager, Büro, Praxis. Netto-Preis, Gewerbe-Finanzierung mit Steuervorteilen.'}
           </p>
         </div>
         )}
@@ -2532,18 +2548,10 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
     return total;
   }, [products, selections]);
 
-  // Beim Wechsel der Nutzung die jeweils andere Zwillings-Familie leeren (analog Add-Karte)
+  // Beim Wechsel der Nutzung bleiben beide Zwillinge erhalten — dasselbe Modul kann privat
+  // (Eigennutzung) UND gewerblich (z. B. Ferienhaus/Büro) nebeneinander gewählt werden.
   function switchTwinUsage(nu) {
     if (nu === effUsage) return;
-    const clearFam = nu === 'g' ? familyId : twinFamId;
-    setSelections(prev => {
-      const next = { ...prev };
-      for (const k of Object.keys(next)) {
-        const p = ALL_PRODUCTS.find(x => x.kuerzel === k);
-        if (p && p.family === clearFam) delete next[k];
-      }
-      return next;
-    });
     setTwinUsage(nu);
   }
 
@@ -2611,15 +2619,15 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
             <div className="flex gap-1">
               <button onClick={() => switchTwinUsage('p')}
                 className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${effUsage === 'p' ? 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-                <Home className="w-3 h-3" strokeWidth={2} /> Privat (KfW/GLS)
+                <Home className="w-3 h-3" strokeWidth={2} /> Privat genutzt
               </button>
               <button onClick={() => switchTwinUsage('g')}
                 className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${effUsage === 'g' ? 'bg-[#7B2D8E] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-                <Briefcase className="w-3 h-3" strokeWidth={2} /> Gewerblich (Plattform)
+                <Briefcase className="w-3 h-3" strokeWidth={2} /> Gewerblich genutzt
               </button>
             </div>
             <p className="font-body text-[11px] text-[#6B6961] mt-1.5 leading-snug">
-              {effUsage === 'p' ? 'Eigennutzung zum Wohnen. Brutto-Preis, KfW/GLS-Finanzierung.' : 'Z. B. Büro/Praxis für die Selbstständigkeit. Netto-Preis, Plattform-Finanzierung mit Steuervorteilen.'}
+              {effUsage === 'p' ? 'Eigennutzung zum Wohnen. Brutto-Preis, KfW/GLS-Finanzierung.' : 'Z. B. Büro/Praxis für die Selbstständigkeit. Netto-Preis, Gewerbe-Finanzierung mit Steuervorteilen.'}
             </p>
           </div>
         )}
@@ -3435,7 +3443,7 @@ function GewerblichFinanzPanel({ totals, financing, setFinancing }) {
   return (
     <div className="bg-white border border-[#1C1C1A]/10 p-7">
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-        <h3 className="font-display text-2xl">Plattform-Finanzierung (gewerblich)</h3>
+        <h3 className="font-display text-2xl">Gewerbe-Finanzierung (gewerblich)</h3>
         <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">{totals.countGewerb} Modul{totals.countGewerb > 1 ? 'e' : ''}</span>
       </div>
       <p className="font-body text-sm text-[#6B6961] mb-7 num">Effektive Kosten netto {fmtEUR(totals.effGewerbNetto)}</p>
@@ -6443,8 +6451,8 @@ const SETTING_DEFS = [
   { key: 'KFW_TILGUNGSNACHLASS', cat: 'finanz', type: 'percent', label: 'KfW Tilgungsnachlass',     desc: 'Anteil, der nicht zurückgezahlt werden muss' },
   { key: 'GLS_ZINS',             cat: 'finanz', type: 'percent', label: 'GLS Zinssatz',             desc: 'Standard-Zinssatz GLS-Bank' },
   { key: 'GLS_LAUFZEIT_JAHRE',   cat: 'finanz', type: 'years',   label: 'GLS Laufzeit',             desc: 'in Jahren' },
-  { key: 'PLATTFORM_ZINS_DEFAULT',  cat: 'finanz', type: 'percent', label: 'Plattform Zinssatz',     desc: 'Default-Zinssatz Plattform-Finanzierung' },
-  { key: 'PLATTFORM_LAUFZEIT_JAHRE', cat: 'finanz', type: 'years', label: 'Plattform Laufzeit',     desc: 'in Jahren' },
+  { key: 'PLATTFORM_ZINS_DEFAULT',  cat: 'finanz', type: 'percent', label: 'Gewerbe-Finanzierung Zinssatz',     desc: 'Default-Zinssatz Gewerbe-Finanzierung' },
+  { key: 'PLATTFORM_LAUFZEIT_JAHRE', cat: 'finanz', type: 'years', label: 'Gewerbe-Finanzierung Laufzeit',     desc: 'in Jahren' },
   { key: 'PLATTFORM_RESTWERT_PCT',   cat: 'finanz', type: 'percent', label: 'Restwert am Laufzeitende', desc: 'Anteil des Werts am Ende' },
   { key: 'AFA_JAHRE',            cat: 'finanz', type: 'years',   label: 'AfA-Dauer Modulhaus',      desc: 'Abschreibungsdauer in Jahren' },
 
