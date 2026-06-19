@@ -22,7 +22,29 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.124';
+// E-Mail-Formatprüfung — bewusst dieselbe Regex wie serverseitig in der Edge Function.
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+function isValidEmail(s) { return EMAIL_RE.test(String(s || '').trim()); }
+
+// Versendet das gebrandete PDF-Angebot serverseitig (Edge Function, action 'send_offer').
+// Die Function baut das PDF aus dem strukturierten Payload und mailt es an 'to'.
+// Liefert { ok, error? }. Kein Versand ohne Secret oder bei ungültiger Adresse (fail-soft).
+async function sendOffer(to, offer) {
+  if (!NOTIFY_SECRET) return { ok: false, error: 'no-secret' };
+  if (!isValidEmail(to)) return { ok: false, error: 'invalid-email' };
+  try {
+    const { data, error } = await supabase.functions.invoke(NOTIFY_FN, {
+      body: { action: 'send_offer', secret: NOTIFY_SECRET, to: String(to).trim(), offer },
+    });
+    if (error) return { ok: false, error: error.message || 'invoke-error' };
+    if (data && data.ok === false) return { ok: false, error: data.error || 'server-error' };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
+
+const APP_VERSION = '0.9.125';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -3980,7 +4002,8 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
   );
 }
 
-function SuccessStep({ lead, onRestart }) {
+function SuccessStep({ lead, onRestart, offerStatus }) {
+  const email = lead?.contact?.email || '';
   return (
     <div className="max-w-3xl mx-auto px-8 py-24 text-center">
       <div className="w-16 h-16 rounded-full bg-[var(--brand-accent,#D2563E)] flex items-center justify-center mx-auto mb-8">
@@ -3988,7 +4011,19 @@ function SuccessStep({ lead, onRestart }) {
       </div>
       <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-4">Unverbindliche Angebotsanfrage eingegangen</p>
       <h1 className="font-display text-5xl md:text-6xl leading-tight tracking-tight mb-6">Danke, <em>{lead?.contact?.vorname}</em><span className="opacity-40"> …</span></h1>
-      <p className="font-body text-lg text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">Wir haben Deine Anfrage erhalten und melden uns innerhalb von 1–2 Werktagen mit einem detaillierten, unverbindlichen Angebot.</p>
+      <p className="font-body text-lg text-[#6B6961] mb-6 max-w-xl mx-auto leading-relaxed">Wir haben Deine Anfrage erhalten und melden uns innerhalb von 1–2 Werktagen persönlich bei Dir.</p>
+
+      {offerStatus === 'sending' && (
+        <p className="font-body text-sm text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">Dein persönliches Angebot wird gerade erstellt und an <span className="text-[#1C1C1A]">{email}</span> gesendet …</p>
+      )}
+      {offerStatus === 'sent' && (
+        <p className="font-body text-sm mb-10 max-w-xl mx-auto leading-relaxed text-[#6B6961]"><span className="text-[var(--brand-accent,#D2563E)] font-medium">Dein unverbindliches Angebot als PDF</span> ist unterwegs an <span className="text-[#1C1C1A]">{email}</span>. Bitte schau auch im Spam-Ordner nach.</p>
+      )}
+      {(offerStatus === 'failed' || offerStatus === 'invalid') && (
+        <p className="font-body text-sm text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">Dein detailliertes Angebot stellen wir gerade zusammen und senden es Dir in Kürze persönlich zu.</p>
+      )}
+      {!offerStatus && <div className="mb-4" />}
+
       <div><Button onClick={onRestart} variant="secondary">Neue Konfiguration starten</Button></div>
     </div>
   );
@@ -7861,6 +7896,7 @@ export default function App() {
   const [contact, setContact] = useState({});
   const [leads, setLeads] = useState([]);
   const [lastLead, setLastLead] = useState(null);
+  const [offerStatus, setOfferStatus] = useState(null); // null | 'sending' | 'sent' | 'failed' | 'invalid'
 
   useEffect(() => { refreshLeads(); }, []);
   async function refreshLeads() {
@@ -8086,13 +8122,76 @@ export default function App() {
 
     setLastLead(lead);
     setStep(4);
+
+    // === PDF-Angebot per Mail an die Kundenadresse (fail-soft) ===
+    // Blockiert die Danke-Seite NICHT. E-Mail-Format wird vor dem Versand geprüft
+    // (clientseitig hier, serverseitig nochmals in der Edge Function).
+    const offerEmail = (contact.email || '').trim();
+    if (!isValidEmail(offerEmail)) {
+      setOfferStatus('invalid');
+    } else {
+      setOfferStatus('sending');
+      const projMarge     = (project && project.projektMarge != null) ? project.projektMarge : undefined;
+      const projProvision = (project && project.provisionPct != null) ? project.provisionPct : undefined;
+      // Logo als absolute URL auflösen, damit die Edge Function es laden kann (Partner-Logo oder CoMod-Default)
+      let logoUrl = brand?.logoUrl || null;
+      try { logoUrl = new URL(brand?.logoUrl || '/brand/comod_logo_black.png', window.location.origin).href; } catch { /* Fallback bleibt */ }
+      const offer = {
+        brand: { logoUrl, accent: brand?.accent || '#D2563E' },
+        meta: { date: new Date().toLocaleDateString('de-DE'), version: APP_VERSION },
+        customer: {
+          anrede: contact.anrede || '',
+          name: [contact.vorname, contact.nachname].filter(Boolean).join(' '),
+          firma: contact.firma || '',
+          adresse: [
+            [contact.strasse, contact.hausnr].filter(Boolean).join(' '),
+            [contact.plz, contact.ort].filter(Boolean).join(' '),
+          ].filter(Boolean),
+          email: offerEmail,
+          telefon: contact.telefon || '',
+        },
+        project: project ? { name: project.name || '', location: project.location || '' } : null,
+        nutzung: { customerType: customerType || '', modulart: modulart || '' },
+        module: {
+          items: totals.lineItems.map((it) => {
+            const eff = calcRabattiertePreise(it, totals.rabattPct || 0, projMarge, projProvision);
+            const stueck = it.usage === 'g' ? eff.netto : eff.brutto; // Modulpreis folgt der Nutzung (g→netto, p→brutto)
+            return {
+              name: getDisplayName(it),
+              count: it.count,
+              nutzung: it.usage === 'g' ? 'Gewerblich' : 'Privat',
+              nuf: it.nuf, bgf: it.bgf,
+              stueck,
+              gesamt: stueck * it.count,
+              hinweis: it.usage === 'g' ? 'zzgl. USt' : 'inkl. USt',
+            };
+          }),
+          countTotal: totals.countTotal,
+          gesamtNUF: totals.gesamtNUF,
+          gesamtBGF: totals.gesamtBGF,
+        },
+        finanzen: {
+          einmaligGesamtBrutto: totals.einmaligGesamtBrutto,
+          anzahlung: totals.anzahlung,
+          kfwRate: totals.kfwRate,
+          glsRate: totals.glsRate,
+          gewerbeRate: totals.plattformRate, // intern plattformRate, kundensichtbar „Gewerbe-Rate"
+          finanzierungMonat: totals.finanzierungMonat,
+          nebenkostenMonatGesamt: totals.nebenkostenMonatGesamt,
+          monatlichGesamt: totals.monatlichGesamt,
+          steuerentlastung: totals.steuerentlastung,
+          iabBetrag: iabBetrag > 0 ? iabBetrag : null,
+        },
+      };
+      sendOffer(offerEmail, offer).then((r) => setOfferStatus(r.ok ? 'sent' : 'failed'));
+    }
   }
 
   function restart() {
     setStep(0); setCustomerType(null); setPrivatMode(null); setProject(null);
     setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setSelections({}); setModes({}); setFinancing(FIN_DEFAULTS);
-    setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null);
+    setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null); setOfferStatus(null);
     setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setAddUsageState('g');
   }
   function jumpToStep(s) { if (s < Math.floor(step)) setStep(s); }
@@ -8116,7 +8215,7 @@ export default function App() {
         : step === 1 ? <ModulesStep customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} />
         : step === 2 ? <FinancingStep totals={totals} project={project} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} onNext={() => setStep(3)} onBack={() => setStep(1)} />
         : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} />
-        : step === 4 ? <SuccessStep lead={lastLead} onRestart={restart} />
+        : step === 4 ? <SuccessStep lead={lastLead} onRestart={restart} offerStatus={offerStatus} />
         : null}
 
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
