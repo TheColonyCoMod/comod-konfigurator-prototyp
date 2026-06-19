@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.131';
+const APP_VERSION = '0.9.132';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -8175,11 +8175,15 @@ export default function App() {
           status: 'neu',
           priority: 'normal',
         };
-        const { data, error } = await supabase.from('leads').insert(dbLead).select('id').single();
+        // Plain insert OHNE Rücklese: so wird keine SELECT-Policy für anon benötigt
+        // (anon darf Leads NICHT lesen — Datenschutz), und der Insert wird nicht durch
+        // eine fehlende Lese-Berechtigung zurückgerollt. Echte Insert-Fehler (z. B. RLS-INSERT
+        // oder Constraints) kommen weiterhin in `error` an.
+        const { error } = await supabase.from('leads').insert(dbLead);
         if (error) {
           console.warn('[Supabase] Lead-Insert Fehler:', error.message);
         } else {
-          console.log('[Supabase] Lead in DB gespeichert, ID:', data?.id);
+          console.log('[Supabase] Lead in DB gespeichert');
           // Benachrichtigung an CoMod (fail-soft)
           try {
             const c = lead.contact || {};
