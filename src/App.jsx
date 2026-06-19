@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.132';
+const APP_VERSION = '0.9.133';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -7815,7 +7815,12 @@ const EMPTY_GEWERB_CONFIG = {
 function MobileSummaryBar({ totals, ziel, step, onAdvance, onBack }) {
   const hasZiel = ziel > 0;
   const ist = totals.modulAnzahlTotal; // tatsächliche Module (Stack zählt alle Ebenen)
-  const erreicht = ist >= ziel;
+  const erreicht = hasZiel && ist === ziel;   // exakt am Ziel
+  const ueberschritten = hasZiel && ist > ziel; // über dem Ziel
+  const zielColor = !hasZiel ? 'text-[#1C1C1A]'
+    : ueberschritten ? 'text-[#C0392B]'   // rot: Zielanzahl überschritten
+    : erreicht ? 'text-[#7FB069]'         // grün: exakt erreicht
+    : 'text-[#7B2D8E]';                   // lila: noch Platz
   const advanceDisabled = step === 1 && totals.countTotal === 0;
   const btnLabel = step === 3 ? 'Zum Abschluss' : 'Weiter';
   const hasRabatt = (totals.rabattPct || 0) > 0;
@@ -7827,7 +7832,7 @@ function MobileSummaryBar({ totals, ziel, step, onAdvance, onBack }) {
         <div className="shrink-0">
           <p className={lbl}>Module</p>
           <p className={val}>
-            <span className={hasZiel ? (erreicht ? 'text-[#7FB069]' : 'text-[#7B2D8E]') : 'text-[#1C1C1A]'}>{ist}</span>
+            <span className={zielColor}>{ist}</span>
             {hasZiel && <span className="text-[#6B6961]"> / {ziel}</span>}
           </p>
         </div>
