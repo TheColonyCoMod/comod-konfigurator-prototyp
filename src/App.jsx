@@ -22,7 +22,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.120';
+const APP_VERSION = '0.9.121';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -247,14 +247,17 @@ function calcRabattiertePreise(product, rabattPct, margeOverride, provisionOverr
 }
 
 // Effektiver Modulpreis für die Karten-Anzeige.
+// netto/brutto richtet sich nach der NUTZUNG DES MODULS (gewerblich → netto/Vorsteuer, privat → brutto),
+// nicht nach dem globalen Kundentyp — so stimmt der Preis auch im gemischten Privat-Korb (Wohnen + Büro).
 // priceCtx gesetzt (Projekt-Beitritt) → mit Projekt-Rabatt (auf Ziel-Modulanzahl, stabil) + ggf. Projekt-Marge.
 // Sonst Listenpreis wie bisher. Einmalige Projektkosten bleiben weiterhin AUSSEN vor (Feedback V7).
-function effectiveModulPreis(product, isPureGewerb, priceCtx) {
+function effectiveModulPreis(product, _isPureGewerb, priceCtx) {
+  const wantNetto = product.usage === 'g';
   if (priceCtx) {
     const r = calcRabattiertePreise(product, priceCtx.rabattPct || 0, priceCtx.projMarge, priceCtx.projProvision);
-    return isPureGewerb ? r.netto : r.brutto;
+    return wantNetto ? r.netto : r.brutto;
   }
-  return isPureGewerb ? product.netto : product.brutto;
+  return wantNetto ? product.netto : product.brutto;
 }
 
 // Mapping: Modul-Kürzel → Grundriss-Icon (PNG im public/icons-Verzeichnis)
