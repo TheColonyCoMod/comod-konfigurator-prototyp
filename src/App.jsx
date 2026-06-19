@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.130';
+const APP_VERSION = '0.9.131';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -392,6 +392,7 @@ function mapDbModuleToFrontend(db) {
     grundmodulCount: db.grundmodul_count != null ? Number(db.grundmodul_count) : 1,
     stackLevels: Array.isArray(db.stack_levels) ? db.stack_levels : null,
     flaecheOverride: !!db.flaeche_override,
+    isDurchlaufposten: !!db.is_durchlaufposten,
   };
   // Optionale Felder nur setzen wenn vorhanden (Frontend prüft mit `in` oder undefined)
   if (db.display_name && db.display_name !== db.kuerzel) base.displayName = db.display_name;
@@ -991,6 +992,24 @@ function sumGemeinschaftsCount(project) {
 function verkaufbareModule(project) {
   const ziel = project?.zielModulAnzahl || 0;
   return Math.max(1, ziel - sumGemeinschaftsCount(project));
+}
+
+// Gemeinschaftsmodule in TATSÄCHLICHER Modulanzahl, ohne Pool/Durchlaufposten.
+// (sumGemeinschaftsCount zählt dagegen Produkte inkl. Pool — bleibt für die Kostenverteilung.)
+function sumGemeinschaftsModule(project) {
+  const list = Array.isArray(project?.gemeinschaftsmodule) ? project.gemeinschaftsmodule : [];
+  return list.reduce((s, gm) => {
+    const p = ALL_PRODUCTS.find(x => x.kuerzel === gm.kuerzel);
+    if (!p || p.isDurchlaufposten || p.family === 'pool') return s; // Pool/Durchlaufposten zählen nicht
+    return s + (Number(gm.anzahl) || 0) * calcModulAnzahl(p);
+  }, 0);
+}
+// Effektiver Zielwert für die ANZEIGE: Projekt-Zielwert minus reservierte Gemeinschaftsmodule (ohne Pool).
+// Geldverteilung (verkaufbareModule) und Rabattbasis bleiben bewusst auf dem rohen Zielwert.
+function verfuegbareZielModule(project) {
+  const ziel = project?.zielModulAnzahl || 0;
+  if (ziel <= 0) return 0;
+  return Math.max(0, ziel - sumGemeinschaftsModule(project));
 }
 
 // Solidar-Umlage pro Modul (P1): ALLE einmaligen Projektkosten — Planung/PM (gestaffelt nach Ziel),
@@ -8329,7 +8348,7 @@ export default function App() {
             }}
             ziel={(effectiveGewerbConfig?.zielModulAnzahl > 0)
               ? effectiveGewerbConfig.zielModulAnzahl
-              : (project?.zielModulAnzahl > 0 ? project.zielModulAnzahl : 0)} />
+              : (project?.zielModulAnzahl > 0 ? verfuegbareZielModule(project) : 0)} />
           <div className="h-28 sm:hidden" aria-hidden />
         </>
       )}
