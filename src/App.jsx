@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.126';
+const APP_VERSION = '0.9.127';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2257,7 +2257,8 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
 
 function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
   const hasKueche = products.some(p => p.kueche);
-  const hasMoebliert = products.some(p => typeof p.moebliert === 'boolean');
+  const moebliertVals = new Set(products.filter(p => typeof p.moebliert === 'boolean').map(p => p.moebliert));
+  const hasMoebliert = moebliertVals.size > 1; // nur zeigen, wenn echte Wahl: möbliert UND unmöbliert vorhanden
   const hasGroesse = products.some(p => p.groesse);
 
   if (!hasKueche && !hasMoebliert && !hasGroesse) return null;
@@ -7773,6 +7774,41 @@ const EMPTY_GEWERB_CONFIG = {
   activeOptionen: { abriss: false, erschl: false, wege: false, gruen: false },
 };
 
+// Mobile-only Sticky-Leiste: hält Auswahl, Preis, Finanzierungsrate (und ggf. Zielwert-Fortschritt) im Blick.
+function MobileSummaryBar({ totals, ziel }) {
+  const hasZiel = ziel > 0;
+  const erreicht = totals.einheitenTotal >= ziel;
+  return (
+    <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-white/95 backdrop-blur border-t border-[#1C1C1A]/10 shadow-[0_-4px_20px_-8px_rgba(28,28,26,0.3)]">
+      <div className="px-4 py-2.5 flex items-center justify-between gap-3">
+        <div className="flex items-end gap-4 min-w-0">
+          <div className="shrink-0">
+            <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Module</p>
+            <p className="font-display text-sm num text-[#1C1C1A] leading-none">{totals.countTotal}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Gesamt</p>
+            <p className="font-display text-sm num text-[#1C1C1A] leading-none truncate">{fmtEUR(totals.einmaligGesamtBrutto)}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Rate/Mt.</p>
+            <p className="font-display text-sm num text-[var(--brand-accent,#D2563E)] leading-none truncate">{fmtEUR(totals.finanzierungMonat)}</p>
+          </div>
+        </div>
+        {hasZiel && (
+          <div className="shrink-0 text-right">
+            <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Einheiten</p>
+            <p className="font-display text-sm num leading-none">
+              <span className={erreicht ? 'text-[#7FB069]' : 'text-[#7B2D8E]'}>{totals.einheitenTotal}</span>
+              <span className="text-[#6B6961]"> / {ziel}</span>
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState('customer');
   const [step, setStep] = useState(0);
@@ -8242,6 +8278,17 @@ export default function App() {
           </p>
         </div>
       </footer>
+
+      {view === 'customer' && step >= 1 && step <= 3 && (
+        <>
+          <MobileSummaryBar
+            totals={totals}
+            ziel={(effectiveGewerbConfig?.zielModulAnzahl > 0)
+              ? effectiveGewerbConfig.zielModulAnzahl
+              : (project?.zielModulAnzahl > 0 ? project.zielModulAnzahl : 0)} />
+          <div className="h-24 sm:hidden" aria-hidden />
+        </>
+      )}
     </div>
   );
 }
