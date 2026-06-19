@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.127';
+const APP_VERSION = '0.9.129';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -846,6 +846,20 @@ function calcModulEinheiten(product) {
   return Math.max(1, Math.round(footprint / ZIEL_MODUL_BGF));
 }
 
+// Tatsächliche Anzahl physischer Module eines Produkts (für Zielwert-Zuordnung & Anzeige).
+// Unterschied zu calcModulEinheiten (= belegte Stellplätze/Footprint): Stack zählt ALLE Ebenen,
+// nicht nur das EG. Beispiel: Stack 2×EG + 2×OG = 4 Module (aber nur 2 Stellplätze).
+function calcModulAnzahl(product) {
+  if (!product) return 1;
+  if (Array.isArray(product.stackLevels) && product.stackLevels.length) {
+    const sum = product.stackLevels.reduce((s, lv) => s + (Number(lv.g) || 0) + (Number(lv.m) || 0), 0);
+    return Math.max(1, sum);
+  }
+  if (product.family === 'double') return 1; // ein physischer Korpus (2-in-1)
+  if (product.isKombi && Number(product.grundmodulCount) > 0) return Number(product.grundmodulCount);
+  return 1;
+}
+
 function defaultGeschossVerteilung(zielwert, geschosse) {
   if (!zielwert || !geschosse) return Array(geschosse || 0).fill(0);
   const basis = Math.floor(zielwert / geschosse);
@@ -1129,6 +1143,8 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const einheitenPrivat = privatItems.reduce((s, x) => s + x.count * calcModulEinheiten(x), 0);
   const einheitenGewerb = gewerbItems.reduce((s, x) => s + x.count * calcModulEinheiten(x), 0);
   const einheitenTotal = einheitenPrivat + einheitenGewerb;
+  // Tatsächliche Modulanzahl (Stack = alle Ebenen) — maßgeblich für die Zielwert-Zuordnung.
+  const modulAnzahlTotal = lineItems.reduce((s, x) => s + x.count * calcModulAnzahl(x), 0);
   const gesamtNUF = lineItems.reduce((s, x) => s + x.count * x.nuf, 0);
   const gesamtBGF = lineItems.reduce((s, x) => s + x.count * x.bgf, 0);
   const nufPrivat = privatItems.reduce((s, x) => s + x.count * x.nuf, 0);
@@ -1138,12 +1154,13 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   // Rabattbasis:
   // - Bei Gewerbekunden mit Zielwert: auf Ziel-Modulanzahl
   // - Bei Privatkunden mit Projektbeitritt: auf Projekt-Zielwert (Kunde profitiert von der Quartiers-Größe)
-  // - Sonst: auf Ist-Auswahl
+  // - Sonst: auf die tatsächliche Modulanzahl der Ist-Auswahl (Stack/Kombi zählen alle Module,
+  //   z. B. 3 Lager = 18, 3 Stack = 12 → entsprechende Mengenstaffel)
   const rabattBasis = (gewerbConfig && gewerbConfig.zielModulAnzahl > 0)
     ? gewerbConfig.zielModulAnzahl
     : (project && project.zielModulAnzahl > 0)
       ? project.zielModulAnzahl
-      : countTotal;
+      : modulAnzahlTotal;
   const rabattPct = getRabatt(rabattBasis) + (project ? project.projektrabatt : 0);
   // Projekt-Overrides (Etappe 1): wirken nur im Projekt-Kontext, sonst neutral
   const projMargeOverride = (project && project.projektMarge != null) ? project.projektMarge : undefined; // ersetzt Modul-Marge
@@ -1379,7 +1396,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   return {
     lineItems, privatItems, gewerbItems, incomeItems,
     eigennutzungGewerbCount,
-    countPrivat, countGewerb, countTotal, einheitenPrivat, einheitenGewerb, einheitenTotal, gesamtNUF, gesamtBGF, nufPrivat, nufGewerb,
+    countPrivat, countGewerb, countTotal, einheitenPrivat, einheitenGewerb, einheitenTotal, modulAnzahlTotal, gesamtNUF, gesamtBGF, nufPrivat, nufGewerb,
     bruttoPrivat, nettoGewerb, rabattPct, nextStaffel,
     effPrivat, effGewerbNetto, effGewerbBrutto,
     kfwBasis, kfwRate, glsBasis, glsRate, privatOptionenKosten,
@@ -2859,7 +2876,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
             <div className="bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] px-4 py-3 mb-6 flex items-center gap-2.5">
               <TrendingUp className="w-4 h-4 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
               <p className="font-body text-xs text-[#1C1C1A]">
-                Noch <span className="font-medium num">{totals.nextStaffel.ab - totals.countTotal}</span> Module bis zum nächsten Rabatt-Sprung ({fmtPct(totals.nextStaffel.prozent)}).
+                Noch <span className="font-medium num">{totals.nextStaffel.ab - totals.modulAnzahlTotal}</span> Module bis zum nächsten Rabatt-Sprung ({fmtPct(totals.nextStaffel.prozent)}).
               </p>
             </div>
           )}
@@ -7774,37 +7791,37 @@ const EMPTY_GEWERB_CONFIG = {
   activeOptionen: { abriss: false, erschl: false, wege: false, gruen: false },
 };
 
-// Mobile-only Sticky-Leiste: hält Auswahl, Preis, Finanzierungsrate (und ggf. Zielwert-Fortschritt) im Blick.
-function MobileSummaryBar({ totals, ziel }) {
+// Mobile-only Sticky-Leiste: hält Modulanzahl, Preis und Finanzierungsrate im Blick,
+// zeigt bei Zielwert den Fortschritt und integriert den „Weiter"-Schritt (kein langes Scrollen).
+function MobileSummaryBar({ totals, ziel, step, onAdvance }) {
   const hasZiel = ziel > 0;
-  const erreicht = totals.einheitenTotal >= ziel;
+  const ist = totals.modulAnzahlTotal; // tatsächliche Module (Stack zählt alle Ebenen)
+  const erreicht = ist >= ziel;
+  const advanceDisabled = step === 1 && totals.countTotal === 0;
+  const btnLabel = step === 3 ? 'Zum Abschluss' : 'Weiter';
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-white/95 backdrop-blur border-t border-[#1C1C1A]/10 shadow-[0_-4px_20px_-8px_rgba(28,28,26,0.3)]">
-      <div className="px-4 py-2.5 flex items-center justify-between gap-3">
-        <div className="flex items-end gap-4 min-w-0">
-          <div className="shrink-0">
-            <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Module</p>
-            <p className="font-display text-sm num text-[#1C1C1A] leading-none">{totals.countTotal}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Gesamt</p>
-            <p className="font-display text-sm num text-[#1C1C1A] leading-none truncate">{fmtEUR(totals.einmaligGesamtBrutto)}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Rate/Mt.</p>
-            <p className="font-display text-sm num text-[var(--brand-accent,#D2563E)] leading-none truncate">{fmtEUR(totals.finanzierungMonat)}</p>
-          </div>
+      <div className="px-4 pt-2.5 pb-2 flex items-end gap-4">
+        <div className="shrink-0">
+          <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Module</p>
+          <p className="font-display text-sm num leading-none">
+            <span className={hasZiel ? (erreicht ? 'text-[#7FB069]' : 'text-[#7B2D8E]') : 'text-[#1C1C1A]'}>{ist}</span>
+            {hasZiel && <span className="text-[#6B6961]"> / {ziel}</span>}
+          </p>
         </div>
-        {hasZiel && (
-          <div className="shrink-0 text-right">
-            <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Einheiten</p>
-            <p className="font-display text-sm num leading-none">
-              <span className={erreicht ? 'text-[#7FB069]' : 'text-[#7B2D8E]'}>{totals.einheitenTotal}</span>
-              <span className="text-[#6B6961]"> / {ziel}</span>
-            </p>
-          </div>
-        )}
+        <div className="min-w-0 flex-1">
+          <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Gesamt</p>
+          <p className="font-display text-sm num text-[#1C1C1A] leading-none truncate">{fmtEUR(totals.einmaligGesamtBrutto)}</p>
+        </div>
+        <div className="min-w-0">
+          <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Rate/Mt.</p>
+          <p className="font-display text-sm num text-[var(--brand-accent,#D2563E)] leading-none truncate">{fmtEUR(totals.finanzierungMonat)}</p>
+        </div>
       </div>
+      <button onClick={onAdvance} disabled={advanceDisabled}
+        className={`w-full flex items-center justify-center gap-1.5 py-2.5 font-body text-sm tracking-wide transition-colors ${advanceDisabled ? 'bg-[#1C1C1A]/10 text-[#6B6961]' : 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] active:bg-[#B04528]'}`}>
+        {btnLabel} <ArrowRight className="w-4 h-4" />
+      </button>
     </div>
   );
 }
@@ -8283,10 +8300,16 @@ export default function App() {
         <>
           <MobileSummaryBar
             totals={totals}
+            step={step}
+            onAdvance={() => {
+              if (step === 1) setStep(2);
+              else if (step === 2) setStep(3);
+              else if (typeof window !== 'undefined') window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }}
             ziel={(effectiveGewerbConfig?.zielModulAnzahl > 0)
               ? effectiveGewerbConfig.zielModulAnzahl
               : (project?.zielModulAnzahl > 0 ? project.zielModulAnzahl : 0)} />
-          <div className="h-24 sm:hidden" aria-hidden />
+          <div className="h-28 sm:hidden" aria-hidden />
         </>
       )}
     </div>
