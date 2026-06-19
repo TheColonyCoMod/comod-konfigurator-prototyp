@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.129';
+const APP_VERSION = '0.9.130';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -7791,37 +7791,52 @@ const EMPTY_GEWERB_CONFIG = {
   activeOptionen: { abriss: false, erschl: false, wege: false, gruen: false },
 };
 
-// Mobile-only Sticky-Leiste: hält Modulanzahl, Preis und Finanzierungsrate im Blick,
-// zeigt bei Zielwert den Fortschritt und integriert den „Weiter"-Schritt (kein langes Scrollen).
-function MobileSummaryBar({ totals, ziel, step, onAdvance }) {
+// Mobile-only Sticky-Leiste: Modulanzahl, Gesamtpreis, Finanzierungsrate, (Rabatt), Zielwert-Fortschritt
+// und integrierte Schritt-Navigation (Zurück / Weiter) — kein langes Scrollen nötig.
+function MobileSummaryBar({ totals, ziel, step, onAdvance, onBack }) {
   const hasZiel = ziel > 0;
   const ist = totals.modulAnzahlTotal; // tatsächliche Module (Stack zählt alle Ebenen)
   const erreicht = ist >= ziel;
   const advanceDisabled = step === 1 && totals.countTotal === 0;
   const btnLabel = step === 3 ? 'Zum Abschluss' : 'Weiter';
+  const hasRabatt = (totals.rabattPct || 0) > 0;
+  const lbl = 'font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1';
+  const val = 'font-display text-sm num leading-none';
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-white/95 backdrop-blur border-t border-[#1C1C1A]/10 shadow-[0_-4px_20px_-8px_rgba(28,28,26,0.3)]">
-      <div className="px-4 pt-2.5 pb-2 flex items-end gap-4">
+      <div className="px-4 pt-2.5 pb-2 flex items-end gap-3">
         <div className="shrink-0">
-          <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Module</p>
-          <p className="font-display text-sm num leading-none">
+          <p className={lbl}>Module</p>
+          <p className={val}>
             <span className={hasZiel ? (erreicht ? 'text-[#7FB069]' : 'text-[#7B2D8E]') : 'text-[#1C1C1A]'}>{ist}</span>
             {hasZiel && <span className="text-[#6B6961]"> / {ziel}</span>}
           </p>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Gesamt</p>
-          <p className="font-display text-sm num text-[#1C1C1A] leading-none truncate">{fmtEUR(totals.einmaligGesamtBrutto)}</p>
+          <p className={lbl}>Gesamt</p>
+          <p className={`${val} text-[#1C1C1A] truncate`}>{fmtEUR(totals.bruttoGesamt)}</p>
         </div>
-        <div className="min-w-0">
-          <p className="font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1">Rate/Mt.</p>
-          <p className="font-display text-sm num text-[var(--brand-accent,#D2563E)] leading-none truncate">{fmtEUR(totals.finanzierungMonat)}</p>
+        {hasRabatt && (
+          <div className="shrink-0">
+            <p className={lbl}>Rabatt</p>
+            <p className={`${val} text-[#7FB069]`}>−{fmtPct(totals.rabattPct)}</p>
+          </div>
+        )}
+        <div className="shrink-0 text-right">
+          <p className={lbl}>Rate/Mt.</p>
+          <p className={`${val} text-[var(--brand-accent,#D2563E)] truncate`}>{fmtEUR(totals.finanzierungMonat)}</p>
         </div>
       </div>
-      <button onClick={onAdvance} disabled={advanceDisabled}
-        className={`w-full flex items-center justify-center gap-1.5 py-2.5 font-body text-sm tracking-wide transition-colors ${advanceDisabled ? 'bg-[#1C1C1A]/10 text-[#6B6961]' : 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] active:bg-[#B04528]'}`}>
-        {btnLabel} <ArrowRight className="w-4 h-4" />
-      </button>
+      <div className="flex">
+        <button onClick={onBack}
+          className="shrink-0 flex items-center justify-center gap-1 px-5 py-2.5 font-body text-sm text-[#6B6961] border-t border-r border-[#1C1C1A]/10 active:bg-[#1C1C1A]/5">
+          <ChevronLeft className="w-4 h-4" /> Zurück
+        </button>
+        <button onClick={onAdvance} disabled={advanceDisabled}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 font-body text-sm tracking-wide transition-colors ${advanceDisabled ? 'bg-[#1C1C1A]/10 text-[#6B6961]' : 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] active:bg-[#B04528]'}`}>
+          {btnLabel} <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -8225,6 +8240,7 @@ export default function App() {
         },
         finanzen: {
           einmaligGesamtBrutto: totals.einmaligGesamtBrutto,
+          gesamtBrutto: totals.bruttoGesamt, // echter Gesamtpreis (Module + Einmalkosten) — für „Einmalige Investition" im PDF
           anzahlung: totals.anzahlung,
           kfwRate: totals.kfwRate,
           glsRate: totals.glsRate,
@@ -8305,6 +8321,11 @@ export default function App() {
               if (step === 1) setStep(2);
               else if (step === 2) setStep(3);
               else if (typeof window !== 'undefined') window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }}
+            onBack={() => {
+              if (step === 1) backFromModules();
+              else if (step === 2) setStep(1);
+              else setStep(2);
             }}
             ziel={(effectiveGewerbConfig?.zielModulAnzahl > 0)
               ? effectiveGewerbConfig.zielModulAnzahl
