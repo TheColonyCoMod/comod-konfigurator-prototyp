@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.136';
+const APP_VERSION = '0.9.137';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2798,6 +2798,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
 
   // Reiner Gewerbe-Pfad: alle Beträge netto anzeigen (Vorsteuer-Abzug möglich)
   const isPureGewerb = customerType === 'gewerblich';
+  // Kategorie-Label: im privaten Pfad heißt "wohnen" → "Wohnmodule" (statt "Mitarbeiterwohnen …")
+  const catLabel = (cid) => (cid === 'wohnen' && customerType === 'privat') ? 'Wohnmodule' : (CATEGORIES[cid]?.label || cid);
   const priceMode = isPureGewerb ? 'netto' : 'brutto';
   // Helper: nimmt einen Posten mit { brutto, netto } und gibt den anzuzeigenden Wert
   const showPrice = (item) => isPureGewerb && item?.netto != null ? item.netto : (item?.brutto ?? item);
@@ -2927,7 +2929,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
               {availableCategories.map(c => (
                 <button key={c} onClick={() => setCatFilter(c)}
                   className={`px-3 py-1.5 transition-colors ${catFilter === c ? 'border-[var(--brand-accent,#D2563E)] text-[var(--brand-accent,#D2563E)]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
-                  {CATEGORIES[c]?.label || c}
+                  {catLabel(c)}
                 </button>
               ))}
             </div>
@@ -2937,7 +2939,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
             {Object.entries(familiesByCat).map(([catId, famIds]) => (
               <div key={catId}>
                 <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-[#1C1C1A]/10">
-                  <h2 className="font-display text-2xl">{CATEGORIES[catId]?.label || catId}</h2>
+                  <h2 className="font-display text-2xl">{catLabel(catId)}</h2>
                   <p className="font-body text-xs text-[#6B6961] hidden md:block">{CATEGORIES[catId]?.desc || ''}</p>
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
@@ -2999,15 +3001,18 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   <div className="-mx-7 px-7 py-5 mb-5 bg-gradient-to-b from-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] to-transparent border-y border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)]">
                     {/* Verbrauchskosten klein, informativ, OBERHALB der Belastung (Feedback V4) */}
                     {totals.verbrauchskostenMonat > 0 && (
-                      <div className="mb-3 pb-3 border-b border-[#1C1C1A]/8">
-                        <div className="flex items-baseline justify-between text-[#6B6961]">
-                          <span className="font-body text-[10px] uppercase tracking-wider">Verbrauchskosten (variabel)</span>
-                          <span className="font-body text-xs num">ca. {fmtEUR(totals.verbrauchskostenMonat)}/Mt.</span>
-                        </div>
-                        <p className="font-body text-[10px] text-[#6B6961] mt-0.5 italic">
-                          Strom, Wasser, Heizung — individueller Richtwert, nicht in der Rate enthalten
+                      <details className="group mb-3 pb-3 border-b border-[#1C1C1A]/8">
+                        <summary className="flex items-baseline justify-between gap-2 cursor-pointer list-none text-[#6B6961]">
+                          <span className="font-body text-[10px] uppercase tracking-wider flex items-center gap-1">
+                            <ChevronRight className="w-3 h-3 shrink-0 transition-transform group-open:rotate-90" strokeWidth={2} />
+                            Verbrauchskostenschätzung
+                          </span>
+                          <span className="font-body text-xs num shrink-0">ca. {fmtEUR(totals.verbrauchskostenMonat)}/Mt.</span>
+                        </summary>
+                        <p className="font-body text-[10px] text-[#6B6961] mt-1 italic pl-4">
+                          Strom, Wasser, Heizung — individueller Richtwert, nicht in der Rate enthalten.
                         </p>
-                      </div>
+                      </details>
                     )}
                     {totals.finanzierungMonat > 0 && (
                       <div className="mb-3">
@@ -3690,24 +3695,19 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
             <span className="num shrink-0 text-[#6B6961]">—</span>
           </div>
         )}
-        {/* Service & Sicherheit (= Lizenz + QM, nur Anzeige zusammengefasst) */}
-        {serviceSummeProM2 > 0 && (
+        {/* Service & Sicherheit (= Lizenz + QM). Privat & abgewählt → komplett ausgeblendet. */}
+        {serviceSummeProM2 > 0 && (serviceActive || !serviceOptional) && (
           <div className="py-2 border-b border-[#1C1C1A]/8">
             <div className="flex justify-between">
               <div>
-                <span className={serviceActive ? 'text-[#1C1C1A]' : 'text-[#6B6961] line-through'}>Service &amp; Sicherheit</span>
-                {serviceOptional && <span className="text-[#6B6961] text-xs"> (optional)</span>}
+                <span className="text-[#1C1C1A]">Service &amp; Sicherheit</span>
+                {serviceOptional && <span className="text-[#6B6961] text-xs"> (gewählt)</span>}
                 <p className="text-xs text-[#6B6961]">
-                  Lizenz &amp; Quartiersmanagement{serviceOptional ? (serviceActive ? ' · gewählt' : ' · abgewählt') : ' · im Service-Paket enthalten'}
+                  Lizenz &amp; Quartiersmanagement{serviceOptional ? '' : ' · im Service-Paket enthalten'}
                 </p>
               </div>
-              <span className={`num shrink-0 ${serviceActive ? '' : 'text-[#6B6961]'}`}>{serviceActive ? `${fmtEUR2(serviceSummeProM2)}/m²` : '0 €/m²'}</span>
+              <span className="num shrink-0">{fmtEUR2(serviceSummeProM2)}/m²</span>
             </div>
-            {serviceOptional && (
-              <p className="text-xs text-[#6B6961] italic mt-1">
-                Für die private Nutzung frei wählbar — oben unter „Service &amp; Sicherheit" an- oder abwählbar.
-              </p>
-            )}
           </div>
         )}
         {/* übrige laufende Fixkosten (Versicherung, Instandhaltung) */}
@@ -8089,7 +8089,7 @@ export default function App() {
   const [mitarbeiterAnzahl, setMitarbeiterAnzahl] = useState(0); // 0 = nicht gesetzt → Anzahl Module als Default
   const [iabBetrag, setIabBetrag] = useState(0); // Investitionsabzugsbetrag (steuerlich, kein Cashflow)
   const [privatOptionen, setPrivatOptionen] = useState({ terrasse: false, pv: false, gruen: false }); // optionale Privat-Upgrades
-  const [serviceSelected, setServiceSelected] = useState(true); // Service & Sicherheit (Lizenz+QM) — privater Pfad abwählbar, Default an
+  const [serviceSelected, setServiceSelected] = useState(false); // Service & Sicherheit (Lizenz+QM) — privater Pfad: standardmäßig abgewählt, Kunde wählt aktiv dazu
   const [financing, setFinancing] = useState(FIN_DEFAULTS);
   const [ekPrivat, setEkPrivat] = useState(0);
   const [ekGewerb, setEkGewerb] = useState(0);
@@ -8117,7 +8117,7 @@ export default function App() {
   function handleTypeSelect(type) {
     // Bei Typ-Wechsel kompletter Reset der Modul-Auswahl, damit private/gewerbliche Pfade nicht vermischen
     setSelections({}); setModes({}); setAddUsageState('g');
-    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setServiceSelected(true);
+    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setServiceSelected(false);
     setCustomerType(type);
     if (type === 'privat') {
       setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
@@ -8130,7 +8130,7 @@ export default function App() {
   // Beim Zurückgehen zum Welcome-Screen: alle Auswahlen zurücksetzen, damit der nächste Pfad sauber startet
   function goToWelcome() {
     setSelections({}); setModes({}); setAddUsageState('g');
-    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setServiceSelected(true);
+    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setServiceSelected(false);
     setProject(null); setPrivatMode(null); setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setCustomerType(null);
     setStep(0);
@@ -8405,7 +8405,7 @@ export default function App() {
     setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setSelections({}); setModes({}); setFinancing(FIN_DEFAULTS);
     setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null); setOfferStatus(null);
-    setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setAddUsageState('g'); setServiceSelected(true);
+    setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setAddUsageState('g'); setServiceSelected(false);
   }
   function jumpToStep(s) { if (s < Math.floor(step)) setStep(s); }
   function backFromModules() { setStep(0.45); }
