@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.138';
+const APP_VERSION = '0.9.139';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1594,7 +1594,7 @@ function WelcomeStep({ onSelect }) {
   const options = [
     { id: 'privat', icon: Home, image: '/headers/header_privat.jpg', title: 'Privater Kunde', subtitle: 'Eigenes Wohnen, optional gewerbliche Erweiterung',
       desc: 'Module für die private Nutzung — auf Deinem eigenen Grundstück oder als Teil eines unserer Projekte. Auch gewerbliche Module möglich (z. B. Praxis, Büro).' },
-    { id: 'gewerblich', icon: Building2, image: '/headers/header_gewerbe.jpg', title: 'Firmen & Investoren', subtitle: 'Tourismus, Mitarbeiter, Investment',
+    { id: 'gewerblich', icon: Building2, image: '/headers/header_gewerbe.jpg', title: 'Firma / Investor', subtitle: 'Tourismus, Mitarbeiter, Investment',
       desc: 'Du hast bereits eine Fläche oder suchst noch? Wir berechnen den Mindestflächenbedarf — oder die volle Wirtschaftlichkeit, wenn Du Deine Fläche kennst.' },
   ];
   return (
@@ -2997,21 +2997,6 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 {/* MONATLICHE BELASTUNG — Hero-Element der Sidebar (Verkaufspsychologie) */}
                 {(totals.finanzierungMonat > 0 || totals.hasIncome) && (
                   <div className="-mx-7 px-7 py-5 mb-5 bg-gradient-to-b from-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] to-transparent border-y border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)]">
-                    {/* Verbrauchskosten klein, informativ, OBERHALB der Belastung (Feedback V4) */}
-                    {totals.verbrauchskostenMonat > 0 && (
-                      <details className="group mb-3 pb-3 border-b border-[#1C1C1A]/8">
-                        <summary className="flex items-baseline justify-between gap-2 cursor-pointer list-none text-[#6B6961]">
-                          <span className="font-body text-[10px] uppercase tracking-wider flex items-center gap-1">
-                            <ChevronRight className="w-3 h-3 shrink-0 transition-transform group-open:rotate-90" strokeWidth={2} />
-                            Verbrauchskostenschätzung
-                          </span>
-                          <span className="font-body text-xs num shrink-0">ca. {fmtEUR(totals.verbrauchskostenMonat)}/Mt.</span>
-                        </summary>
-                        <p className="font-body text-[10px] text-[#6B6961] mt-1 italic pl-4">
-                          Strom, Wasser, Heizung — individueller Richtwert, nicht in der Rate enthalten.
-                        </p>
-                      </details>
-                    )}
                     {totals.finanzierungMonat > 0 && (
                       <div className="mb-3">
                         <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[var(--brand-accent,#D2563E)] mb-1">Voraussichtliche Monatsrate</p>
@@ -3213,11 +3198,34 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   </div>
                 )}
 
+                {/* MODULKOSTEN — reine Modulpreise (analog mobile "Module €"), oben */}
+                <details className="pb-4 mb-4 border-b border-[#1C1C1A]/10 group">
+                  <summary className="cursor-pointer list-none flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Layers className="w-3 h-3" strokeWidth={2}/> Modulkosten {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</p>
+                      <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.modulKostenBrutto / (1 + UST) : totals.modulKostenBrutto)}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
+                  </summary>
+                  <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8 space-y-1">
+                    {totals.lineItems.map(it => (
+                      <div key={it.kuerzel} className="flex justify-between text-sm font-body">
+                        <span className="text-[#6B6961]">{it.count}× {getDisplayName(it)}</span>
+                        <span className="num text-[#1C1C1A]">{fmtEUR(it.count * effectiveModulPreis(it, isPureGewerb, priceCtx))}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe Module</dt><dd className="num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.modulKostenBrutto / (1 + UST) : totals.modulKostenBrutto)}</dd></div>
+                    {priceCtx && totals.rabattPct > 0 && (
+                      <p className="font-body text-[10px] text-[#6B6961] italic pt-1">inkl. {fmtPct(totals.rabattPct)} Projektrabatt</p>
+                    )}
+                  </div>
+                </details>
+
                 {totals.einmaligGesamtBrutto > 0 && (
                   <details className="pb-4 mb-4 border-b border-[#1C1C1A]/10 group">
                     <summary className="cursor-pointer list-none flex items-center justify-between">
                       <div className="flex-1">
-                        <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalige Projektkosten {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</p>
+                        <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalkosten {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</p>
                         <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(project ? (totals.einmaligGesamtBrutto + totals.countTotal * totals.gmKostenProModulBrutto) : (isPureGewerb ? totals.einmaligGesamtNetto : totals.einmaligGesamtBrutto))}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
@@ -3318,36 +3326,33 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   </details>
                 )}
 
-                {/* INVESTMENT — als Detail, nicht als Hero */}
-                <details className="mb-4 pb-4 border-b border-[#1C1C1A]/10 group">
-                  <summary className="font-body text-xs uppercase tracking-wider text-[#6B6961] cursor-pointer hover:text-[#1C1C1A] flex items-center justify-between gap-2 list-none">
-                    <span className="flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Investmentsumme anzeigen {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</span>
-                    <ChevronRight className="w-3 h-3 transition-transform group-open:rotate-90" strokeWidth={2} />
-                  </summary>
-                  <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8 space-y-1.5">
-                    <div className="flex justify-between text-sm font-body">
-                      <span className="text-[#6B6961]">Anschaffung gesamt</span>
-                      <span className="num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.nettoGesamt : totals.bruttoGesamt)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-body">
-                      <span className="text-[#6B6961]">Anzahlung ca.</span>
-                      <span className="num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.anzahlung / (1 + UST) : totals.anzahlung)}</span>
-                    </div>
-                    {totals.lineItems.length > 0 && (
-                      <div className="pt-2 mt-2 border-t border-[#1C1C1A]/8 space-y-1">
-                        {totals.lineItems.map(it => (
-                          <div key={it.kuerzel} className="flex justify-between text-[11px] font-body text-[#6B6961]">
-                            <span>{it.count}× {getDisplayName(it)}</span>
-                            <span className="num">{fmtEUR(it.count * effectiveModulPreis(it, isPureGewerb, priceCtx))}</span>
-                          </div>
-                        ))}
-                        {priceCtx && totals.rabattPct > 0 && (
-                          <p className="font-body text-[10px] text-[#6B6961] italic pt-1">inkl. {fmtPct(totals.rabattPct)} Projektrabatt</p>
-                        )}
-                      </div>
-                    )}
+                {/* Anschaffung gesamt = Modulkosten + Einmalkosten */}
+                <div className="mb-4 pb-4 border-b border-[#1C1C1A]/10 space-y-1.5">
+                  <div className="flex justify-between text-sm font-body">
+                    <span className="text-[#1C1C1A]">Anschaffung gesamt</span>
+                    <span className="num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.nettoGesamt : totals.bruttoGesamt)}</span>
                   </div>
-                </details>
+                  <div className="flex justify-between text-sm font-body text-[#6B6961]">
+                    <span>Anzahlung ca.</span>
+                    <span className="num">{fmtEUR(isPureGewerb ? totals.anzahlung / (1 + UST) : totals.anzahlung)}</span>
+                  </div>
+                </div>
+
+                {/* VERBRAUCHSKOSTENSCHÄTZUNG — dezentes Pulldown, ganz unten über dem Weiter-Button */}
+                {totals.verbrauchskostenMonat > 0 && (
+                  <details className="group mb-4 pb-4 border-b border-[#1C1C1A]/10">
+                    <summary className="flex items-baseline justify-between gap-2 cursor-pointer list-none text-[#6B6961]">
+                      <span className="font-body text-xs uppercase tracking-wider flex items-center gap-1.5">
+                        <ChevronRight className="w-3 h-3 shrink-0 transition-transform group-open:rotate-90" strokeWidth={2} />
+                        Verbrauchskostenschätzung
+                      </span>
+                      <span className="font-body text-sm num shrink-0">ca. {fmtEUR(totals.verbrauchskostenMonat)}/Mt.</span>
+                    </summary>
+                    <p className="font-body text-[11px] text-[#6B6961] mt-2 italic pl-5">
+                      Strom, Wasser, Heizung — individueller Richtwert, nicht in der Rate enthalten.
+                    </p>
+                  </details>
+                )}
 
                 <Button onClick={onNext} className="w-full" disabled={totals.countTotal === 0}>
                   Weiter zur Finanzierung <ChevronRight className="w-4 h-4" />
@@ -3904,23 +3909,34 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               </div>
             )}
 
-            {/* Laufende Fixkosten (Lizenz, QM, Versicherung, Instandhaltung + Pacht) — separat ausgewiesen */}
-            {totals.laufendeKostenMonat > 0 && (
-              <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> Laufende Fixkosten</p>
-                <p className="font-display text-xl num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</p>
-                <p className="font-body text-[10px] opacity-70 mt-0.5">{[(totals.nebenkosten?.pachtMonat > 0) ? 'Pacht' : null, totals.serviceActive ? 'Service & Sicherheit (Lizenz, QM, Versicherung, Instandhaltung)' : null].filter(Boolean).join(' · ')}</p>
-              </div>
-            )}
-
-            {/* Verbrauchskosten als Hinweis */}
-            {totals.verbrauchskostenMonat > 0 && (
-              <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1">Verbrauchskosten <span className="opacity-70">(variabel)</span></p>
-                <p className="font-display text-lg num opacity-70">ca. {fmtEUR(totals.verbrauchskostenMonat)}</p>
-                <p className="font-body text-[10px] opacity-70 mt-0.5">{getContentText('tooltip_verbrauchskosten', 'Strom, Wasser, Heizung — trägt der Bewohner')}</p>
-              </div>
-            )}
+            {/* Laufende Fixkosten → bei gewähltem Service "Service & Sicherheit"; Ausklapper mit Einzelposten */}
+            {totals.laufendeKostenMonat > 0 && (() => {
+              const nk = totals.nebenkosten || {};
+              const pacht = nk.pachtMonat || 0;
+              const fixPosten = (nk.posten || []).filter(po => po.typ === 'fix');
+              const titel = totals.serviceActive ? 'Service & Sicherheit' : 'Laufende Fixkosten';
+              return (
+                <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
+                  <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> {titel}</p>
+                  <p className="font-display text-xl num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</p>
+                  <details className="group mt-1.5">
+                    <summary className="cursor-pointer list-none flex items-center gap-1 font-body text-[10px] uppercase tracking-wider opacity-70 hover:opacity-100">
+                      <ChevronRight className="w-3 h-3 transition-transform group-open:rotate-90" strokeWidth={2} /> Details anzeigen
+                    </summary>
+                    <dl className="mt-2 space-y-1 text-xs font-body">
+                      {pacht > 0 && (
+                        <div className="flex justify-between opacity-80"><dt>Pacht-Umlage</dt><dd className="num">{fmtEUR(pacht)}</dd></div>
+                      )}
+                      {totals.serviceActive && fixPosten.map(po => (
+                        <div key={po.id} className="flex justify-between opacity-80"><dt>{po.label}</dt><dd className="num">{fmtEUR(po.proM2 * totals.gesamtNUF)}</dd></div>
+                      ))}
+                      <div className="flex justify-between pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><dt className="opacity-90">Summe / Monat</dt><dd className="num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</dd></div>
+                    </dl>
+                    <p className="font-body text-[10px] opacity-60 mt-1.5 italic">Richtwerte je {fmtNum(totals.gesamtNUF)} m² NUF — im Backend pflegbar.</p>
+                  </details>
+                </div>
+              );
+            })()}
 
             {/* Mieteinnahmen */}
             {totals.hasIncome && (
@@ -4007,6 +4023,20 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
                     Finanzierung {totals.hatGewerbModule ? '(nach Steuer) ' : ''}+ laufende Fixkosten{(totals.hasIncome || totals.gmCount > 0) ? ' − Einnahmen' : ''}
                   </p>}
             </div>
+
+            {/* Verbrauchskostenschätzung — dezentes Pulldown, ganz unten über dem Button */}
+            {totals.verbrauchskostenMonat > 0 && (
+              <details className="group pb-4 mb-4 border-b border-[#F8F5F0]/15">
+                <summary className="flex items-baseline justify-between gap-2 cursor-pointer list-none">
+                  <span className="font-body text-xs uppercase tracking-wider opacity-70 flex items-center gap-1.5">
+                    <ChevronRight className="w-3 h-3 shrink-0 transition-transform group-open:rotate-90" strokeWidth={2} />
+                    Verbrauchskostenschätzung
+                  </span>
+                  <span className="font-body text-sm num opacity-70 shrink-0">ca. {fmtEUR(totals.verbrauchskostenMonat)}/Mt.</span>
+                </summary>
+                <p className="font-body text-[10px] opacity-70 mt-2 pl-5">{getContentText('tooltip_verbrauchskosten', 'Strom, Wasser, Heizung — trägt der Bewohner, hängt vom tatsächlichen Verbrauch ab.')}</p>
+              </details>
+            )}
 
             <Button variant="inverse" onClick={onNext} className="w-full">Unverbindliches Angebot anfragen <ChevronRight className="w-4 h-4" /></Button>
           </div>
