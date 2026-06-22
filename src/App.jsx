@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.137';
+const APP_VERSION = '0.9.138';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1121,13 +1121,11 @@ function calcNebenkosten({ hasPacht, pachtJahr, pachtGewerblich, gesamtNUF, nufP
   const pachtProM2 = gesamtNUF > 0 ? pachtMonat / gesamtNUF : 0;
 
   // Aufteilung: laufende Fixkosten (inkl. Pacht) vs. variable Verbrauchskosten
-  // Service & Sicherheit (= Lizenz + QM) ist auf dem privaten Pfad abwählbar (includeService=false)
-  // → fällt dann aus den laufenden Fixkosten. Rein gewerblich: immer enthalten.
-  const SERVICE_IDS = ['lizenz', 'qm'];
-  const serviceProM2 = NEBENKOSTEN_POSTEN.filter(p => SERVICE_IDS.includes(p.id)).reduce((s, p) => s + p.proM2, 0);
-  const fixProM2 = NEBENKOSTEN_POSTEN
-    .filter(p => p.typ === 'fix' && (includeService || !SERVICE_IDS.includes(p.id)))
-    .reduce((s, p) => s + p.proM2, 0);
+  // Service & Sicherheit (= ALLE laufenden Fixposten: Lizenz, QM, Versicherung, Instandhaltung)
+  // ist auf dem privaten Pfad komplett abwählbar (includeService=false). Pacht bleibt davon
+  // UNBERÜHRT (separat, nur bei Projekt/Pachtgrundstück). Rein gewerblich: immer enthalten.
+  const serviceProM2 = NEBENKOSTEN_POSTEN.filter(p => p.typ === 'fix').reduce((s, p) => s + p.proM2, 0);
+  const fixProM2 = includeService ? serviceProM2 : 0;
   const verbrauchProM2 = NEBENKOSTEN_POSTEN.filter(p => p.typ === 'verbrauch').reduce((s, p) => s + p.proM2, 0);
   const nebenkostenProM2 = fixProM2 + verbrauchProM2;
   const proM2Gesamt = pachtProM2 + nebenkostenProM2;
@@ -3633,13 +3631,12 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
   const pachtSource = project ? { pachtJahr: project.pachtJahr || 0, pachtGewerblich: project.pachtGewerblich, zielModulAnzahl: project.zielModulAnzahl || 0, isProject: true }
     : gewerbConfig ? { pachtJahr: gewerbConfig.pachtJahr || 0, pachtGewerblich: gewerbConfig.pachtGewerblich, zielModulAnzahl: 0, isProject: false }
     : { pachtJahr: 0, pachtGewerblich: false, zielModulAnzahl: 0, isProject: false };
-  // Anzeige-Logik (Punkt 1+2):
+  // Anzeige-Logik:
   // - Verbrauchsposten (Strom/Wasser/Heizung) wandern in ein dezentes Pulldown mit Monatssumme.
-  // - Lizenz + QM werden NUR in der Anzeige zu "Service & Sicherheit (optional)" zusammengefasst
-  //   (Engine/Berechnung unverändert — beide bleiben Teil der laufenden Fixkosten).
+  // - ALLE laufenden Fixposten (Lizenz, QM, Versicherung, Instandhaltung) werden in der Anzeige
+  //   zu "Service & Sicherheit" zusammengefasst — auf dem privaten Pfad komplett abwählbar.
   const verbrauchPosten = p.posten.filter(x => x.typ === 'verbrauch');
-  const serviceSummeProM2 = p.posten.filter(x => x.id === 'lizenz' || x.id === 'qm').reduce((s, x) => s + x.proM2, 0);
-  const fixRest = p.posten.filter(x => x.typ === 'fix' && x.id !== 'lizenz' && x.id !== 'qm');
+  const serviceSummeProM2 = p.posten.filter(x => x.typ === 'fix').reduce((s, x) => s + x.proM2, 0);
   const laufendProM2 = p.pachtProM2 + p.fixProM2;
   // Service & Sicherheit ist auf dem privaten Pfad abwählbar (Status kommt aus totals),
   // für rein gewerbliche Kunden Pflicht. Hier nur Anzeige — die Rechenwirkung steckt in fixProM2.
@@ -3695,7 +3692,7 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
             <span className="num shrink-0 text-[#6B6961]">—</span>
           </div>
         )}
-        {/* Service & Sicherheit (= Lizenz + QM). Privat & abgewählt → komplett ausgeblendet. */}
+        {/* Service & Sicherheit (= alle Fixposten). Privat & abgewählt → komplett ausgeblendet. */}
         {serviceSummeProM2 > 0 && (serviceActive || !serviceOptional) && (
           <div className="py-2 border-b border-[#1C1C1A]/8">
             <div className="flex justify-between">
@@ -3703,19 +3700,13 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
                 <span className="text-[#1C1C1A]">Service &amp; Sicherheit</span>
                 {serviceOptional && <span className="text-[#6B6961] text-xs"> (gewählt)</span>}
                 <p className="text-xs text-[#6B6961]">
-                  Lizenz &amp; Quartiersmanagement{serviceOptional ? '' : ' · im Service-Paket enthalten'}
+                  Lizenz, Quartiersmanagement, Versicherung &amp; Instandhaltung{serviceOptional ? '' : ' · im Service-Paket enthalten'}
                 </p>
               </div>
               <span className="num shrink-0">{fmtEUR2(serviceSummeProM2)}/m²</span>
             </div>
           </div>
         )}
-        {/* übrige laufende Fixkosten (Versicherung, Instandhaltung) */}
-        {fixRest.map(post => (
-          <div key={post.id} className="flex justify-between py-2 border-b border-[#1C1C1A]/8">
-            <span className="text-[#1C1C1A]">{post.label}</span><span className="num shrink-0">{fmtEUR2(post.proM2)}/m²</span>
-          </div>
-        ))}
         {/* Summe laufende Kosten (Pacht + Fixkosten) — Verbrauch bewusst NICHT enthalten */}
         <div className="flex justify-between pt-3 font-display text-base">
           <span>Laufende Kosten</span>
@@ -3834,7 +3825,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
                 <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">optional</span>
               </div>
               <p className="font-body text-sm text-[#6B6961] mb-4">
-                Unser monatliches Service-Paket: Lizenz &amp; Quartiersmanagement — Betreuung, Verwaltung und Sicherheit durch CoMod. Für die private Nutzung frei wählbar.
+                Unser monatliches Rundum-Paket: Lizenz, Quartiersmanagement, Versicherung &amp; Instandhaltung — Betreuung, Verwaltung, Versicherung und Wartung über unsere Partner. Ohne das Paket kümmerst Du Dich selbst darum.
               </p>
               <div className="flex gap-2 mb-3">
                 <button onClick={() => setServiceSelected(true)}
@@ -3918,7 +3909,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> Laufende Fixkosten</p>
                 <p className="font-display text-xl num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</p>
-                <p className="font-body text-[10px] opacity-70 mt-0.5">Pacht, {totals.serviceActive ? 'Service & Sicherheit, ' : ''}Versicherung, Instandhaltung</p>
+                <p className="font-body text-[10px] opacity-70 mt-0.5">{[(totals.nebenkosten?.pachtMonat > 0) ? 'Pacht' : null, totals.serviceActive ? 'Service & Sicherheit (Lizenz, QM, Versicherung, Instandhaltung)' : null].filter(Boolean).join(' · ')}</p>
               </div>
             )}
 
