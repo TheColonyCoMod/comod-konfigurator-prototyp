@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.141';
+const APP_VERSION = '0.9.142';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -3351,8 +3351,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   </div>
                 </div>
 
-                {/* VERBRAUCHSKOSTENSCHÄTZUNG — dezentes Pulldown, ganz unten über dem Weiter-Button */}
-                {totals.verbrauchskostenMonat > 0 && (
+                {/* VERBRAUCHSKOSTENSCHÄTZUNG — nur Privat (bei Gewerbe ausgeblendet, Feedback) */}
+                {!totals.isPureGewerb && totals.verbrauchskostenMonat > 0 && (
                   <details className="group mb-4 pb-4 border-b border-[#1C1C1A]/10">
                     <summary className="flex items-baseline justify-between gap-2 cursor-pointer list-none text-[#6B6961]">
                       <span className="font-body text-xs uppercase tracking-wider flex items-center gap-1.5">
@@ -3655,7 +3655,6 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
   //   zu "Service & Sicherheit" zusammengefasst — auf dem privaten Pfad komplett abwählbar.
   const verbrauchPosten = p.posten.filter(x => x.typ === 'verbrauch');
   const serviceSummeProM2 = p.posten.filter(x => x.typ === 'fix').reduce((s, x) => s + x.proM2, 0);
-  const laufendProM2 = p.pachtProM2 + p.fixProM2;
   // Service & Sicherheit ist auf dem privaten Pfad abwählbar (Status kommt aus totals),
   // für rein gewerbliche Kunden Pflicht. Hier nur Anzeige — die Rechenwirkung steckt in fixProM2.
   const serviceOptional = totals.serviceOptional;
@@ -3663,20 +3662,20 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
   const gesamtMonat = totals.nebenkostenMonatGesamt; // laufende Fixkosten + Verbrauch (spiegelt Service-Toggle)
   return (
     <details className="group bg-white border border-[#A87DAE]/40">
-      <summary className="cursor-pointer list-none p-5 sm:p-7 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-display text-xl sm:text-2xl flex items-center gap-2 flex-wrap"><Repeat className="w-5 h-5 text-[#7B2D8E] shrink-0" strokeWidth={1.5} />Neben- und Verbrauchskostenschätzung</h3>
-          <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mt-1">Richtwerte · Details anzeigen</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="text-right">
-            <p className="font-display text-lg sm:text-xl num text-[#7B2D8E] leading-none">ca. {fmtEUR(gesamtMonat)}</p>
-            <p className="font-body text-[10px] text-[#6B6961] mt-0.5">/ Monat</p>
+      <summary className="cursor-pointer list-none p-4 sm:p-5 block">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="font-display text-lg sm:text-xl leading-tight flex items-start gap-2"><Repeat className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} /><span>Neben- und Verbrauchskostenschätzung</span></h3>
+            <p className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] mt-1">Richtwerte · Details anzeigen</p>
           </div>
-          <ChevronRight className="w-5 h-5 text-[#6B6961] transition-transform group-open:rotate-90 shrink-0" strokeWidth={2} />
+          <ChevronRight className="w-5 h-5 text-[#6B6961] transition-transform group-open:rotate-90 shrink-0 mt-0.5" strokeWidth={2} />
+        </div>
+        <div className="flex items-baseline justify-end gap-1.5 mt-2">
+          <span className="font-display text-lg sm:text-xl num text-[#7B2D8E] leading-none">ca. {fmtEUR(gesamtMonat)}</span>
+          <span className="font-body text-[10px] text-[#6B6961]">/ Monat</span>
         </div>
       </summary>
-      <div className="px-5 sm:px-7 pb-5 sm:pb-7 pt-1 border-t border-[#1C1C1A]/8">
+      <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-1 border-t border-[#1C1C1A]/8">
       <p className="font-body text-sm text-[#6B6961] mt-4 mb-5">Geschätzte Richtwerte zur ersten Orientierung — die tatsächlichen Beträge können je nach Standort, Projektgröße, Verbrauchsverhalten und Versorgern abweichen. Konkrete Werte ermitteln wir gemeinsam mit Dir.</p>
       <div className="space-y-2.5 text-sm font-body">
         {/* Pacht — bei Misch-Setup getrennte Zeilen für privat (brutto) und gewerblich (netto) */}
@@ -3737,7 +3736,7 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
           </div>
         )}
         <div className="flex justify-between pt-2 font-body text-sm">
-          <span className="text-[#1C1C1A]">Laufende Kosten {totals.laufendeKostenMonat > 0 ? '' : '(keine)'}</span>
+          <span className="text-[#1C1C1A]">Laufende Fix-Kosten {totals.laufendeKostenMonat > 0 ? '' : '(keine)'}</span>
           <span className="num text-[#1C1C1A]">≈ {fmtEUR(totals.laufendeKostenMonat)} / Mt.</span>
         </div>
 
@@ -4065,8 +4064,8 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
                   </p>}
             </div>
 
-            {/* Verbrauchskostenschätzung — dezentes Pulldown, ganz unten über dem Button */}
-            {totals.verbrauchskostenMonat > 0 && (
+            {/* Verbrauchskostenschätzung — nur Privat (bei Gewerbe ausgeblendet, Feedback) */}
+            {!totals.isPureGewerb && totals.verbrauchskostenMonat > 0 && (
               <details className="group pb-4 mb-4 border-b border-[#F8F5F0]/15">
                 <summary className="flex items-baseline justify-between gap-2 cursor-pointer list-none">
                   <span className="font-body text-xs uppercase tracking-wider opacity-70 flex items-center gap-1.5">
@@ -4184,7 +4183,7 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
               {(project || gewerbConfig) && <div className="flex justify-between"><dt className="text-[#6B6961]">Projektkosten einm.</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto + totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>}
               <div className="flex justify-between"><dt className="text-[#6B6961]">Anzahlung</dt><dd className="num">{fmtEUR(totals.anzahlung)}</dd></div>
               <div className="flex justify-between pt-2 border-t border-[#1C1C1A]/10"><dt className="text-[#6B6961]">Finanzierung/Mt.</dt><dd className="num">{fmtEUR(totals.finanzierungMonat)}</dd></div>
-              {(project || gewerbConfig) && <div className="flex justify-between text-[#7B2D8E]"><dt>Nebenkosten/Mt.</dt><dd className="num">{fmtEUR(totals.nebenkostenMonatGesamt)}</dd></div>}
+              {(project || gewerbConfig) && <div className="flex justify-between text-[#7B2D8E]"><dt>Laufende Fix-Kosten/Mt.</dt><dd className="num">{fmtEUR(totals.laufendeKostenMonat)}</dd></div>}
               <div className="flex justify-between font-body"><dt className="text-[#1C1C1A]">Belastung/Mt.</dt><dd className="num">{fmtEUR(totals.monatlichGesamt)}</dd></div>
               {(totals.hasIncome || totals.gmCount > 0) && (
                 <>
@@ -8280,10 +8279,9 @@ export default function App() {
         plattformRate: totals.plattformRate,
         steuerentlastung: totals.steuerentlastung, // optionaler Indikationswert
         finanzierungMonat: totals.finanzierungMonat,
-        nebenkostenMonatGesamt: totals.nebenkostenMonatGesamt,
+        nebenkostenMonatGesamt: totals.laufendeKostenMonat, // nur laufende Fixkosten (keine Verbrauchsschätzung im Lead, Feedback)
         monatlichGesamt: totals.monatlichGesamt,
         laufendeKostenMonat: totals.laufendeKostenMonat,
-        verbrauchskostenMonat: totals.verbrauchskostenMonat,
         serviceOptional: totals.serviceOptional,
         serviceAktiv: totals.serviceActive,
         serviceMonat: Math.round(totals.serviceMonat || 0),
@@ -8348,7 +8346,7 @@ export default function App() {
           angewandte_provision_pct: (project && project.provisionPct != null) ? project.provisionPct : PROV,
           einmalig_gesamt: Math.round(lead.finanzen?.bruttoGesamt ?? 0),
           monatlich_gesamt: Math.round(lead.finanzen?.monatlichGesamt ?? 0),
-          verbrauchskosten_monat: Math.round(lead.finanzen?.verbrauchskostenMonat ?? 0),
+          verbrauchskosten_monat: 0, // Verbrauchsschätzung wird nicht mehr im Lead geführt (Feedback)
           einnahmen_monat: Math.round(lead.finanzen?.monthlyIncomeNetto ?? 0),
           modulanzahl_gesamt: lead.module?.countTotal ?? 0,
           nuf_gesamt: lead.module?.gesamtNUF ?? 0,
@@ -8450,7 +8448,7 @@ export default function App() {
           glsRate: totals.glsRate,
           gewerbeRate: totals.plattformRate, // intern plattformRate, kundensichtbar „Gewerbe-Rate"
           finanzierungMonat: totals.finanzierungMonat,
-          nebenkostenMonatGesamt: totals.nebenkostenMonatGesamt,
+          nebenkostenMonatGesamt: totals.laufendeKostenMonat, // nur laufende Fixkosten (keine Verbrauchsschätzung im Angebot, Feedback)
           monatlichGesamt: totals.monatlichGesamt,
           serviceAktiv: totals.serviceActive,
           serviceMonat: Math.round(totals.serviceMonat || 0),
