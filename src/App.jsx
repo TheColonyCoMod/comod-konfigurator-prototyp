@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.135';
+const APP_VERSION = '0.9.136';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1091,7 +1091,7 @@ function calcGemeinschaftsmodule(project) {
     items,
   };
 }
-function calcNebenkosten({ hasPacht, pachtJahr, pachtGewerblich, gesamtNUF, nufPrivat, nufGewerb, zielModulAnzahl }) {
+function calcNebenkosten({ hasPacht, pachtJahr, pachtGewerblich, gesamtNUF, nufPrivat, nufGewerb, zielModulAnzahl, includeService = true }) {
   // Pacht-Berechnung:
   // - Wenn Projekt (zielModulAnzahl > 0): Umlage = pachtJahr / Ziel-Module / 32 m² / 12
   //   - Privat-Anteil bekommt brutto (inkl. 19 % USt) aufgeschlagen, falls pachtGewerblich
@@ -1121,7 +1121,13 @@ function calcNebenkosten({ hasPacht, pachtJahr, pachtGewerblich, gesamtNUF, nufP
   const pachtProM2 = gesamtNUF > 0 ? pachtMonat / gesamtNUF : 0;
 
   // Aufteilung: laufende Fixkosten (inkl. Pacht) vs. variable Verbrauchskosten
-  const fixProM2 = NEBENKOSTEN_POSTEN.filter(p => p.typ === 'fix').reduce((s, p) => s + p.proM2, 0);
+  // Service & Sicherheit (= Lizenz + QM) ist auf dem privaten Pfad abwählbar (includeService=false)
+  // → fällt dann aus den laufenden Fixkosten. Rein gewerblich: immer enthalten.
+  const SERVICE_IDS = ['lizenz', 'qm'];
+  const serviceProM2 = NEBENKOSTEN_POSTEN.filter(p => SERVICE_IDS.includes(p.id)).reduce((s, p) => s + p.proM2, 0);
+  const fixProM2 = NEBENKOSTEN_POSTEN
+    .filter(p => p.typ === 'fix' && (includeService || !SERVICE_IDS.includes(p.id)))
+    .reduce((s, p) => s + p.proM2, 0);
   const verbrauchProM2 = NEBENKOSTEN_POSTEN.filter(p => p.typ === 'verbrauch').reduce((s, p) => s + p.proM2, 0);
   const nebenkostenProM2 = fixProM2 + verbrauchProM2;
   const proM2Gesamt = pachtProM2 + nebenkostenProM2;
@@ -1129,6 +1135,7 @@ function calcNebenkosten({ hasPacht, pachtJahr, pachtGewerblich, gesamtNUF, nufP
     pachtBruttoJahr: hasPacht ? (pachtGewerblich ? pachtJahr * (1 + UST) : pachtJahr) : 0,
     pachtMonat, pachtProM2, pachtProM2_priv, pachtProM2_gewerb,
     nebenkostenProM2, fixProM2, verbrauchProM2, proM2Gesamt, posten: NEBENKOSTEN_POSTEN,
+    serviceProM2, serviceActive: includeService,
   };
 }
 function getDefaultMode(usage) { return usage === 'p' ? 'eigennutzung' : 'einnahmen'; }
@@ -1138,7 +1145,7 @@ function isModeToggleable(product) {
   return true;
 }
 
-function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag }) {
+function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag, customerType = null, serviceSelected = true }) {
   // Fassadenstärke: Projektwert (sonst Default 24 cm) → wirkt auf BGF/Footprint
   const facadeM = (project?.fassadeDickeCm != null ? Number(project.fassadeDickeCm) : 24) / 100;
   const lineItems = Object.entries(selections)
@@ -1290,7 +1297,11 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const pachtSource = project ? { hasPacht: (project.pachtJahr || 0) > 0, pachtJahr: project.pachtJahr || 0, pachtGewerblich: project.pachtGewerblich, zielModulAnzahl: project.zielModulAnzahl || 0 }
     : gewerbConfig ? { hasPacht: !!gewerbConfig.hasPacht, pachtJahr: gewerbConfig.pachtJahr || 0, pachtGewerblich: gewerbConfig.pachtGewerblich, zielModulAnzahl: 0 }
     : { hasPacht: false, pachtJahr: 0, pachtGewerblich: false, zielModulAnzahl: 0 };
-  const nebenkosten = calcNebenkosten({ ...pachtSource, gesamtNUF, nufPrivat, nufGewerb });
+  // Service & Sicherheit (Lizenz + QM): auf dem GESAMTEN privaten Pfad abwählbar
+  // (privat, privat→gewerbe, privat→beides). Rein gewerblich = Pflicht, immer enthalten.
+  const serviceOptional = customerType === 'privat';
+  const serviceActiveFlag = serviceOptional ? !!serviceSelected : true;
+  const nebenkosten = calcNebenkosten({ ...pachtSource, gesamtNUF, nufPrivat, nufGewerb, includeService: serviceActiveFlag });
   // Gesamt = Pacht (bereits brutto/netto-aufgesplittet in calcNebenkosten) + sonstige Nebenkosten * NUF
   const nebenkostenMonatGesamt = nebenkosten.pachtMonat + nebenkosten.nebenkostenProM2 * gesamtNUF;
   // Aufteilung nach Feedback V4:
@@ -1418,6 +1429,13 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     countPrivat, countGewerb, countTotal, einheitenPrivat, einheitenGewerb, einheitenTotal, modulAnzahlTotal, gesamtNUF, gesamtBGF, nufPrivat, nufGewerb,
     bruttoPrivat, nettoGewerb, rabattPct, nextStaffel,
     effPrivat, effGewerbNetto, effGewerbBrutto,
+    // Service & Sicherheit (Lizenz + QM) — Status für UI/Toggle
+    serviceOptional, serviceActive: nebenkosten.serviceActive,
+    serviceProM2: nebenkosten.serviceProM2,
+    serviceMonat: nebenkosten.serviceActive ? nebenkosten.serviceProM2 * gesamtNUF : 0,
+    // Reine Modulkosten (brutto) vs. einmalige Fixkosten (Rest bis bruttoGesamt) — für Sticky-Footer
+    modulKostenBrutto: privatSum.brutto + gewerbSum.netto * (1 + UST),
+    einmaligKostenBrutto: Math.max(0, (effPrivat + effGewerbBrutto) - (privatSum.brutto + gewerbSum.netto * (1 + UST))),
     kfwBasis, kfwRate, glsBasis, glsRate, privatOptionenKosten,
     plattformBasis, plattformRate, plattformRateEff, steuerentlastung, restwertEUR,
     iabClamped, iabSteuerersparnis, iabEntlastungMonat,
@@ -1537,7 +1555,7 @@ function Header({ step, onJump, view, setView, brandLogoUrl }) {
   }
   return (
     <header className="border-b border-[#1C1C1A]/10 bg-white sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button onClick={handleRestart} title="Zum Start des Konfigurators"
             className="flex items-center hover:opacity-70 transition-opacity">
@@ -1578,7 +1596,7 @@ function WelcomeStep({ onSelect }) {
   const options = [
     { id: 'privat', icon: Home, image: '/headers/header_privat.jpg', title: 'Privater Kunde', subtitle: 'Eigenes Wohnen, optional gewerbliche Erweiterung',
       desc: 'Module für die private Nutzung — auf Deinem eigenen Grundstück oder als Teil eines unserer Projekte. Auch gewerbliche Module möglich (z. B. Praxis, Büro).' },
-    { id: 'gewerblich', icon: Building2, image: '/headers/header_gewerbe.jpg', title: 'Firma, Investor, Touristik', subtitle: 'Tourismus, Mitarbeiter, Investment',
+    { id: 'gewerblich', icon: Building2, image: '/headers/header_gewerbe.jpg', title: 'Firmen & Investoren', subtitle: 'Tourismus, Mitarbeiter, Investment',
       desc: 'Du hast bereits eine Fläche oder suchst noch? Wir berechnen den Mindestflächenbedarf — oder die volle Wirtschaftlichkeit, wenn Du Deine Fläche kennst.' },
   ];
   return (
@@ -3618,9 +3636,10 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
   const serviceSummeProM2 = p.posten.filter(x => x.id === 'lizenz' || x.id === 'qm').reduce((s, x) => s + x.proM2, 0);
   const fixRest = p.posten.filter(x => x.typ === 'fix' && x.id !== 'lizenz' && x.id !== 'qm');
   const laufendProM2 = p.pachtProM2 + p.fixProM2;
-  // Service & Sicherheit ist für gewerbliche Kunden Paketbestandteil (Pflicht),
-  // für rein private Eigennutzung wählbar. Hier nur Text — keine Rechenwirkung.
-  const serviceOptional = !totals.hatGewerbModule;
+  // Service & Sicherheit ist auf dem privaten Pfad abwählbar (Status kommt aus totals),
+  // für rein gewerbliche Kunden Pflicht. Hier nur Anzeige — die Rechenwirkung steckt in fixProM2.
+  const serviceOptional = totals.serviceOptional;
+  const serviceActive = totals.serviceActive;
   return (
     <div className="bg-white border border-[#A87DAE]/40 p-7">
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
@@ -3676,17 +3695,17 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
           <div className="py-2 border-b border-[#1C1C1A]/8">
             <div className="flex justify-between">
               <div>
-                <span className="text-[#1C1C1A]">Service &amp; Sicherheit</span>
+                <span className={serviceActive ? 'text-[#1C1C1A]' : 'text-[#6B6961] line-through'}>Service &amp; Sicherheit</span>
                 {serviceOptional && <span className="text-[#6B6961] text-xs"> (optional)</span>}
                 <p className="text-xs text-[#6B6961]">
-                  Lizenz &amp; Quartiersmanagement{serviceOptional ? '' : ' · im Service-Paket enthalten'}
+                  Lizenz &amp; Quartiersmanagement{serviceOptional ? (serviceActive ? ' · gewählt' : ' · abgewählt') : ' · im Service-Paket enthalten'}
                 </p>
               </div>
-              <span className="num shrink-0">{fmtEUR2(serviceSummeProM2)}/m²</span>
+              <span className={`num shrink-0 ${serviceActive ? '' : 'text-[#6B6961]'}`}>{serviceActive ? `${fmtEUR2(serviceSummeProM2)}/m²` : '0 €/m²'}</span>
             </div>
             {serviceOptional && (
               <p className="text-xs text-[#6B6961] italic mt-1">
-                Für private Eigennutzung wählbar — ohne Service-Paket entfällt die Betreuung durch CoMod. Details klären wir im persönlichen Angebot.
+                Für die private Nutzung frei wählbar — oben unter „Service &amp; Sicherheit" an- oder abwählbar.
               </p>
             )}
           </div>
@@ -3776,7 +3795,7 @@ function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod
   );
 }
 
-function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing, ekPrivat, setEkPrivat, ekGewerb, setEkGewerb, vermietungDurchCoMod, setVermietungDurchCoMod, mitarbeiterAnzahl, setMitarbeiterAnzahl, iabBetrag, setIabBetrag, privatOptionen, setPrivatOptionen, onNext, onBack }) {
+function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing, ekPrivat, setEkPrivat, ekGewerb, setEkGewerb, vermietungDurchCoMod, setVermietungDurchCoMod, mitarbeiterAnzahl, setMitarbeiterAnzahl, iabBetrag, setIabBetrag, privatOptionen, setPrivatOptionen, serviceSelected, setServiceSelected, onNext, onBack }) {
   const hasPrivat = totals.countPrivat > 0;
   const hasGewerb = totals.countGewerb > 0;
   const hasBoth = hasPrivat && hasGewerb;
@@ -3808,6 +3827,30 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
           {hasPrivat && <PrivatFinanzPanel totals={totals} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} countPrivat={totals.countPrivat} hideUpgrades={!!project} />}
           {hasGewerb && <GewerblichFinanzPanel totals={totals} financing={financing} setFinancing={setFinancing} />}
           {hasGewerb && <SteuerOptionenPanel totals={totals} financing={financing} setFinancing={setFinancing} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} />}
+          {totals.serviceOptional && totals.serviceProM2 > 0 && (
+            <div className="bg-white border border-[#A87DAE]/40 p-5 sm:p-7">
+              <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
+                <h3 className="font-display text-xl sm:text-2xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#7B2D8E]" strokeWidth={1.5} />Service &amp; Sicherheit</h3>
+                <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">optional</span>
+              </div>
+              <p className="font-body text-sm text-[#6B6961] mb-4">
+                Unser monatliches Service-Paket: Lizenz &amp; Quartiersmanagement — Betreuung, Verwaltung und Sicherheit durch CoMod. Für die private Nutzung frei wählbar.
+              </p>
+              <div className="flex gap-2 mb-3">
+                <button onClick={() => setServiceSelected(true)}
+                  className={`flex-1 px-3 py-2.5 font-body text-sm border transition-colors ${serviceSelected ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] ring-1 ring-[#7B2D8E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Mit Service-Paket</button>
+                <button onClick={() => setServiceSelected(false)}
+                  className={`flex-1 px-3 py-2.5 font-body text-sm border transition-colors ${!serviceSelected ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ohne Service</button>
+              </div>
+              <div className="flex justify-between items-baseline text-sm font-body pt-3 border-t border-[#1C1C1A]/8">
+                <span className="text-[#6B6961]">{serviceSelected ? 'Im laufenden Betrag enthalten' : 'Nicht enthalten'}</span>
+                <span className="num text-[#7B2D8E]">{serviceSelected ? `+ ${fmtEUR(totals.serviceMonat)} / Mt.` : '0 € / Mt.'}</span>
+              </div>
+              {!serviceSelected && (
+                <p className="font-body text-[11px] text-[#6B6961] italic mt-2">Ohne Service-Paket entfällt die laufende Betreuung durch CoMod. Details klären wir im persönlichen Angebot.</p>
+              )}
+            </div>
+          )}
           <NebenkostenBreakdown totals={totals} project={project} gewerbConfig={gewerbConfig} />
           <IncomeBreakdown totals={totals} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} />
         </div>
@@ -3875,7 +3918,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> Laufende Fixkosten</p>
                 <p className="font-display text-xl num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</p>
-                <p className="font-body text-[10px] opacity-70 mt-0.5">Pacht, Service &amp; Sicherheit, Versicherung, Instandhaltung</p>
+                <p className="font-body text-[10px] opacity-70 mt-0.5">Pacht, {totals.serviceActive ? 'Service & Sicherheit, ' : ''}Versicherung, Instandhaltung</p>
               </div>
             )}
 
@@ -7888,7 +7931,7 @@ function MobileSummaryBar({ totals, ziel, step, onAdvance, onBack }) {
   const val = 'font-display text-sm num leading-none';
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-white/95 backdrop-blur border-t border-[#1C1C1A]/10 shadow-[0_-4px_20px_-8px_rgba(28,28,26,0.3)]">
-      <div className="px-4 pt-2.5 pb-2 flex items-end gap-3">
+      <div className="px-5 pt-2.5 pb-2 flex items-end gap-2.5">
         <div className="shrink-0">
           <p className={lbl}>Module</p>
           <p className={val}>
@@ -7897,8 +7940,12 @@ function MobileSummaryBar({ totals, ziel, step, onAdvance, onBack }) {
           </p>
         </div>
         <div className="min-w-0 flex-1">
-          <p className={lbl}>Gesamt</p>
-          <p className={`${val} text-[#1C1C1A] truncate`}>{fmtEUR(totals.bruttoGesamt)}</p>
+          <p className={lbl}>Module&nbsp;€</p>
+          <p className={`font-display text-[13px] num leading-none text-[#1C1C1A] truncate`}>{fmtEUR(totals.modulKostenBrutto)}</p>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={lbl}>Einmalig</p>
+          <p className={`font-display text-[13px] num leading-none text-[#1C1C1A] truncate`}>{fmtEUR(totals.einmaligKostenBrutto)}</p>
         </div>
         {hasRabatt && (
           <div className="shrink-0">
@@ -7908,7 +7955,7 @@ function MobileSummaryBar({ totals, ziel, step, onAdvance, onBack }) {
         )}
         <div className="shrink-0 text-right">
           <p className={lbl}>Rate/Mt.</p>
-          <p className={`${val} text-[var(--brand-accent,#D2563E)] truncate`}>{fmtEUR(totals.finanzierungMonat)}</p>
+          <p className={`font-display text-[13px] num leading-none text-[var(--brand-accent,#D2563E)] truncate`}>{fmtEUR(totals.finanzierungMonat)}</p>
         </div>
       </div>
       <div className="flex">
@@ -8042,6 +8089,7 @@ export default function App() {
   const [mitarbeiterAnzahl, setMitarbeiterAnzahl] = useState(0); // 0 = nicht gesetzt → Anzahl Module als Default
   const [iabBetrag, setIabBetrag] = useState(0); // Investitionsabzugsbetrag (steuerlich, kein Cashflow)
   const [privatOptionen, setPrivatOptionen] = useState({ terrasse: false, pv: false, gruen: false }); // optionale Privat-Upgrades
+  const [serviceSelected, setServiceSelected] = useState(true); // Service & Sicherheit (Lizenz+QM) — privater Pfad abwählbar, Default an
   const [financing, setFinancing] = useState(FIN_DEFAULTS);
   const [ekPrivat, setEkPrivat] = useState(0);
   const [ekGewerb, setEkGewerb] = useState(0);
@@ -8063,12 +8111,13 @@ export default function App() {
   const totals = useMemo(() => calculateTotals({
     selections, modes, project, gewerbConfig: effectiveGewerbConfig,
     ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag,
-  }), [selections, modes, project, effectiveGewerbConfig, ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag]);
+    customerType, serviceSelected,
+  }), [selections, modes, project, effectiveGewerbConfig, ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag, customerType, serviceSelected]);
 
   function handleTypeSelect(type) {
     // Bei Typ-Wechsel kompletter Reset der Modul-Auswahl, damit private/gewerbliche Pfade nicht vermischen
     setSelections({}); setModes({}); setAddUsageState('g');
-    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false });
+    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setServiceSelected(true);
     setCustomerType(type);
     if (type === 'privat') {
       setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
@@ -8081,7 +8130,7 @@ export default function App() {
   // Beim Zurückgehen zum Welcome-Screen: alle Auswahlen zurücksetzen, damit der nächste Pfad sauber startet
   function goToWelcome() {
     setSelections({}); setModes({}); setAddUsageState('g');
-    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false });
+    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setServiceSelected(true);
     setProject(null); setPrivatMode(null); setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setCustomerType(null);
     setStep(0);
@@ -8171,6 +8220,11 @@ export default function App() {
         finanzierungMonat: totals.finanzierungMonat,
         nebenkostenMonatGesamt: totals.nebenkostenMonatGesamt,
         monatlichGesamt: totals.monatlichGesamt,
+        laufendeKostenMonat: totals.laufendeKostenMonat,
+        verbrauchskostenMonat: totals.verbrauchskostenMonat,
+        serviceOptional: totals.serviceOptional,
+        serviceAktiv: totals.serviceActive,
+        serviceMonat: Math.round(totals.serviceMonat || 0),
         monthlyIncomeBrutto: totals.monthlyIncomeBrutto,
         monthlyIncomeNetto: totals.monthlyIncomeNetto,
         cashflowNetto: totals.cashflowNetto,
@@ -8336,6 +8390,8 @@ export default function App() {
           finanzierungMonat: totals.finanzierungMonat,
           nebenkostenMonatGesamt: totals.nebenkostenMonatGesamt,
           monatlichGesamt: totals.monatlichGesamt,
+          serviceAktiv: totals.serviceActive,
+          serviceMonat: Math.round(totals.serviceMonat || 0),
           steuerentlastung: totals.steuerentlastung,
           iabBetrag: iabBetrag > 0 ? iabBetrag : null,
         },
@@ -8349,7 +8405,7 @@ export default function App() {
     setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setSelections({}); setModes({}); setFinancing(FIN_DEFAULTS);
     setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null); setOfferStatus(null);
-    setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setAddUsageState('g');
+    setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setAddUsageState('g'); setServiceSelected(true);
   }
   function jumpToStep(s) { if (s < Math.floor(step)) setStep(s); }
   function backFromModules() { setStep(0.45); }
@@ -8370,7 +8426,7 @@ export default function App() {
           }} />
         : step === 0.5 ? <GewerbeConfigStep config={gewerbConfig} setConfig={setGewerbConfig} onContinue={handleGewerbContinue} onBack={goToWelcome} />
         : step === 1 ? <ModulesStep customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} />
-        : step === 2 ? <FinancingStep totals={totals} project={project} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} onNext={() => setStep(3)} onBack={() => setStep(1)} />
+        : step === 2 ? <FinancingStep totals={totals} project={project} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} serviceSelected={serviceSelected} setServiceSelected={setServiceSelected} onNext={() => setStep(3)} onBack={() => setStep(1)} />
         : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} />
         : step === 4 ? <SuccessStep lead={lastLead} onRestart={restart} offerStatus={offerStatus} />
         : null}
