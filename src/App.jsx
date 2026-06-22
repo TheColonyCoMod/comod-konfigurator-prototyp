@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.140';
+const APP_VERSION = '0.9.141';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1422,6 +1422,16 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     return s + x.count * basis * ANZ_PCT;
   }, 0) + einmaligGesamtBrutto * ANZ_PCT + (countTotal * gmKostenProModulBrutto) * ANZ_PCT;
 
+  // === Anzeige-Werte für Modul-/Einmal-/Anschaffungskosten (EINE Quelle für Sticky UND Desktop) ===
+  // Rein gewerblich → netto, sonst brutto. Einmalkosten = Anschaffung − Modulkosten (Top-Level reconciles immer).
+  const _isPureGewerb = customerType === 'gewerblich';
+  const _bruttoGesamt = effPrivat + effGewerbBrutto;
+  const _nettoGesamt = (effPrivat / (1 + UST)) + effGewerbNetto;
+  const _modulKostenBrutto = privatSum.brutto + gewerbSum.netto * (1 + UST);
+  const modulKostenAnzeige = _isPureGewerb ? _modulKostenBrutto / (1 + UST) : _modulKostenBrutto;
+  const anschaffungAnzeige = _isPureGewerb ? _nettoGesamt : _bruttoGesamt;
+  const einmalKostenAnzeige = Math.max(0, anschaffungAnzeige - modulKostenAnzeige);
+
   return {
     lineItems, privatItems, gewerbItems, incomeItems,
     eigennutzungGewerbCount,
@@ -1433,8 +1443,10 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     serviceProM2: nebenkosten.serviceProM2,
     serviceMonat: nebenkosten.serviceActive ? nebenkosten.serviceProM2 * gesamtNUF : 0,
     // Reine Modulkosten (brutto) vs. einmalige Fixkosten (Rest bis bruttoGesamt) — für Sticky-Footer
-    modulKostenBrutto: privatSum.brutto + gewerbSum.netto * (1 + UST),
-    einmaligKostenBrutto: Math.max(0, (effPrivat + effGewerbBrutto) - (privatSum.brutto + gewerbSum.netto * (1 + UST))),
+    modulKostenBrutto: _modulKostenBrutto,
+    einmaligKostenBrutto: Math.max(0, _bruttoGesamt - _modulKostenBrutto),
+    // Steuerbasis-bewusste Anzeige-Werte (Sticky + Desktop identisch)
+    isPureGewerb: _isPureGewerb, modulKostenAnzeige, einmalKostenAnzeige, anschaffungAnzeige,
     kfwBasis, kfwRate, glsBasis, glsRate, privatOptionenKosten,
     plattformBasis, plattformRate, plattformRateEff, steuerentlastung, restwertEUR,
     iabClamped, iabSteuerersparnis, iabEntlastungMonat,
@@ -3204,7 +3216,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   <summary className="cursor-pointer list-none flex items-center justify-between">
                     <div className="flex-1">
                       <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Layers className="w-3 h-3" strokeWidth={2}/> Modulkosten {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</p>
-                      <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.modulKostenBrutto / (1 + UST) : totals.modulKostenBrutto)}</p>
+                      <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(totals.modulKostenAnzeige)}</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
                   </summary>
@@ -3215,7 +3227,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         <span className="num text-[#1C1C1A]">{fmtEUR(it.count * effectiveModulPreis(it, isPureGewerb, priceCtx))}</span>
                       </div>
                     ))}
-                    <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe Module</dt><dd className="num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.modulKostenBrutto / (1 + UST) : totals.modulKostenBrutto)}</dd></div>
+                    <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe Module</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.modulKostenAnzeige)}</dd></div>
                     {priceCtx && totals.rabattPct > 0 && (
                       <p className="font-body text-[10px] text-[#6B6961] italic pt-1">inkl. {fmtPct(totals.rabattPct)} Projektrabatt</p>
                     )}
@@ -3227,7 +3239,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     <summary className="cursor-pointer list-none flex items-center justify-between">
                       <div className="flex-1">
                         <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalkosten {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</p>
-                        <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(project ? (totals.einmaligGesamtBrutto + totals.countTotal * totals.gmKostenProModulBrutto) : (isPureGewerb ? totals.einmaligGesamtNetto : totals.einmaligGesamtBrutto))}</p>
+                        <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(totals.einmalKostenAnzeige)}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
                     </summary>
@@ -3239,7 +3251,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         {totals.gmKostenGesamtBrutto > 0 && (
                           <div className="flex justify-between text-sm font-body mt-1"><dt className="text-[#6B6961]">Für Gemeinschaftsmodule</dt><dd className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>
                         )}
-                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto + totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>
+                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmalKostenAnzeige)}</dd></div>
                       </>
                     ) : gewerbConfig ? (
                       // Gewerblich: Detail-Posten analog Privat, aber mit zusätzlichem Block für Optionen/Schätzungen
@@ -3285,7 +3297,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
 
                         <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8">
                           <dt className="text-[#1C1C1A]">Summe einmalig</dt>
-                          <dd className="num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.einmaligGesamtNetto : totals.einmaligGesamtBrutto)}</dd>
+                          <dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmalKostenAnzeige)}</dd>
                         </div>
                       </>
                     ) : (
@@ -3315,7 +3327,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                           </div>
                         )}
 
-                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmaligGesamtBrutto)}</dd></div>
+                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmalKostenAnzeige)}</dd></div>
                       </>
                     )}
                     <p className="font-body text-[10px] text-[#6B6961] mt-1.5 italic">
@@ -3331,7 +3343,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 <div className="mb-4 pb-4 border-b border-[#1C1C1A]/10 space-y-1.5">
                   <div className="flex justify-between text-sm font-body">
                     <span className="text-[#1C1C1A]">Anschaffung gesamt</span>
-                    <span className="num text-[#1C1C1A]">{fmtEUR(isPureGewerb ? totals.nettoGesamt : totals.bruttoGesamt)}</span>
+                    <span className="num text-[#1C1C1A]">{fmtEUR(totals.anschaffungAnzeige)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-body text-[#6B6961]">
                     <span>Anzahlung ca.</span>
@@ -3648,13 +3660,24 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
   // für rein gewerbliche Kunden Pflicht. Hier nur Anzeige — die Rechenwirkung steckt in fixProM2.
   const serviceOptional = totals.serviceOptional;
   const serviceActive = totals.serviceActive;
+  const gesamtMonat = totals.nebenkostenMonatGesamt; // laufende Fixkosten + Verbrauch (spiegelt Service-Toggle)
   return (
-    <div className="bg-white border border-[#A87DAE]/40 p-7">
-      <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-        <h3 className="font-display text-2xl flex items-center gap-2"><Repeat className="w-5 h-5 text-[#7B2D8E]" strokeWidth={1.5} />Laufende Neben- und Verbrauchskosten</h3>
-        <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">Richtwerte</span>
-      </div>
-      <p className="font-body text-sm text-[#6B6961] mb-6">Geschätzte Richtwerte zur ersten Orientierung — die tatsächlichen Beträge können je nach Standort, Projektgröße, Verbrauchsverhalten und Versorgern abweichen. Konkrete Werte ermitteln wir gemeinsam mit Dir.</p>
+    <details className="group bg-white border border-[#A87DAE]/40">
+      <summary className="cursor-pointer list-none p-5 sm:p-7 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-display text-xl sm:text-2xl flex items-center gap-2 flex-wrap"><Repeat className="w-5 h-5 text-[#7B2D8E] shrink-0" strokeWidth={1.5} />Neben- und Verbrauchskostenschätzung</h3>
+          <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mt-1">Richtwerte · Details anzeigen</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <p className="font-display text-lg sm:text-xl num text-[#7B2D8E] leading-none">ca. {fmtEUR(gesamtMonat)}</p>
+            <p className="font-body text-[10px] text-[#6B6961] mt-0.5">/ Monat</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-[#6B6961] transition-transform group-open:rotate-90 shrink-0" strokeWidth={2} />
+        </div>
+      </summary>
+      <div className="px-5 sm:px-7 pb-5 sm:pb-7 pt-1 border-t border-[#1C1C1A]/8">
+      <p className="font-body text-sm text-[#6B6961] mt-4 mb-5">Geschätzte Richtwerte zur ersten Orientierung — die tatsächlichen Beträge können je nach Standort, Projektgröße, Verbrauchsverhalten und Versorgern abweichen. Konkrete Werte ermitteln wir gemeinsam mit Dir.</p>
       <div className="space-y-2.5 text-sm font-body">
         {/* Pacht — bei Misch-Setup getrennte Zeilen für privat (brutto) und gewerblich (netto) */}
         {pachtSource.pachtJahr > 0 ? (
@@ -3713,44 +3736,35 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
             </div>
           </div>
         )}
-        {/* Summe laufende Kosten (Pacht + Fixkosten) — Verbrauch bewusst NICHT enthalten */}
-        <div className="flex justify-between pt-3 font-display text-base">
-          <span>Laufende Kosten</span>
-          <span className="num text-[#7B2D8E]">{fmtEUR2(laufendProM2)}/m²/Mt.</span>
+        <div className="flex justify-between pt-2 font-body text-sm">
+          <span className="text-[#1C1C1A]">Laufende Kosten {totals.laufendeKostenMonat > 0 ? '' : '(keine)'}</span>
+          <span className="num text-[#1C1C1A]">≈ {fmtEUR(totals.laufendeKostenMonat)} / Mt.</span>
         </div>
-        <div className="flex justify-between text-[#6B6961] text-xs">
-          <span>Bei {fmtNum(totals.gesamtNUF)} m² NUF</span>
-          <span className="num">≈ {fmtEUR(totals.laufendeKostenMonat)} / Monat</span>
-        </div>
-      </div>
 
-      {/* Punkt 1: Verbrauchskostenschätzung — dezentes Pulldown, Details erst nach Klick */}
-      {verbrauchPosten.length > 0 && (
-        <details className="group mt-4 border border-[#1C1C1A]/10 bg-[#F8F5F0]">
-          <summary className="flex items-center justify-between gap-3 cursor-pointer list-none px-4 py-3">
-            <span className="flex items-center gap-2 font-body text-sm text-[#1C1C1A]">
-              <Zap className="w-4 h-4 text-[#A87DAE]" strokeWidth={1.5} />
-              Verbrauchskostenschätzung
-              <span className="text-[#6B6961] text-xs hidden sm:inline">(variabel, trägt der Bewohner)</span>
-            </span>
-            <span className="flex items-center gap-2 shrink-0">
-              <span className="num text-sm text-[#6B6961]">ca. {fmtEUR(totals.verbrauchskostenMonat)}/Mt.</span>
-              <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
-            </span>
-          </summary>
-          <div className="px-4 pb-4 pt-1 space-y-2 text-sm font-body border-t border-[#1C1C1A]/8">
+        {/* Verbrauchskosten — jetzt flach (der ganze Block ist bereits eingeklappt) */}
+        {verbrauchPosten.length > 0 && (
+          <div className="pt-3 mt-1 border-t border-[#1C1C1A]/10">
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-[#A87DAE]" strokeWidth={1.5} /> Verbrauchskosten <span className="normal-case tracking-normal">(variabel, trägt der Bewohner)</span></p>
             {verbrauchPosten.map(post => (
-              <div key={post.id} className="flex justify-between py-1.5 border-b border-[#1C1C1A]/8 last:border-b-0">
+              <div key={post.id} className="flex justify-between py-1.5 border-b border-[#1C1C1A]/8">
                 <span className="text-[#1C1C1A]">{post.label}</span><span className="num shrink-0">{fmtEUR2(post.proM2)}/m²</span>
               </div>
             ))}
-            <p className="text-xs text-[#6B6961] pt-1">
-              Variable Verbrauchskosten je nach Nutzung — nicht in der Monatsrate enthalten. Bei {fmtNum(totals.gesamtNUF)} m² NUF ≈ {fmtEUR(totals.verbrauchskostenMonat)} / Monat.
-            </p>
+            <div className="flex justify-between pt-2 font-body text-sm">
+              <span className="text-[#1C1C1A]">Verbrauch geschätzt</span>
+              <span className="num text-[#1C1C1A]">≈ {fmtEUR(totals.verbrauchskostenMonat)} / Mt.</span>
+            </div>
+            <p className="text-xs text-[#6B6961] pt-1 italic">Nicht in der Monatsrate enthalten — hängt vom tatsächlichen Verbrauch ab.</p>
           </div>
-        </details>
-      )}
-    </div>
+        )}
+
+        <div className="flex justify-between pt-3 mt-1 border-t border-[#1C1C1A]/10 font-display text-base">
+          <span>Gesamt / Monat</span>
+          <span className="num text-[#7B2D8E]">≈ {fmtEUR(gesamtMonat)}</span>
+        </div>
+      </div>
+      </div>
+    </details>
   );
 }
 
@@ -7989,11 +8003,11 @@ function MobileSummaryBar({ totals, ziel, step, onAdvance, onBack }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className={lbl}>Module&nbsp;€</p>
-          <p className={`font-display text-[13px] num leading-none text-[#1C1C1A] truncate`}>{fmtEUR(totals.modulKostenBrutto)}</p>
+          <p className={`font-display text-[13px] num leading-none text-[#1C1C1A] truncate`}>{fmtEUR(totals.modulKostenAnzeige)}</p>
         </div>
         <div className="min-w-0 flex-1">
           <p className={lbl}>Einmalig</p>
-          <p className={`font-display text-[13px] num leading-none text-[#1C1C1A] truncate`}>{fmtEUR(totals.einmaligKostenBrutto)}</p>
+          <p className={`font-display text-[13px] num leading-none text-[#1C1C1A] truncate`}>{fmtEUR(totals.einmalKostenAnzeige)}</p>
         </div>
         {hasRabatt && (
           <div className="shrink-0">
