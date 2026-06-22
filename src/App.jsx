@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.142';
+const APP_VERSION = '0.9.143';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -191,10 +191,10 @@ const FAMILIES_BUSINESS = ['liveb', 'studio', 'stay', 'double', 'gym', 'music', 
 // typ: 'fix' = laufende Fixkosten (kalkulierbar, Teil der Gesamtbelastung als "+ laufende Kosten")
 //      'verbrauch' = variable Verbrauchskosten (individueller Richtwert, NICHT in Belastung eingerechnet)
 let NEBENKOSTEN_POSTEN = [
-  { id: 'lizenz',  label: 'Lizenzgebühr CoMod',   proM2: 0.80, typ: 'fix' },
-  { id: 'qm',      label: 'Quartiersmanagement',  proM2: 0.70, typ: 'fix' },
-  { id: 'vers',    label: 'Versicherung',         proM2: 0.40, typ: 'fix' },
-  { id: 'instand', label: 'Instandhaltung',       proM2: 0.80, typ: 'fix' },
+  { id: 'lizenz',  label: 'Service & Nutzung',       proM2: 0.80, typ: 'fix' },
+  { id: 'qm',      label: 'Sicherheit & Sensorik',   proM2: 0.70, typ: 'fix' },
+  { id: 'vers',    label: 'Versicherungen & Schutz', proM2: 0.40, typ: 'fix' },
+  { id: 'instand', label: 'Instandhaltung & Rücklagen', proM2: 0.80, typ: 'fix' },
   { id: 'strom',   label: 'Strom & Allgemein',    proM2: 0.90, typ: 'verbrauch' },
   { id: 'wasser',  label: 'Wasser / Abwasser',    proM2: 0.60, typ: 'verbrauch' },
   { id: 'heizung', label: 'Heizung / Warmwasser', proM2: 1.20, typ: 'verbrauch' },
@@ -3728,7 +3728,7 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
                 <span className="text-[#1C1C1A]">Service &amp; Sicherheit</span>
                 {serviceOptional && <span className="text-[#6B6961] text-xs"> (gewählt)</span>}
                 <p className="text-xs text-[#6B6961]">
-                  Lizenz, Quartiersmanagement, Versicherung &amp; Instandhaltung{serviceOptional ? '' : ' · im Service-Paket enthalten'}
+                  Service &amp; Nutzung, Sicherheit &amp; Sensorik, Versicherungen &amp; Schutz, Instandhaltung &amp; Rücklagen{serviceOptional ? '' : ' · im Service-Paket enthalten'}
                 </p>
               </div>
               <span className="num shrink-0">{fmtEUR2(serviceSummeProM2)}/m²</span>
@@ -3870,7 +3870,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
                 <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">optional</span>
               </div>
               <p className="font-body text-sm text-[#6B6961] mb-4">
-                Unser monatliches Rundum-Paket: Lizenz, Quartiersmanagement, Versicherung &amp; Instandhaltung — Betreuung, Verwaltung, Versicherung und Wartung über unsere Partner. Ohne das Paket kümmerst Du Dich selbst darum.
+                Unser monatliches Rundum-Paket: Service &amp; Nutzung, Sicherheit &amp; Sensorik, Versicherungen &amp; Schutz, Instandhaltung &amp; Rücklagen — Betreuung, Verwaltung, Versicherung und Wartung über unsere Partner. Ohne das Paket kümmerst Du Dich selbst darum.
               </p>
               <div className="flex gap-2 mb-3">
                 <button onClick={() => setServiceSelected(true)}
@@ -3954,7 +3954,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               const nk = totals.nebenkosten || {};
               const pacht = nk.pachtMonat || 0;
               const fixPosten = (nk.posten || []).filter(po => po.typ === 'fix');
-              const titel = totals.serviceActive ? 'Service & Sicherheit' : 'Laufende Fixkosten';
+              const titel = 'Laufende Fix-Kosten';
               return (
                 <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                   <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> {titel}</p>
@@ -6693,10 +6693,10 @@ const SETTING_DEFS = [
   { key: 'AFA_JAHRE',            cat: 'finanz', type: 'years',   label: 'AfA-Dauer Modulhaus',      desc: 'Abschreibungsdauer in Jahren' },
 
   // KOSTEN LAUFEND (€ pro m²/Monat)
-  { key: 'NEBENKOSTEN_LIZENZ_PRO_M2',   cat: 'kosten_lfd', type: 'euro_decimal', label: 'Lizenzgebühr CoMod',       desc: '€ pro m²/Monat' },
-  { key: 'NEBENKOSTEN_QM_PRO_M2',       cat: 'kosten_lfd', type: 'euro_decimal', label: 'Quartiersmanagement',      desc: '€ pro m²/Monat' },
-  { key: 'NEBENKOSTEN_VERS_PRO_M2',     cat: 'kosten_lfd', type: 'euro_decimal', label: 'Versicherung',             desc: '€ pro m²/Monat' },
-  { key: 'NEBENKOSTEN_INSTAND_PRO_M2',  cat: 'kosten_lfd', type: 'euro_decimal', label: 'Instandhaltung',           desc: '€ pro m²/Monat' },
+  { key: 'NEBENKOSTEN_LIZENZ_PRO_M2',   cat: 'kosten_lfd', type: 'euro_decimal', label: 'Service & Nutzung',         desc: '€ pro m²/Monat' },
+  { key: 'NEBENKOSTEN_QM_PRO_M2',       cat: 'kosten_lfd', type: 'euro_decimal', label: 'Sicherheit & Sensorik',     desc: '€ pro m²/Monat' },
+  { key: 'NEBENKOSTEN_VERS_PRO_M2',     cat: 'kosten_lfd', type: 'euro_decimal', label: 'Versicherungen & Schutz',   desc: '€ pro m²/Monat' },
+  { key: 'NEBENKOSTEN_INSTAND_PRO_M2',  cat: 'kosten_lfd', type: 'euro_decimal', label: 'Instandhaltung & Rücklagen', desc: '€ pro m²/Monat' },
   { key: 'VERBRAUCH_STROM_PRO_M2',      cat: 'kosten_lfd', type: 'euro_decimal', label: 'Strom (variabel)',         desc: '€ pro m²/Monat' },
   { key: 'VERBRAUCH_WASSER_PRO_M2',     cat: 'kosten_lfd', type: 'euro_decimal', label: 'Wasser/Abwasser',          desc: '€ pro m²/Monat' },
   { key: 'VERBRAUCH_HEIZUNG_PRO_M2',    cat: 'kosten_lfd', type: 'euro_decimal', label: 'Heizung/Warmwasser',       desc: '€ pro m²/Monat' },
