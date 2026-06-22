@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, Plus, Minus, Check, Home, Building2, Settings, Trash2, Mail, ArrowRight, Sparkles, FolderOpen, Info, TrendingUp, Gift, Receipt, Repeat, Layers, MapPin, Briefcase, Users, Cloud, CloudOff, Upload, Eye, EyeOff } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, Minus, Check, Home, Building2, Settings, Trash2, Mail, ArrowRight, Sparkles, FolderOpen, Info, TrendingUp, Gift, Receipt, Repeat, Layers, MapPin, Briefcase, Users, Cloud, CloudOff, Upload, Eye, EyeOff, Zap } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 /* ============================================================================
@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.133';
+const APP_VERSION = '0.9.135';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1537,7 +1537,7 @@ function Header({ step, onJump, view, setView, brandLogoUrl }) {
   }
   return (
     <header className="border-b border-[#1C1C1A]/10 bg-white sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button onClick={handleRestart} title="Zum Start des Konfigurators"
             className="flex items-center hover:opacity-70 transition-opacity">
@@ -1576,9 +1576,9 @@ function ModuleIcon({ nuf }) {
 
 function WelcomeStep({ onSelect }) {
   const options = [
-    { id: 'privat', icon: Home, image: '/headers/header_privat.jpg', title: 'Privat', subtitle: 'Eigenes Wohnen, optional gewerbliche Erweiterung',
+    { id: 'privat', icon: Home, image: '/headers/header_privat.jpg', title: 'Privater Kunde', subtitle: 'Eigenes Wohnen, optional gewerbliche Erweiterung',
       desc: 'Module für die private Nutzung — auf Deinem eigenen Grundstück oder als Teil eines unserer Projekte. Auch gewerbliche Module möglich (z. B. Praxis, Büro).' },
-    { id: 'gewerblich', icon: Building2, image: '/headers/header_gewerbe.jpg', title: 'Gewerblich', subtitle: 'Tourismus, Mitarbeiter, Investment',
+    { id: 'gewerblich', icon: Building2, image: '/headers/header_gewerbe.jpg', title: 'Firma, Investor, Touristik', subtitle: 'Tourismus, Mitarbeiter, Investment',
       desc: 'Du hast bereits eine Fläche oder suchst noch? Wir berechnen den Mindestflächenbedarf — oder die volle Wirtschaftlichkeit, wenn Du Deine Fläche kennst.' },
   ];
   return (
@@ -1586,8 +1586,8 @@ function WelcomeStep({ onSelect }) {
       <div className="mb-16">
         <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-6">Willkommen</p>
         <h1 className="font-display text-5xl md:text-6xl leading-tight tracking-tight mb-6">
-          Was passt zu Dir<span className="text-[var(--brand-accent,#D2563E)]">,</span><br/>
-          <em className="font-display">erzähl es uns kurz</em><span className="opacity-40"> …</span>
+          Wer bist Du<span className="text-[var(--brand-accent,#D2563E)]"> &</span><br/>
+          <em className="font-display">was brauchst Du?</em>
         </h1>
         <p className="font-body text-lg text-[#6B6961] max-w-2xl leading-relaxed">
           In wenigen Schritten konfigurierst Du Dein CoMod-Setup, siehst die Kosten, die Monatsrate und kannst direkt ein unverbindliches Angebot anfordern.
@@ -3610,6 +3610,17 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
   const pachtSource = project ? { pachtJahr: project.pachtJahr || 0, pachtGewerblich: project.pachtGewerblich, zielModulAnzahl: project.zielModulAnzahl || 0, isProject: true }
     : gewerbConfig ? { pachtJahr: gewerbConfig.pachtJahr || 0, pachtGewerblich: gewerbConfig.pachtGewerblich, zielModulAnzahl: 0, isProject: false }
     : { pachtJahr: 0, pachtGewerblich: false, zielModulAnzahl: 0, isProject: false };
+  // Anzeige-Logik (Punkt 1+2):
+  // - Verbrauchsposten (Strom/Wasser/Heizung) wandern in ein dezentes Pulldown mit Monatssumme.
+  // - Lizenz + QM werden NUR in der Anzeige zu "Service & Sicherheit (optional)" zusammengefasst
+  //   (Engine/Berechnung unverändert — beide bleiben Teil der laufenden Fixkosten).
+  const verbrauchPosten = p.posten.filter(x => x.typ === 'verbrauch');
+  const serviceSummeProM2 = p.posten.filter(x => x.id === 'lizenz' || x.id === 'qm').reduce((s, x) => s + x.proM2, 0);
+  const fixRest = p.posten.filter(x => x.typ === 'fix' && x.id !== 'lizenz' && x.id !== 'qm');
+  const laufendProM2 = p.pachtProM2 + p.fixProM2;
+  // Service & Sicherheit ist für gewerbliche Kunden Paketbestandteil (Pflicht),
+  // für rein private Eigennutzung wählbar. Hier nur Text — keine Rechenwirkung.
+  const serviceOptional = !totals.hatGewerbModule;
   return (
     <div className="bg-white border border-[#A87DAE]/40 p-7">
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
@@ -3660,20 +3671,69 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
             <span className="num shrink-0 text-[#6B6961]">—</span>
           </div>
         )}
-        {p.posten.map(post => (
+        {/* Service & Sicherheit (= Lizenz + QM, nur Anzeige zusammengefasst) */}
+        {serviceSummeProM2 > 0 && (
+          <div className="py-2 border-b border-[#1C1C1A]/8">
+            <div className="flex justify-between">
+              <div>
+                <span className="text-[#1C1C1A]">Service &amp; Sicherheit</span>
+                {serviceOptional && <span className="text-[#6B6961] text-xs"> (optional)</span>}
+                <p className="text-xs text-[#6B6961]">
+                  Lizenz &amp; Quartiersmanagement{serviceOptional ? '' : ' · im Service-Paket enthalten'}
+                </p>
+              </div>
+              <span className="num shrink-0">{fmtEUR2(serviceSummeProM2)}/m²</span>
+            </div>
+            {serviceOptional && (
+              <p className="text-xs text-[#6B6961] italic mt-1">
+                Für private Eigennutzung wählbar — ohne Service-Paket entfällt die Betreuung durch CoMod. Details klären wir im persönlichen Angebot.
+              </p>
+            )}
+          </div>
+        )}
+        {/* übrige laufende Fixkosten (Versicherung, Instandhaltung) */}
+        {fixRest.map(post => (
           <div key={post.id} className="flex justify-between py-2 border-b border-[#1C1C1A]/8">
             <span className="text-[#1C1C1A]">{post.label}</span><span className="num shrink-0">{fmtEUR2(post.proM2)}/m²</span>
           </div>
         ))}
+        {/* Summe laufende Kosten (Pacht + Fixkosten) — Verbrauch bewusst NICHT enthalten */}
         <div className="flex justify-between pt-3 font-display text-base">
-          <span>Summe Richtwert</span>
-          <span className="num text-[#7B2D8E]">{fmtEUR2(p.proM2Gesamt)}/m²/Mt.</span>
+          <span>Laufende Kosten</span>
+          <span className="num text-[#7B2D8E]">{fmtEUR2(laufendProM2)}/m²/Mt.</span>
         </div>
         <div className="flex justify-between text-[#6B6961] text-xs">
           <span>Bei {fmtNum(totals.gesamtNUF)} m² NUF</span>
-          <span className="num">≈ {fmtEUR(totals.nebenkostenMonatGesamt)} / Monat</span>
+          <span className="num">≈ {fmtEUR(totals.laufendeKostenMonat)} / Monat</span>
         </div>
       </div>
+
+      {/* Punkt 1: Verbrauchskostenschätzung — dezentes Pulldown, Details erst nach Klick */}
+      {verbrauchPosten.length > 0 && (
+        <details className="group mt-4 border border-[#1C1C1A]/10 bg-[#F8F5F0]">
+          <summary className="flex items-center justify-between gap-3 cursor-pointer list-none px-4 py-3">
+            <span className="flex items-center gap-2 font-body text-sm text-[#1C1C1A]">
+              <Zap className="w-4 h-4 text-[#A87DAE]" strokeWidth={1.5} />
+              Verbrauchskostenschätzung
+              <span className="text-[#6B6961] text-xs hidden sm:inline">(variabel, trägt der Bewohner)</span>
+            </span>
+            <span className="flex items-center gap-2 shrink-0">
+              <span className="num text-sm text-[#6B6961]">ca. {fmtEUR(totals.verbrauchskostenMonat)}/Mt.</span>
+              <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
+            </span>
+          </summary>
+          <div className="px-4 pb-4 pt-1 space-y-2 text-sm font-body border-t border-[#1C1C1A]/8">
+            {verbrauchPosten.map(post => (
+              <div key={post.id} className="flex justify-between py-1.5 border-b border-[#1C1C1A]/8 last:border-b-0">
+                <span className="text-[#1C1C1A]">{post.label}</span><span className="num shrink-0">{fmtEUR2(post.proM2)}/m²</span>
+              </div>
+            ))}
+            <p className="text-xs text-[#6B6961] pt-1">
+              Variable Verbrauchskosten je nach Nutzung — nicht in der Monatsrate enthalten. Bei {fmtNum(totals.gesamtNUF)} m² NUF ≈ {fmtEUR(totals.verbrauchskostenMonat)} / Monat.
+            </p>
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -3753,13 +3813,13 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
         </div>
 
         <aside className="lg:w-96 lg:shrink-0">
-          <div className="lg:sticky lg:top-24 bg-[#1C1C1A] text-[#F8F5F0] p-7">
+          <div className="lg:sticky lg:top-24 bg-[#1C1C1A] text-[#F8F5F0] p-5 sm:p-6">
             <p className="font-body text-xs tracking-[0.3em] uppercase opacity-70 mb-2">
               {totals.istInvestor ? 'Investmentrechnung' : (totals.hasIncome ? 'Wirtschaftlichkeit' : 'Deine Monatsrate')}
             </p>
-            <h3 className="font-display text-2xl mb-7">Monatlich</h3>
+            <h3 className="font-display text-xl mb-5">Monatlich</h3>
 
-            <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
+            <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
               <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-3">Finanzierung im Detail</p>
               <dl className="space-y-2 text-sm font-body">
                 {hasPrivat && <>
@@ -3778,7 +3838,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {/* === BELASTUNGS-AUFTEILUNG je Kunden-Typ === */}
             {/* Variante A: Misch- oder reiner Privatkunde — Aufteilung Privat / Gewerblich */}
             {totals.hatPrivatAnteil && (
-              <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
+              <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-3">Monatsrate</p>
                 <dl className="space-y-2.5 text-sm font-body">
                   <div className="flex justify-between items-baseline">
@@ -3801,7 +3861,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
 
             {/* Variante B & C: rein gewerblich — eine konsolidierte Finanzierungs-Belastung */}
             {!totals.hatPrivatAnteil && totals.hatGewerbModule && (
-              <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
+              <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5">Monatsrate gewerblich <span className="opacity-70">(nach Steuer)</span></p>
                 <p className="font-display text-3xl num">{fmtEUR(totals.gewerblichRateNachSteuer)}</p>
                 {(totals.steuerentlastung > 0 || totals.iabEntlastungMonat > 0) && (
@@ -3812,16 +3872,16 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
 
             {/* Laufende Fixkosten (Lizenz, QM, Versicherung, Instandhaltung + Pacht) — separat ausgewiesen */}
             {totals.laufendeKostenMonat > 0 && (
-              <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
+              <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> Laufende Fixkosten</p>
                 <p className="font-display text-xl num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</p>
-                <p className="font-body text-[10px] opacity-70 mt-0.5">Pacht, Lizenz, Quartiersmgmt, Versicherung, Instandhaltung</p>
+                <p className="font-body text-[10px] opacity-70 mt-0.5">Pacht, Service &amp; Sicherheit, Versicherung, Instandhaltung</p>
               </div>
             )}
 
             {/* Verbrauchskosten als Hinweis */}
             {totals.verbrauchskostenMonat > 0 && (
-              <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
+              <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1">Verbrauchskosten <span className="opacity-70">(variabel)</span></p>
                 <p className="font-display text-lg num opacity-70">ca. {fmtEUR(totals.verbrauchskostenMonat)}</p>
                 <p className="font-body text-[10px] opacity-70 mt-0.5">{getContentText('tooltip_verbrauchskosten', 'Strom, Wasser, Heizung — trägt der Bewohner')}</p>
@@ -3830,7 +3890,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
 
             {/* Mieteinnahmen */}
             {totals.hasIncome && (
-              <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
+              <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Einnahmen / Monat</p>
                 <p className="font-display text-3xl num text-[#A87DAE]">+ {fmtEUR(totals.monthlyIncomeNetto)}</p>
               </div>
@@ -3838,7 +3898,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
 
             {/* Projekt-Gemeinschaft (P4) — ehrliche Gegenüberstellung statt Roh-Einnahmen */}
             {totals.gmCount > 0 && (
-              <details className="pb-5 mb-5 border-b border-[#F8F5F0]/15 group" open>
+              <details className="pb-4 mb-4 border-b border-[#F8F5F0]/15 group" open>
                 <summary className="flex items-center justify-between cursor-pointer list-none mb-2">
                   <p className="font-body text-sm uppercase tracking-wider opacity-90 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" strokeWidth={2} /> Gemeinschaftsmodule im Projekt</p>
                   <ChevronRight className="w-4 h-4 opacity-65 transition-transform group-open:rotate-90" strokeWidth={2} />
@@ -3887,7 +3947,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
 
             {/* Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) */}
             {totals.istMAWohnen && (
-              <div className="pb-5 mb-5 border-b border-[#F8F5F0]/15">
+              <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> Rate pro Mitarbeiter</p>
                 <p className="font-display text-3xl num">{fmtEUR(totals.belastungProMA)}</p>
                 <p className="font-body text-[10px] opacity-70 mt-0.5">
@@ -3898,7 +3958,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             )}
 
             {/* Effektive Belastung / Cashflow — der zentrale Endwert */}
-            <div className="mb-7">
+            <div className="mb-5">
               <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1">
                 {totals.cashflowPositive
                   ? (totals.istInvestor ? 'Cashflow / Monat' : 'Überschuss / Monat')
@@ -4096,7 +4156,7 @@ function AdminLogin({ onLogin }) {
     <div className="max-w-md mx-auto px-8 py-20">
       <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Admin-Bereich</p>
       <h1 className="font-display text-4xl tracking-tight mb-8">Login</h1>
-      <form onSubmit={handleSubmit} className="bg-white border border-[#1C1C1A]/10 p-8 space-y-4">
+      <form onSubmit={handleSubmit} className="bg-white border border-[#1C1C1A]/10 p-5 sm:p-8 space-y-4">
         <div>
           <label className="font-body text-xs tracking-wider uppercase text-[#6B6961] block mb-1">E-Mail</label>
           <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
@@ -4146,7 +4206,7 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
         className="bg-white max-w-4xl w-full"
         onClick={e => e.stopPropagation()}
         style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', overflowX: 'hidden' }}>
-        <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
+        <div className="flex items-start justify-between p-5 sm:p-8 border-b border-[#1C1C1A]/10">
           <div>
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Lead</p>
             <h2 className="font-display text-3xl tracking-tight">{lead.vorname} {lead.nachname}</h2>
@@ -4156,7 +4216,7 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
           </div>
           <button onClick={onClose} className="text-[#6B6961] hover:text-[#1C1C1A] p-2"><Plus className="w-5 h-5 rotate-45" /></button>
         </div>
-        <div className="grid md:grid-cols-2 gap-8 p-8">
+        <div className="grid md:grid-cols-2 gap-8 p-5 sm:p-8">
           <div>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Konfiguration</p>
             <div className="bg-[#F8F5F0] p-4 space-y-2 font-body text-sm">
@@ -4325,7 +4385,7 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
             </div>
           );
         })()}
-        <div className="grid md:grid-cols-2 gap-8 p-8 border-t border-[#1C1C1A]/10">
+        <div className="grid md:grid-cols-2 gap-8 p-5 sm:p-8 border-t border-[#1C1C1A]/10">
           <div>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Status</p>
             <div className="flex flex-wrap gap-2">
@@ -4454,7 +4514,7 @@ function AdminLeadsView({ authUser, authProfile }) {
       {loading ? (
         <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Leads aus Datenbank …</div>
       ) : error ? (
-        <div className="bg-white border border-[#C5392E]/30 p-8">
+        <div className="bg-white border border-[#C5392E]/30 p-5 sm:p-8">
           <p className="font-body text-sm text-[#C5392E]">Fehler beim Laden: {error}</p>
         </div>
       ) : filteredLeads.length === 0 ? (
@@ -4860,7 +4920,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
         className="bg-white max-w-5xl w-full"
         onClick={e => e.stopPropagation()}
         style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', overflowX: 'hidden' }}>
-        <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
+        <div className="flex items-start justify-between p-5 sm:p-8 border-b border-[#1C1C1A]/10">
           <div>
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">{isNew ? 'Neues Modul' : 'Modul bearbeiten'}</p>
             <h2 className="font-display text-3xl tracking-tight">{form.display_name || form.kuerzel || 'Neu'}</h2>
@@ -4868,7 +4928,7 @@ function AdminModuleEdit({ module, workspaces, authProfile, onClose, onSaved }) 
           <button onClick={onClose} className="text-[#6B6961] hover:text-[#1C1C1A] p-2"><Plus className="w-5 h-5 rotate-45" /></button>
         </div>
 
-        <div className="p-8 space-y-7">
+        <div className="p-5 sm:p-8 space-y-7">
           <section>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Identifikation</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -5295,7 +5355,7 @@ function AdminModulePartnerView({ module, authProfile, onClose }) {
     <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 sm:py-8" onClick={onClose}>
       <div className="bg-white max-w-2xl w-full" onClick={e => e.stopPropagation()}
         style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', overflowX: 'hidden' }}>
-        <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
+        <div className="flex items-start justify-between p-5 sm:p-8 border-b border-[#1C1C1A]/10">
           <div>
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Modul</p>
             <h2 className="font-display text-3xl tracking-tight">{module.display_name || module.kuerzel || '—'}</h2>
@@ -5304,7 +5364,7 @@ function AdminModulePartnerView({ module, authProfile, onClose }) {
           <button onClick={onClose} className="text-[#6B6961] hover:text-[#1C1C1A] p-2"><Plus className="w-5 h-5 rotate-45" /></button>
         </div>
 
-        <div className="p-8 space-y-7">
+        <div className="p-5 sm:p-8 space-y-7">
           {module.bild_url && (
             <div className="w-full aspect-[3/2] bg-[#F8F5F0] border border-[#1C1C1A]/10 overflow-hidden">
               <img src={module.bild_url} alt={module.display_name || ''} className="w-full h-full object-cover" />
@@ -5473,7 +5533,7 @@ function AdminModulesView({ authProfile }) {
       {loading ? (
         <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Module …</div>
       ) : error ? (
-        <div className="bg-white border border-[#C5392E]/30 p-8"><p className="font-body text-sm text-[#C5392E]">Fehler: {error}</p></div>
+        <div className="bg-white border border-[#C5392E]/30 p-5 sm:p-8"><p className="font-body text-sm text-[#C5392E]">Fehler: {error}</p></div>
       ) : filtered.length === 0 ? (
         <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center"><p className="font-display text-xl text-[#6B6961]">Keine Module mit diesen Filtern<span className="opacity-50"> …</span></p></div>
       ) : (
@@ -5768,7 +5828,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
         className="bg-white max-w-5xl w-full"
         onClick={e => e.stopPropagation()}
         style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', overflowX: 'hidden' }}>
-        <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
+        <div className="flex items-start justify-between p-5 sm:p-8 border-b border-[#1C1C1A]/10">
           <div>
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">{isNew ? 'Neues Projekt' : 'Projekt bearbeiten'}</p>
             <h2 className="font-display text-3xl tracking-tight">{form.name || 'Neu'}</h2>
@@ -5777,7 +5837,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
           <button onClick={onClose} className="text-[#6B6961] hover:text-[#1C1C1A] p-2"><Plus className="w-5 h-5 rotate-45" /></button>
         </div>
 
-        <div className="p-8 space-y-7">
+        <div className="p-5 sm:p-8 space-y-7">
 
           <section>
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Identifikation</p>
@@ -6118,7 +6178,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                 <div className="border border-dashed border-[#1C1C1A]/20 p-3 bg-[#1C1C1A]/[0.02]">
                   <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Finanzierungs-Einschätzung <span className="normal-case tracking-normal italic">(nur intern · keine Auswirkung auf Frontend/Kunde)</span></p>
                   <p className="font-body text-[11px] text-[#6B6961] mb-3 leading-relaxed">Worst-Case-Check: Tragen die Netto-Einnahmen die Finanzierung der Gemeinschaftsmodul-Kosten ({fmtEUR(pGm.kostenGesamtBrutto)})?</p>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Laufzeit (Jahre)</label>
                       <input type="number" value={form.gm_finanz_laufzeit ?? ''} onChange={update('gm_finanz_laufzeit')} placeholder="z. B. 20"
@@ -6427,7 +6487,7 @@ function AdminProjectsView({ authProfile }) {
       {loading ? (
         <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Projekte …</div>
       ) : error ? (
-        <div className="bg-white border border-[#C5392E]/30 p-8"><p className="font-body text-sm text-[#C5392E]">Fehler: {error}</p></div>
+        <div className="bg-white border border-[#C5392E]/30 p-5 sm:p-8"><p className="font-body text-sm text-[#C5392E]">Fehler: {error}</p></div>
       ) : filtered.length === 0 ? (
         <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center"><p className="font-display text-xl text-[#6B6961]">Keine Projekte mit diesem Filter<span className="opacity-50"> …</span></p></div>
       ) : (
@@ -7218,7 +7278,7 @@ function AdminContentBlockEdit({ block, authUser, onClose, onSaved, onDeleted })
     <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center p-4 sm:py-8" onClick={onClose}>
       <div className="bg-white max-w-3xl w-full" onClick={e => e.stopPropagation()}
         style={{ maxHeight: 'calc(100vh - 2rem)', overflowY: 'auto', overflowX: 'hidden' }}>
-        <div className="flex items-start justify-between p-8 border-b border-[#1C1C1A]/10">
+        <div className="flex items-start justify-between p-5 sm:p-8 border-b border-[#1C1C1A]/10">
           <div>
             <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">{isNew ? 'Neuer Textblock' : 'Textblock bearbeiten'}</p>
             <h2 className="font-display text-3xl tracking-tight font-mono">{form.key || 'neu'}</h2>
@@ -7226,7 +7286,7 @@ function AdminContentBlockEdit({ block, authUser, onClose, onSaved, onDeleted })
           <button onClick={onClose} className="text-[#6B6961] hover:text-[#1C1C1A] p-2"><Plus className="w-5 h-5 rotate-45" /></button>
         </div>
 
-        <div className="p-8 space-y-6">
+        <div className="p-5 sm:p-8 space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Schlüssel (key)</label>
@@ -7252,7 +7312,7 @@ function AdminContentBlockEdit({ block, authUser, onClose, onSaved, onDeleted })
           {error && <div className="bg-[#C5392E]/5 border border-[#C5392E]/30 p-3"><p className="font-body text-sm text-[#C5392E]">{error}</p></div>}
         </div>
 
-        <div className="flex items-center justify-between p-8 border-t border-[#1C1C1A]/10 gap-4 flex-wrap">
+        <div className="flex items-center justify-between p-5 sm:p-8 border-t border-[#1C1C1A]/10 gap-4 flex-wrap">
           <div>
             {!isNew && (
               confirmDelete ? (
@@ -7331,7 +7391,7 @@ function AdminContentBlocksView({ authUser, authProfile }) {
       {loading ? (
         <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center font-body text-sm text-[#6B6961]">Lade Textblöcke …</div>
       ) : error ? (
-        <div className="bg-white border border-[#C5392E]/30 p-8"><p className="font-body text-sm text-[#C5392E]">Fehler: {error}</p></div>
+        <div className="bg-white border border-[#C5392E]/30 p-5 sm:p-8"><p className="font-body text-sm text-[#C5392E]">Fehler: {error}</p></div>
       ) : blocks.length === 0 ? (
         <div className="bg-white border border-[#1C1C1A]/10 p-16 text-center"><p className="font-display text-xl text-[#6B6961]">Noch keine Textblöcke<span className="opacity-50"> …</span></p></div>
       ) : (
@@ -7753,16 +7813,16 @@ function AdminPanel({ authUser, authProfile }) {
     ...(authProfile?.role === 'master_admin' ? [{ key: 'partner', label: 'Partner' }, { key: 'settings', label: 'Settings' }, { key: 'texte', label: 'Texte' }, { key: 'backups', label: 'Backups' }] : []),
   ];
   return (
-    <div className="max-w-7xl mx-auto px-8 py-12">
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
       <div className="flex items-end justify-between mb-8 gap-4 flex-wrap">
-        <div>
+        <div className="min-w-0 w-full sm:w-auto">
           <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">
             Admin · {authProfile?.role === 'master_admin' ? 'Master' : 'Partner'} · {authUser?.email}
           </p>
-          <div className="flex items-center gap-1 -ml-1">
+          <div className="flex items-center gap-1 -ml-1 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
             {tabs.map(t => (
               <button key={t.key} onClick={() => !t.disabled && setTab(t.key)} disabled={t.disabled}
-                className={`font-body text-sm tracking-wider uppercase px-4 py-2 border-b-2 transition-colors ${tab === t.key ? 'border-[var(--brand-accent,#D2563E)] text-[#1C1C1A]' : t.disabled ? 'border-transparent text-[#6B6961]/50 cursor-not-allowed' : 'border-transparent text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                className={`font-body text-sm tracking-wider uppercase px-4 py-2 border-b-2 transition-colors whitespace-nowrap shrink-0 ${tab === t.key ? 'border-[var(--brand-accent,#D2563E)] text-[#1C1C1A]' : t.disabled ? 'border-transparent text-[#6B6961]/50 cursor-not-allowed' : 'border-transparent text-[#6B6961] hover:text-[#1C1C1A]'}`}>
                 {t.label}{t.disabled && <span className="ml-1 text-[10px] text-[#6B6961]">·bald</span>}
               </button>
             ))}
