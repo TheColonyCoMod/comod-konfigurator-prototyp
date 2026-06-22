@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.143';
+const APP_VERSION = '0.9.144';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -3020,7 +3020,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                           </div>
                           {totals.laufendeKostenMonat > 0 && (
                             <div className="flex justify-between font-body text-[11px] text-[#6B6961]">
-                              <span>+ laufende Kosten</span><span className="num">{fmtEUR(totals.laufendeKostenMonat)}</span>
+                              <span>+ laufende Fix-Kosten</span><span className="num">{fmtEUR(totals.laufendeKostenMonat)}</span>
                             </div>
                           )}
                         </div>
@@ -3954,7 +3954,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               const nk = totals.nebenkosten || {};
               const pacht = nk.pachtMonat || 0;
               const fixPosten = (nk.posten || []).filter(po => po.typ === 'fix');
-              const titel = 'Laufende Fix-Kosten';
+              const titel = totals.isPureGewerb ? 'Laufende Fix-Kosten' : 'Service- & Sicherheitspaket';
               return (
                 <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                   <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> {titel}</p>
