@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.139';
+const APP_VERSION = '0.9.140';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1411,7 +1411,8 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
 
   // Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup sinnvoll (Feedback V6)
   // Bei Privatkunden mit eigengenutztem Add-Modul gewerblich: keine MA-Umrechnung
-  const belastungProMA = istMAWohnen ? (belastungFinanzierungEff + laufendeKostenMonat) / eigennutzungGewerbCount : 0;
+  // Basis = EFFEKTIVE Belastung (inkl. Mieteinnahmen): sobald vermietet wird, sinkt die Rate je MA.
+  const belastungProMA = istMAWohnen ? effektiveBelastung / eigennutzungGewerbCount : 0;
   const iabEntlastungProMA = istMAWohnen ? iabEntlastungMonat / eigennutzungGewerbCount : 0;
   // Beibehaltung der alten Variable für Backward-Compat in der Modul-Auswahl-Sidebar
   const monatlichGesamtNachIab = Math.max(0, monatlichGesamt - iabEntlastungMonat);
@@ -3015,10 +3016,10 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         {totals.eigennutzungGewerbCount > 0 && (
                           <div className="mt-3 pt-3 border-t border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)]">
                             <div className="flex justify-between items-baseline">
-                              <span className="font-body text-[10px] uppercase tracking-wider text-[var(--brand-accent,#D2563E)] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> pro Mitarbeiter</span>
-                              <span className="font-display text-lg num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.belastungProMA)}</span>
+                              <span className="font-body text-[10px] uppercase tracking-wider text-[var(--brand-accent,#D2563E)] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> {totals.belastungProMA <= 0 ? 'Überschuss je Mitarbeiter' : 'pro Mitarbeiter'}</span>
+                              <span className={`font-display text-lg num ${totals.belastungProMA <= 0 ? 'text-[#7FB069]' : 'text-[var(--brand-accent,#D2563E)]'}`}>{totals.belastungProMA <= 0 ? '+ ' : ''}{fmtEUR(Math.abs(totals.belastungProMA))}</span>
                             </div>
-                            <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{totals.monatlichGesamt > 0 ? `${fmtEUR(totals.monatlichGesamt)} ÷ ${totals.eigennutzungGewerbCount} eigengenutzte Module` : ''}</p>
+                            <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Effektive Belastung{totals.hasIncome ? ' (inkl. Mieteinnahmen)' : ''} ÷ {totals.eigennutzungGewerbCount} eigengenutzte Module</p>
                           </div>
                         )}
                       </div>
@@ -3754,9 +3755,33 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
 }
 
 function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod }) {
+  const [showSelbstWarn, setShowSelbstWarn] = useState(false);
   if (!totals.hasIncome) return null;
   return (
     <div className="bg-[#FBF7EF] border border-[#7B2D8E]/30 p-7">
+      {/* Warn-Layer beim Wechsel auf Eigenbewirtschaftung */}
+      {showSelbstWarn && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowSelbstWarn(false)}>
+          <div className="bg-white max-w-md w-full p-6 sm:p-7" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-[var(--brand-accent,#D2563E)]/10 flex items-center justify-center shrink-0"><Info className="w-5 h-5 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} /></div>
+              <h3 className="font-display text-xl leading-tight pt-1">Eigenbewirtschaftung — Mehraufwand auf Deiner Seite</h3>
+            </div>
+            <p className="font-body text-sm text-[#6B6961] leading-relaxed mb-2">
+              Wenn Du selbst vermietest, liegen <span className="text-[#1C1C1A]">Vermarktung, Buchungen, Check-in/-out, Reinigung, Wäsche, Instandhaltungs-Koordination und Mieterkommunikation</span> bei Dir — in der Praxis landet das oft am Empfang oder im Backoffice.
+            </p>
+            <p className="font-body text-sm text-[#6B6961] leading-relaxed mb-5">
+              Du sparst zwar die Betreiber-Fee ({fmtEUR(totals.feeAbzug)}/Mt.), trägst dafür aber den laufenden Aufwand und das Auslastungsrisiko selbst. Diese Eigenleistung ist in der Rechnung <span className="text-[#1C1C1A]">nicht</span> als Kosten berücksichtigt.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button onClick={() => { setVermietungDurchCoMod(false); setShowSelbstWarn(false); }}
+                className="flex-1 px-4 py-2.5 font-body text-sm border border-[#1C1C1A]/20 text-[#1C1C1A] hover:border-[var(--brand-accent,#D2563E)] transition-colors">Trotzdem selbst übernehmen</button>
+              <button onClick={() => setShowSelbstWarn(false)}
+                className="flex-1 px-4 py-2.5 font-body text-sm bg-[#7B2D8E] text-white hover:bg-[#6A2579] transition-colors">Doch durch CoMod</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
         <h3 className="font-display text-2xl flex items-center gap-2"><TrendingUp className="w-5 h-5 text-[#7B2D8E]" strokeWidth={1.5} />Einnahmen-Prognose</h3>
         <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/15 px-2 py-1">Vermietung</span>
@@ -3765,12 +3790,14 @@ function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod
       <div className="mb-5 p-3 bg-white border border-[#1C1C1A]/10">
         <FieldLabel required={false}>Wer übernimmt die Vermietung?</FieldLabel>
         <div className="flex gap-2">
-          <button onClick={() => setVermietungDurchCoMod(false)}
+          <button onClick={() => vermietungDurchCoMod ? setShowSelbstWarn(true) : setVermietungDurchCoMod(false)}
             className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${!vermietungDurchCoMod ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Selbst</button>
           <button onClick={() => setVermietungDurchCoMod(true)}
             className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${vermietungDurchCoMod ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] ring-1 ring-[#7B2D8E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Durch uns bewirtschaftet</button>
         </div>
-        {vermietungDurchCoMod && <p className="font-body text-[11px] text-[#6B6961] mt-2">Wir übernehmen Vermarktung & Verwaltung — eine Betreiber-Fee wird von der Miete abgezogen.</p>}
+        {vermietungDurchCoMod
+          ? <p className="font-body text-[11px] text-[#6B6961] mt-2">Wir übernehmen Vermarktung & Verwaltung — eine Betreiber-Fee wird von der Miete abgezogen.</p>
+          : <p className="font-body text-[11px] text-[var(--brand-accent,#D2563E)] mt-2">Eigenbewirtschaftung: Vermarktung, Buchung, Reinigung & Verwaltung liegen bei Dir — als Eigenleistung nicht in der Rechnung enthalten.</p>}
       </div>
       <div className="space-y-2.5 mb-5 max-h-48 overflow-auto scrollbar-none">
         {totals.incomeItems.map(it => (
@@ -3995,13 +4022,13 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               </details>
             )}
 
-            {/* Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) */}
+            {/* Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) — inkl. Mieteinnahmen */}
             {totals.istMAWohnen && (
               <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> Rate pro Mitarbeiter</p>
-                <p className="font-display text-3xl num">{fmtEUR(totals.belastungProMA)}</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> {totals.belastungProMA <= 0 ? 'Überschuss je Mitarbeiter' : 'Belastung pro Mitarbeiter'}</p>
+                <p className={`font-display text-3xl num ${totals.belastungProMA <= 0 ? 'text-[#7FB069]' : ''}`}>{totals.belastungProMA <= 0 ? '+ ' : ''}{fmtEUR(Math.abs(totals.belastungProMA))}</p>
                 <p className="font-body text-[10px] opacity-70 mt-0.5">
-                  ÷ {totals.eigennutzungGewerbCount} {totals.eigennutzungGewerbCount === 1 ? 'eigengen. Modul' : 'eigengen. Module'}
+                  effektiv{totals.hasIncome ? ' inkl. Mieteinnahmen' : ''} ÷ {totals.eigennutzungGewerbCount} {totals.eigennutzungGewerbCount === 1 ? 'eigengen. Modul' : 'eigengen. Module'}
                   {totals.iabEntlastungProMA > 0 && <> · inkl. IAB −{fmtEUR(totals.iabEntlastungProMA)}/MA</>}
                 </p>
               </div>
@@ -8106,7 +8133,7 @@ export default function App() {
   const [selections, setSelections] = useState({});
   const [modes, setModes] = useState({});
   const [addUsageState, setAddUsageState] = useState('g');
-  const [vermietungDurchCoMod, setVermietungDurchCoMod] = useState(false);
+  const [vermietungDurchCoMod, setVermietungDurchCoMod] = useState(true); // Default: Vermietung durch CoMod
   const [mitarbeiterAnzahl, setMitarbeiterAnzahl] = useState(0); // 0 = nicht gesetzt → Anzahl Module als Default
   const [iabBetrag, setIabBetrag] = useState(0); // Investitionsabzugsbetrag (steuerlich, kein Cashflow)
   const [privatOptionen, setPrivatOptionen] = useState({ terrasse: false, pv: false, gruen: false }); // optionale Privat-Upgrades
@@ -8138,7 +8165,7 @@ export default function App() {
   function handleTypeSelect(type) {
     // Bei Typ-Wechsel kompletter Reset der Modul-Auswahl, damit private/gewerbliche Pfade nicht vermischen
     setSelections({}); setModes({}); setAddUsageState('g');
-    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setServiceSelected(false);
+    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(true); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setServiceSelected(false);
     setCustomerType(type);
     if (type === 'privat') {
       setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
@@ -8151,7 +8178,7 @@ export default function App() {
   // Beim Zurückgehen zum Welcome-Screen: alle Auswahlen zurücksetzen, damit der nächste Pfad sauber startet
   function goToWelcome() {
     setSelections({}); setModes({}); setAddUsageState('g');
-    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setServiceSelected(false);
+    setEkPrivat(0); setEkGewerb(0); setFinancing(FIN_DEFAULTS); setVermietungDurchCoMod(true); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setServiceSelected(false);
     setProject(null); setPrivatMode(null); setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setCustomerType(null);
     setStep(0);
@@ -8426,7 +8453,7 @@ export default function App() {
     setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setSelections({}); setModes({}); setFinancing(FIN_DEFAULTS);
     setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null); setOfferStatus(null);
-    setVermietungDurchCoMod(false); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setAddUsageState('g'); setServiceSelected(false);
+    setVermietungDurchCoMod(true); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setAddUsageState('g'); setServiceSelected(false);
   }
   function jumpToStep(s) { if (s < Math.floor(step)) setStep(s); }
   function backFromModules() { setStep(0.45); }
