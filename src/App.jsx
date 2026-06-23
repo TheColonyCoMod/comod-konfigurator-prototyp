@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.144';
+const APP_VERSION = '0.9.145';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -3659,13 +3659,15 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
   // für rein gewerbliche Kunden Pflicht. Hier nur Anzeige — die Rechenwirkung steckt in fixProM2.
   const serviceOptional = totals.serviceOptional;
   const serviceActive = totals.serviceActive;
-  const gesamtMonat = totals.nebenkostenMonatGesamt; // laufende Fixkosten + Verbrauch (spiegelt Service-Toggle)
+  // Anzeige-Gesamt: Gewerbe = nur laufende Fixkosten (kein Verbrauch), Privat = inkl. Verbrauch.
+  // Eine Quelle für Kopf-Summe UND "Gesamt / Monat" → bleibt reconciled (laufende + verbrauch = nebenkostenMonatGesamt).
+  const gesamtMonat = totals.isPureGewerb ? totals.laufendeKostenMonat : totals.nebenkostenMonatGesamt;
   return (
     <details className="group bg-white border border-[#A87DAE]/40">
       <summary className="cursor-pointer list-none p-4 sm:p-5 block">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="font-display text-lg sm:text-xl leading-tight flex items-start gap-2"><Repeat className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} /><span>Neben- und Verbrauchskostenschätzung</span></h3>
+            <h3 className="font-display text-lg sm:text-xl leading-tight flex items-start gap-2"><Repeat className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} /><span>{totals.isPureGewerb ? 'Laufende Betriebskostenschätzung' : 'Neben- und Verbrauchskostenschätzung'}</span></h3>
             <p className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] mt-1">Richtwerte · Details anzeigen</p>
           </div>
           <ChevronRight className="w-5 h-5 text-[#6B6961] transition-transform group-open:rotate-90 shrink-0 mt-0.5" strokeWidth={2} />
@@ -3740,8 +3742,8 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
           <span className="num text-[#1C1C1A]">≈ {fmtEUR(totals.laufendeKostenMonat)} / Mt.</span>
         </div>
 
-        {/* Verbrauchskosten — jetzt flach (der ganze Block ist bereits eingeklappt) */}
-        {verbrauchPosten.length > 0 && (
+        {/* Verbrauchskosten — nur Privat (bei Gewerbe ausgeblendet, Feedback); Block bereits eingeklappt */}
+        {!totals.isPureGewerb && verbrauchPosten.length > 0 && (
           <div className="pt-3 mt-1 border-t border-[#1C1C1A]/10">
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-[#A87DAE]" strokeWidth={1.5} /> Verbrauchskosten <span className="normal-case tracking-normal">(variabel, trägt der Bewohner)</span></p>
             {verbrauchPosten.map(post => (
