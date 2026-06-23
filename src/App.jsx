@@ -44,7 +44,7 @@ async function sendOffer(to, offer) {
   }
 }
 
-const APP_VERSION = '0.9.145';
+const APP_VERSION = '0.9.146';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2747,7 +2747,7 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
             <div className="mt-3 px-3 py-2 bg-[#7B2D8E]/10 border border-[#7B2D8E]/25 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5 text-[#7B2D8E]" strokeWidth={2} />
-                <span className="font-body text-xs text-[#1C1C1A]">Mietindikation / Monat</span>
+                <span className="font-body text-xs text-[#1C1C1A]">Mieteinnahmen-Indikation / Monat</span>
               </div>
               <span className="font-display text-sm num text-[#1C1C1A]">{fmtEUR(product.einnahmen)}</span>
             </div>
@@ -3014,16 +3014,16 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       <div className="mb-3">
                         <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[var(--brand-accent,#D2563E)] mb-1">Voraussichtliche Monatsrate</p>
                         <p className="font-display text-3xl num text-[#1C1C1A] leading-none">{fmtEUR(totals.monatlichGesamt)}</p>
-                        <div className="mt-2 space-y-0.5">
-                          <div className="flex justify-between font-body text-[11px] text-[#6B6961]">
-                            <span>Finanzierungsrate</span><span className="num">{fmtEUR(totals.finanzierungMonat)}</span>
-                          </div>
-                          {totals.laufendeKostenMonat > 0 && (
+                        {totals.laufendeKostenMonat > 0 && (
+                          <div className="mt-2 space-y-0.5">
+                            <div className="flex justify-between font-body text-[11px] text-[#6B6961]">
+                              <span>Finanzierungsrate</span><span className="num">{fmtEUR(totals.finanzierungMonat)}</span>
+                            </div>
                             <div className="flex justify-between font-body text-[11px] text-[#6B6961]">
                               <span>+ laufende Fix-Kosten</span><span className="num">{fmtEUR(totals.laufendeKostenMonat)}</span>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                         <p className="font-body text-[10px] text-[#6B6961] mt-1.5">Vorschau mit Standard-Konditionen — anpassbar im nächsten Schritt</p>
                         {totals.eigennutzungGewerbCount > 0 && (
                           <div className="mt-3 pt-3 border-t border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)]">
@@ -3039,7 +3039,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     {totals.hasIncome && (
                       <div className={totals.finanzierungMonat > 0 ? 'pt-3 border-t border-[#7B2D8E]/20' : ''}>
                         <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#7B2D8E] mb-1 flex items-center gap-1.5">
-                          <TrendingUp className="w-3 h-3" strokeWidth={2} /> Mietindikation / Monat
+                          <TrendingUp className="w-3 h-3" strokeWidth={2} /> Mieteinnahmen-Indikation / Monat
                         </p>
                         <p className="font-display text-2xl num text-[#7B2D8E] leading-none">{fmtEUR(totals.monthlyIncomeBrutto)}</p>
                         {totals.cashflowPositive && (
@@ -3983,7 +3983,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {/* Mieteinnahmen */}
             {totals.hasIncome && (
               <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Einnahmen / Monat</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Mieteinnahmen-Indikation / Monat</p>
                 <p className="font-display text-3xl num text-[#A87DAE]">+ {fmtEUR(totals.monthlyIncomeNetto)}</p>
               </div>
             )}
