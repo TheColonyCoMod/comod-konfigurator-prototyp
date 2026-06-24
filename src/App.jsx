@@ -9,42 +9,81 @@ const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://jruqvujjvcpz
 const SUPABASE_KEY = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_pu9x37uNO1M0esCdf9ZpOg_ymE4nY6e';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Benachrichtigungs-Mails über die Edge Function (Strato-SMTP). Secret kommt aus der
-// Vercel-Umgebungsvariable VITE_NOTIFY_SECRET (nicht im Code). Fehlt es, passiert nichts (fail-soft).
+// Edge Function (Strato-SMTP + Lead-Insert serverseitig). Öffentliche Aktionen sind durch
+// Cloudflare Turnstile abgesichert; das frühere VITE_NOTIFY_SECRET ist entfallen (war im Bundle = öffentlich).
 const NOTIFY_FN = 'dynamic-service';
-const NOTIFY_SECRET = import.meta.env?.VITE_NOTIFY_SECRET || '';
-async function sendNotify(subject, text) {
-  if (!NOTIFY_SECRET) return;
-  try {
-    await supabase.functions.invoke(NOTIFY_FN, { body: { action: 'notify', secret: NOTIFY_SECRET, subject, text } });
-  } catch (e) {
-    console.warn('[Notify] konnte nicht senden:', e?.message || e);
-  }
-}
+const TURNSTILE_SITE_KEY = import.meta.env?.VITE_TURNSTILE_SITE_KEY || '';
 
 // E-Mail-Formatprüfung — bewusst dieselbe Regex wie serverseitig in der Edge Function.
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 function isValidEmail(s) { return EMAIL_RE.test(String(s || '').trim()); }
 
-// Versendet das gebrandete PDF-Angebot serverseitig (Edge Function, action 'send_offer').
-// Die Function baut das PDF aus dem strukturierten Payload und mailt es an 'to'.
-// Liefert { ok, error? }. Kein Versand ohne Secret oder bei ungültiger Adresse (fail-soft).
-async function sendOffer(to, offer) {
-  if (!NOTIFY_SECRET) return { ok: false, error: 'no-secret' };
-  if (!isValidEmail(to)) return { ok: false, error: 'invalid-email' };
+// --- Cloudflare Turnstile (Invisible/Execute-Mode) -------------------------------------
+// Holt beim Absenden einen frischen Einmal-Token. Kein Umbau am Kontaktformular nötig.
+// Ohne Site-Key (Dev/Preview ohne Konfiguration) → leerer Token; der Server weist den Aufruf
+// dann ab (fail-closed). Für Dev Turnstile-Test-Keys verwenden.
+let _tsWidgetId = null;
+let _tsScriptLoading = null;
+let _tsResolver = null;
+function loadTurnstileScript() {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  if (window.turnstile) return Promise.resolve(true);
+  if (_tsScriptLoading) return _tsScriptLoading;
+  _tsScriptLoading = new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    s.async = true; s.defer = true;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+  return _tsScriptLoading;
+}
+async function getTurnstileToken() {
+  if (!TURNSTILE_SITE_KEY) { console.warn('[Turnstile] kein Site-Key konfiguriert (VITE_TURNSTILE_SITE_KEY)'); return ''; }
+  const ok = await loadTurnstileScript();
+  if (!ok || !window.turnstile) return '';
+  let container = document.getElementById('cf-turnstile-host');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'cf-turnstile-host';
+    container.style.cssText = 'position:fixed;bottom:0;left:0;width:1px;height:1px;overflow:hidden;opacity:0;';
+    document.body.appendChild(container);
+  }
+  return await new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    _tsResolver = done;
+    try {
+      if (_tsWidgetId == null) {
+        _tsWidgetId = window.turnstile.render(container, {
+          sitekey: TURNSTILE_SITE_KEY,
+          execution: 'execute',
+          size: 'flexible',
+          callback: (tok) => { const r = _tsResolver; _tsResolver = null; if (r) r(tok || ''); },
+          'error-callback': () => { const r = _tsResolver; _tsResolver = null; if (r) r(''); },
+          'timeout-callback': () => { const r = _tsResolver; _tsResolver = null; if (r) r(''); },
+        });
+      } else {
+        window.turnstile.reset(_tsWidgetId);
+      }
+      window.turnstile.execute(_tsWidgetId, { sitekey: TURNSTILE_SITE_KEY });
+      setTimeout(() => done(''), 10000); // Sicherheits-Timeout
+    } catch { done(''); }
+  });
+}
+
+// Benachrichtigung an CoMod (nur eingeloggte Nutzer, z. B. Partner-Projektänderung).
+// Der Login-JWT geht bei functions.invoke automatisch mit; die Edge Function prüft ihn.
+async function sendNotify(subject, text) {
   try {
-    const { data, error } = await supabase.functions.invoke(NOTIFY_FN, {
-      body: { action: 'send_offer', secret: NOTIFY_SECRET, to: String(to).trim(), offer },
-    });
-    if (error) return { ok: false, error: error.message || 'invoke-error' };
-    if (data && data.ok === false) return { ok: false, error: data.error || 'server-error' };
-    return { ok: true };
+    await supabase.functions.invoke(NOTIFY_FN, { body: { action: 'notify', subject, text } });
   } catch (e) {
-    return { ok: false, error: e?.message || String(e) };
+    console.warn('[Notify] konnte nicht senden:', e?.message || e);
   }
 }
 
-const APP_VERSION = '0.9.146';
+const APP_VERSION = '0.9.147';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -8311,18 +8350,27 @@ export default function App() {
       setLeads(list);
     } catch (e) { console.error('Storage failed:', e); }
 
-    // === NEU: Lead zusätzlich in Supabase speichern ===
-    // Mapping vom Frontend-Lead-Format auf das DB-Schema. Wenn DB nicht erreichbar,
-    // läuft die Submission trotzdem durch (localStorage als Fallback bleibt aktiv).
+    // === Lead + Benachrichtigung + Angebot: EIN gesicherter Server-Aufruf (Turnstile) ===
+    // Insert läuft serverseitig (Service-Role) hinter Turnstile — kein offener anon-Insert mehr.
+    // UI läuft sofort weiter (Danke-Seite); Versand passiert fail-soft im Hintergrund.
+    // localStorage (oben) bleibt als lokaler Fallback aktiv.
+    setLastLead(lead);
+    setStep(4);
+
+    const offerEmail = (contact.email || '').trim();
+    const hasValidOfferEmail = isValidEmail(offerEmail);
+    setOfferStatus(hasValidOfferEmail ? 'sending' : 'invalid');
+
     (async () => {
       try {
-        // Projekt-ID via Slug-Lookup auflösen (Frontend nutzt Slugs wie 'voelk', DB UUIDs)
+        // Projekt-ID via Slug-Lookup auflösen (anon SELECT auf projects bleibt erlaubt)
         let dbProjectId = null;
         if (lead.pfad?.project?.id) {
           const { data: pr } = await supabase
             .from('projects').select('id').eq('slug', lead.pfad.project.id).maybeSingle();
           if (pr?.id) dbProjectId = pr.id;
         }
+        // status/priority setzt die Edge Function serverseitig (werden hier nicht vertraut)
         const dbLead = {
           workspace_id: lead.pfad?.project?.workspace_id || '00000000-0000-0000-0000-000000000001', // Partner-Workspace des Projekts, sonst CoMod-Default
           project_id: dbProjectId,
@@ -8353,113 +8401,107 @@ export default function App() {
           modulanzahl_gesamt: lead.module?.countTotal ?? 0,
           nuf_gesamt: lead.module?.gesamtNUF ?? 0,
           bgf_gesamt: lead.module?.gesamtBGF ?? 0,
-          status: 'neu',
-          priority: 'normal',
         };
-        // Plain insert OHNE Rücklese: so wird keine SELECT-Policy für anon benötigt
-        // (anon darf Leads NICHT lesen — Datenschutz), und der Insert wird nicht durch
-        // eine fehlende Lese-Berechtigung zurückgerollt. Echte Insert-Fehler (z. B. RLS-INSERT
-        // oder Constraints) kommen weiterhin in `error` an.
-        const { error } = await supabase.from('leads').insert(dbLead);
-        if (error) {
-          console.warn('[Supabase] Lead-Insert Fehler:', error.message);
+
+        // Benachrichtigungstext an CoMod (Edge Function versendet ihn nach Token-Prüfung)
+        const c = lead.contact || {};
+        const finN = lead.finanzen || {};
+        const proj = lead.pfad?.project;
+        const nfmt = (n) => Math.round(n || 0).toLocaleString('de-DE');
+        const notify = {
+          subject: `Neuer Lead: ${[c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Unbekannt'}${proj?.name ? ' — ' + proj.name : ''}`,
+          text: [
+            `Name: ${[c.anrede, c.vorname, c.nachname].filter(Boolean).join(' ') || '—'}`,
+            c.firma ? `Firma: ${c.firma}` : null,
+            `E-Mail: ${c.email || '—'}`,
+            c.telefon ? `Telefon: ${c.telefon}` : null,
+            (c.plz || c.ort) ? `Ort: ${[c.plz, c.ort].filter(Boolean).join(' ')}` : null,
+            `Projekt: ${proj?.name || 'CoMod-Hauptkonfigurator'}${proj?.location ? ', ' + proj.location : ''}`,
+            `Nutzung: ${lead.pfad?.customerType || '—'} / ${lead.pfad?.modulart || '—'}`,
+            `Module: ${lead.module?.countTotal ?? 0} (NUF ${lead.module?.gesamtNUF ?? 0} m², BGF ${lead.module?.gesamtBGF ?? 0} m²)`,
+            `Einmalig: ${nfmt(finN.bruttoGesamt)} €  ·  Monatlich: ${nfmt(finN.monatlichGesamt)} €`,
+            c.notiz ? `Notiz: ${c.notiz}` : null,
+          ].filter(Boolean).join('\n'),
+        };
+
+        // Angebot (PDF) — nur bei gültiger Kundenadresse aufbauen
+        let offer = null;
+        if (hasValidOfferEmail) {
+          const projMarge     = (project && project.projektMarge != null) ? project.projektMarge : undefined;
+          const projProvision = (project && project.provisionPct != null) ? project.provisionPct : undefined;
+          // Logo als absolute URL auflösen, damit die Edge Function es laden kann (Partner-Logo oder CoMod-Default)
+          let logoUrl = brand?.logoUrl || null;
+          try { logoUrl = new URL(brand?.logoUrl || '/brand/comod_logo_black.png', window.location.origin).href; } catch { /* Fallback bleibt */ }
+          offer = {
+            brand: { logoUrl, accent: brand?.accent || '#D2563E' },
+            meta: { date: new Date().toLocaleDateString('de-DE'), version: APP_VERSION },
+            customer: {
+              anrede: contact.anrede || '',
+              name: [contact.vorname, contact.nachname].filter(Boolean).join(' '),
+              firma: contact.firma || '',
+              adresse: [
+                [contact.strasse, contact.hausnr].filter(Boolean).join(' '),
+                [contact.plz, contact.ort].filter(Boolean).join(' '),
+              ].filter(Boolean),
+              email: offerEmail,
+              telefon: contact.telefon || '',
+            },
+            project: project ? { name: project.name || '', location: project.location || '' } : null,
+            nutzung: { customerType: customerType || '', modulart: modulart || '' },
+            module: {
+              items: totals.lineItems.map((it) => {
+                const eff = calcRabattiertePreise(it, totals.rabattPct || 0, projMarge, projProvision);
+                const stueck = it.usage === 'g' ? eff.netto : eff.brutto; // Modulpreis folgt der Nutzung (g→netto, p→brutto)
+                return {
+                  name: getDisplayName(it),
+                  count: it.count,
+                  nutzung: it.usage === 'g' ? 'Gewerblich' : 'Privat',
+                  nuf: it.nuf, bgf: it.bgf,
+                  stueck,
+                  gesamt: stueck * it.count,
+                  hinweis: it.usage === 'g' ? 'zzgl. USt' : 'inkl. USt',
+                };
+              }),
+              countTotal: totals.countTotal,
+              gesamtNUF: totals.gesamtNUF,
+              gesamtBGF: totals.gesamtBGF,
+            },
+            finanzen: {
+              einmaligGesamtBrutto: totals.einmaligGesamtBrutto,
+              gesamtBrutto: totals.bruttoGesamt, // echter Gesamtpreis (Module + Einmalkosten) — für „Einmalige Investition" im PDF
+              anzahlung: totals.anzahlung,
+              kfwRate: totals.kfwRate,
+              glsRate: totals.glsRate,
+              gewerbeRate: totals.plattformRate, // intern plattformRate, kundensichtbar „Gewerbe-Rate"
+              finanzierungMonat: totals.finanzierungMonat,
+              nebenkostenMonatGesamt: totals.laufendeKostenMonat, // nur laufende Fixkosten (keine Verbrauchsschätzung im Angebot, Feedback)
+              monatlichGesamt: totals.monatlichGesamt,
+              serviceAktiv: totals.serviceActive,
+              serviceMonat: Math.round(totals.serviceMonat || 0),
+              steuerentlastung: totals.steuerentlastung,
+              iabBetrag: iabBetrag > 0 ? iabBetrag : null,
+            },
+          };
+        }
+
+        // Turnstile-Token holen und alles konsolidiert absenden (Insert + Notify + Angebot)
+        const token = await getTurnstileToken();
+        const { data, error } = await supabase.functions.invoke(NOTIFY_FN, {
+          body: { action: 'submit_lead', token, lead: dbLead, notify, offer, to: offerEmail },
+        });
+        if (error || (data && data.ok === false)) {
+          console.warn('[submit_lead] Fehler:', error?.message || data?.error);
+          if (hasValidOfferEmail) setOfferStatus('failed');
         } else {
-          console.log('[Supabase] Lead in DB gespeichert');
-          // Benachrichtigung an CoMod (fail-soft)
-          try {
-            const c = lead.contact || {};
-            const fin = lead.finanzen || {};
-            const proj = lead.pfad?.project;
-            const nf = (n) => Math.round(n || 0).toLocaleString('de-DE');
-            const subject = `Neuer Lead: ${[c.vorname, c.nachname].filter(Boolean).join(' ') || c.email || 'Unbekannt'}${proj?.name ? ' — ' + proj.name : ''}`;
-            const text = [
-              `Name: ${[c.anrede, c.vorname, c.nachname].filter(Boolean).join(' ') || '—'}`,
-              c.firma ? `Firma: ${c.firma}` : null,
-              `E-Mail: ${c.email || '—'}`,
-              c.telefon ? `Telefon: ${c.telefon}` : null,
-              (c.plz || c.ort) ? `Ort: ${[c.plz, c.ort].filter(Boolean).join(' ')}` : null,
-              `Projekt: ${proj?.name || 'CoMod-Hauptkonfigurator'}${proj?.location ? ', ' + proj.location : ''}`,
-              `Nutzung: ${lead.pfad?.customerType || '—'} / ${lead.pfad?.modulart || '—'}`,
-              `Module: ${lead.module?.countTotal ?? 0} (NUF ${lead.module?.gesamtNUF ?? 0} m², BGF ${lead.module?.gesamtBGF ?? 0} m²)`,
-              `Einmalig: ${nf(fin.bruttoGesamt)} €  ·  Monatlich: ${nf(fin.monatlichGesamt)} €`,
-              c.notiz ? `Notiz: ${c.notiz}` : null,
-            ].filter(Boolean).join('\n');
-            sendNotify(subject, text);
-          } catch { /* Benachrichtigung best-effort */ }
+          if (!data?.leadSaved) console.warn('[submit_lead] Lead nicht gespeichert:', data?.leadError);
+          else console.log('[submit_lead] Lead gespeichert');
+          if (hasValidOfferEmail) setOfferStatus(data?.offerSent ? 'sent' : 'failed');
         }
       } catch (e) {
-        console.warn('[Supabase] Lead-Insert Verbindungsfehler:', e.message);
+        console.warn('[submit_lead] Verbindungsfehler:', e?.message || e);
+        if (hasValidOfferEmail) setOfferStatus('failed');
       }
     })();
-
-    setLastLead(lead);
-    setStep(4);
-
-    // === PDF-Angebot per Mail an die Kundenadresse (fail-soft) ===
-    // Blockiert die Danke-Seite NICHT. E-Mail-Format wird vor dem Versand geprüft
-    // (clientseitig hier, serverseitig nochmals in der Edge Function).
-    const offerEmail = (contact.email || '').trim();
-    if (!isValidEmail(offerEmail)) {
-      setOfferStatus('invalid');
-    } else {
-      setOfferStatus('sending');
-      const projMarge     = (project && project.projektMarge != null) ? project.projektMarge : undefined;
-      const projProvision = (project && project.provisionPct != null) ? project.provisionPct : undefined;
-      // Logo als absolute URL auflösen, damit die Edge Function es laden kann (Partner-Logo oder CoMod-Default)
-      let logoUrl = brand?.logoUrl || null;
-      try { logoUrl = new URL(brand?.logoUrl || '/brand/comod_logo_black.png', window.location.origin).href; } catch { /* Fallback bleibt */ }
-      const offer = {
-        brand: { logoUrl, accent: brand?.accent || '#D2563E' },
-        meta: { date: new Date().toLocaleDateString('de-DE'), version: APP_VERSION },
-        customer: {
-          anrede: contact.anrede || '',
-          name: [contact.vorname, contact.nachname].filter(Boolean).join(' '),
-          firma: contact.firma || '',
-          adresse: [
-            [contact.strasse, contact.hausnr].filter(Boolean).join(' '),
-            [contact.plz, contact.ort].filter(Boolean).join(' '),
-          ].filter(Boolean),
-          email: offerEmail,
-          telefon: contact.telefon || '',
-        },
-        project: project ? { name: project.name || '', location: project.location || '' } : null,
-        nutzung: { customerType: customerType || '', modulart: modulart || '' },
-        module: {
-          items: totals.lineItems.map((it) => {
-            const eff = calcRabattiertePreise(it, totals.rabattPct || 0, projMarge, projProvision);
-            const stueck = it.usage === 'g' ? eff.netto : eff.brutto; // Modulpreis folgt der Nutzung (g→netto, p→brutto)
-            return {
-              name: getDisplayName(it),
-              count: it.count,
-              nutzung: it.usage === 'g' ? 'Gewerblich' : 'Privat',
-              nuf: it.nuf, bgf: it.bgf,
-              stueck,
-              gesamt: stueck * it.count,
-              hinweis: it.usage === 'g' ? 'zzgl. USt' : 'inkl. USt',
-            };
-          }),
-          countTotal: totals.countTotal,
-          gesamtNUF: totals.gesamtNUF,
-          gesamtBGF: totals.gesamtBGF,
-        },
-        finanzen: {
-          einmaligGesamtBrutto: totals.einmaligGesamtBrutto,
-          gesamtBrutto: totals.bruttoGesamt, // echter Gesamtpreis (Module + Einmalkosten) — für „Einmalige Investition" im PDF
-          anzahlung: totals.anzahlung,
-          kfwRate: totals.kfwRate,
-          glsRate: totals.glsRate,
-          gewerbeRate: totals.plattformRate, // intern plattformRate, kundensichtbar „Gewerbe-Rate"
-          finanzierungMonat: totals.finanzierungMonat,
-          nebenkostenMonatGesamt: totals.laufendeKostenMonat, // nur laufende Fixkosten (keine Verbrauchsschätzung im Angebot, Feedback)
-          monatlichGesamt: totals.monatlichGesamt,
-          serviceAktiv: totals.serviceActive,
-          serviceMonat: Math.round(totals.serviceMonat || 0),
-          steuerentlastung: totals.steuerentlastung,
-          iabBetrag: iabBetrag > 0 ? iabBetrag : null,
-        },
-      };
-      sendOffer(offerEmail, offer).then((r) => setOfferStatus(r.ok ? 'sent' : 'failed'));
-    }
   }
 
   function restart() {
