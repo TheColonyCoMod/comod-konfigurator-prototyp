@@ -83,7 +83,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.151';
+const APP_VERSION = '0.9.152';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -3124,19 +3124,19 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     <p className="font-body text-[11px] text-[#6B6961] mb-3">{project.location}</p>
                     <dl className="space-y-1 text-[11px] font-body text-[#6B6961]">
                       <div className="flex justify-between"><dt>Projekt-Gesamtmodule</dt><dd className="num text-[#1C1C1A]">{project.zielModulAnzahl}</dd></div>
-                      {totals.gmCount > 0 && <div className="flex justify-between"><dt>davon Gemeinschaftsmodule</dt><dd className="num text-[#1C1C1A]">{totals.gmCount}</dd></div>}
+                      {sumGemeinschaftsModule(project) > 0 && <div className="flex justify-between"><dt>davon Gemeinschaftseinheiten</dt><dd className="num text-[#1C1C1A]">{sumGemeinschaftsModule(project)}</dd></div>}
                       {project.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(project.grundstueckGroesse)} m²</dd></div>}
-                      <div className="flex justify-between"><dt>Dein Anteil</dt><dd className="num text-[#1C1C1A]">{totals.countTotal} von {totals.verkaufbareModule} verkaufbaren{totals.gmCount > 0 ? ` (${project.zielModulAnzahl} gesamt)` : ''} · {fmtPct(totals.countTotal / (totals.verkaufbareModule || 1))}</dd></div>
                       {(() => {
-                        // Tier 3: freies Projekt-Kontingent in großen Modulen (Ziel − Gemeinschaftsmodule − bereits vergeben − eigene Auswahl).
+                        // Tier 3: Kontingent in großen Modulen/Einheiten. verkaufbar = Ziel − Gemeinschaftseinheiten;
+                        // frei = verkaufbar − bereits vergebene Leads (soldModules) − eigene aktuelle Auswahl.
                         const sellableTarget = verfuegbareZielModule(project);
                         if (sellableTarget <= 0) return null;
                         const frei = Math.max(0, sellableTarget - (soldModules || 0) - totals.modulAnzahlTotal);
+                        const anteil = totals.modulAnzahlTotal > 0
+                          ? <span className="text-[#6B6961]"> · Dein Anteil {totals.modulAnzahlTotal} ({fmtPct(totals.modulAnzahlTotal / sellableTarget)})</span>
+                          : null;
                         return (
-                          <>
-                            <div className="flex justify-between"><dt>Bereits vergeben</dt><dd className="num text-[#1C1C1A]">{soldModules}</dd></div>
-                            <div className="flex justify-between"><dt className="text-[#7B2D8E] font-medium">Noch verfügbar</dt><dd className="num font-medium text-[#7B2D8E]">{frei} von {sellableTarget}</dd></div>
-                          </>
+                          <div className="flex justify-between"><dt className="text-[#7B2D8E] font-medium">Noch verfügbar</dt><dd className="num font-medium text-[#7B2D8E]">{frei} von {sellableTarget}{anteil}</dd></div>
                         );
                       })()}
                       {project.projektrabatt > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><dt>Projekt-Bonus</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
