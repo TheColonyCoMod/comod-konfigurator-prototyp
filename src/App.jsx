@@ -83,7 +83,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.148';
+const APP_VERSION = '0.9.150';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2955,7 +2955,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
               ? verfuegbareZielModule(project) // Ziel − Gemeinschaftsmodule (physisch, ohne Pool)
               : 0;
             if (sellableTarget <= 0) return null;
-            const ist = totals.modulAnzahlTotal;
+            const ist = totals.modulAnzahlTotal; // große Module inkl. Stack — konsistent mit dem Kontingent
             const effZiel = Math.max(0, sellableTarget - (soldModules || 0)); // noch verkaufbar nach bereits vergebenen
             const frei = Math.max(0, effZiel - ist);
             const ueber = ist > effZiel;
@@ -4392,7 +4392,7 @@ function AdminLeadDetail({ lead, onClose, onUpdate }) {
               {(lead.project?.name || lead.finanzen_snapshot?.project_name) && (
                 <p><span className="text-[#6B6961]">Projekt:</span> <span className="text-[#7B2D8E]">{lead.project?.name || lead.finanzen_snapshot?.project_name}{(lead.project?.location || lead.finanzen_snapshot?.project_location) ? ` (${lead.project?.location || lead.finanzen_snapshot?.project_location})` : ''}</span></p>
               )}
-              <p><span className="text-[#6B6961]">Module gesamt:</span> <span className="num">{lead.modulanzahl_gesamt}</span></p>
+              <p><span className="text-[#6B6961]">Produkte / Module:</span> <span className="num">{lead.modulanzahl_gesamt}</span>{lead.modulanzahl_module != null && <> / <span className="num">{lead.modulanzahl_module}</span></>}</p>
               <p><span className="text-[#6B6961]">NUF:</span> <span className="num">{Number(lead.nuf_gesamt || 0).toFixed(1)} m²</span></p>
               <div className="pt-2 mt-2 border-t border-[#1C1C1A]/10 space-y-1">
                 {modulesArr.map((it, i) => {
@@ -4724,7 +4724,7 @@ function AdminLeadsView({ authUser, authProfile }) {
                     ))}
                     {items.length > 3 && <div className="mt-1 text-[#7B2D8E]">… und {items.length - 3} weitere</div>}
                   </div>
-                  <div className="text-right num">{lead.modulanzahl_gesamt}</div>
+                  <div className="text-right num">{lead.modulanzahl_module ?? lead.modulanzahl_gesamt}</div>
                   <div className="text-right num">{fmtEUR(lead.einmalig_gesamt || 0)}</div>
                   <div className="text-right num font-display">{fmtEUR(lead.monatlich_gesamt || 0)}</div>
                 </button>
@@ -8042,7 +8042,7 @@ const EMPTY_GEWERB_CONFIG = {
 // und integrierte Schritt-Navigation (Zurück / Weiter) — kein langes Scrollen nötig.
 function MobileSummaryBar({ totals, ziel, belegt = 0, step, onAdvance, onBack }) {
   const hasZiel = ziel > 0;
-  const ist = totals.modulAnzahlTotal; // tatsächliche Module (Stack zählt alle Ebenen)
+  const ist = totals.modulAnzahlTotal; // große Module inkl. Stack — konsistent mit dem Kontingent
   const effZiel = Math.max(0, ziel - (belegt || 0)); // noch verkaufbar nach bereits vergebenen Modulen (Tier 3)
   const frei = hasZiel ? Math.max(0, effZiel - ist) : 0; // live frei, nach eigener Auswahl
   const erreicht = hasZiel && ist === effZiel;   // eigene Auswahl füllt den Rest exakt
@@ -8346,7 +8346,7 @@ export default function App() {
           };
         }),
         countTotal: totals.countTotal,
-        modulAnzahlTotal: totals.modulAnzahlTotal, // echte physische Module (Stack/Kombi) — Basis fürs Projekt-Kontingent (Tier 3)
+        modulAnzahlTotal: totals.modulAnzahlTotal, // große Module inkl. Stack-Ebenen — Basis fürs Projekt-Kontingent
         countPrivat: totals.countPrivat,
         countGewerb: totals.countGewerb,
         einheitenTotal: totals.einheitenTotal,
@@ -8447,7 +8447,7 @@ export default function App() {
           verbrauchskosten_monat: 0, // Verbrauchsschätzung wird nicht mehr im Lead geführt (Feedback)
           einnahmen_monat: Math.round(lead.finanzen?.monthlyIncomeNetto ?? 0),
           modulanzahl_gesamt: lead.module?.countTotal ?? 0,
-          modulanzahl_module: lead.module?.modulAnzahlTotal ?? 0, // echte physische Module fürs Projekt-Kontingent (Tier 3)
+          modulanzahl_module: lead.module?.modulAnzahlTotal ?? 0, // große Module inkl. Stack (Home 96 = 3, Home 66 = 3) — Basis fürs Projekt-Kontingent
           nuf_gesamt: lead.module?.gesamtNUF ?? 0,
           bgf_gesamt: lead.module?.gesamtBGF ?? 0,
         };
