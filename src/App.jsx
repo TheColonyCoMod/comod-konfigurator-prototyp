@@ -83,7 +83,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.152';
+const APP_VERSION = '0.9.153';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -3124,10 +3124,10 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     <p className="font-body text-[11px] text-[#6B6961] mb-3">{project.location}</p>
                     <dl className="space-y-1 text-[11px] font-body text-[#6B6961]">
                       <div className="flex justify-between"><dt>Projekt-Gesamtmodule</dt><dd className="num text-[#1C1C1A]">{project.zielModulAnzahl}</dd></div>
-                      {sumGemeinschaftsModule(project) > 0 && <div className="flex justify-between"><dt>davon Gemeinschaftseinheiten</dt><dd className="num text-[#1C1C1A]">{sumGemeinschaftsModule(project)}</dd></div>}
+                      {sumGemeinschaftsModule(project) > 0 && <div className="flex justify-between"><dt>davon Gemeinschaftsmodule</dt><dd className="num text-[#1C1C1A]">{sumGemeinschaftsModule(project)}</dd></div>}
                       {project.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(project.grundstueckGroesse)} m²</dd></div>}
                       {(() => {
-                        // Tier 3: Kontingent in großen Modulen/Einheiten. verkaufbar = Ziel − Gemeinschaftseinheiten;
+                        // Tier 3: Kontingent in Modulen (physische Blöcke). verkaufbar = Ziel − Gemeinschaftsmodule;
                         // frei = verkaufbar − bereits vergebene Leads (soldModules) − eigene aktuelle Auswahl.
                         const sellableTarget = verfuegbareZielModule(project);
                         if (sellableTarget <= 0) return null;
@@ -3179,7 +3179,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 </div>
 
                 <dl className="space-y-1.5 text-xs font-body mb-5 text-[#6B6961]">
-                  <div className="flex justify-between"><dt>Einheiten gesamt</dt><dd className="num text-[#1C1C1A]">{totals.modulAnzahlTotal}</dd></div>
+                  <div className="flex justify-between"><dt>Module gesamt</dt><dd className="num text-[#1C1C1A]">{totals.modulAnzahlTotal}</dd></div>
                   {totals.modulAnzahlPrivat > 0 && totals.modulAnzahlGewerb > 0 && (
                     <>
                       <div className="flex justify-between"><dt className="pl-2">davon privat</dt><dd className="num">{totals.modulAnzahlPrivat}</dd></div>
