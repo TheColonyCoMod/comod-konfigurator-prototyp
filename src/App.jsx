@@ -83,7 +83,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.150';
+const APP_VERSION = '0.9.151';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1207,7 +1207,9 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const einheitenGewerb = gewerbItems.reduce((s, x) => s + x.count * calcModulEinheiten(x), 0);
   const einheitenTotal = einheitenPrivat + einheitenGewerb;
   // Tatsächliche Modulanzahl (Stack = alle Ebenen) — maßgeblich für die Zielwert-Zuordnung.
-  const modulAnzahlTotal = lineItems.reduce((s, x) => s + x.count * calcModulAnzahl(x), 0);
+  const modulAnzahlPrivat = privatItems.reduce((s, x) => s + x.count * calcModulAnzahl(x), 0);
+  const modulAnzahlGewerb = gewerbItems.reduce((s, x) => s + x.count * calcModulAnzahl(x), 0);
+  const modulAnzahlTotal = modulAnzahlPrivat + modulAnzahlGewerb;
   const gesamtNUF = lineItems.reduce((s, x) => s + x.count * x.nuf, 0);
   const gesamtBGF = lineItems.reduce((s, x) => s + x.count * x.bgf, 0);
   const nufPrivat = privatItems.reduce((s, x) => s + x.count * x.nuf, 0);
@@ -1474,7 +1476,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   return {
     lineItems, privatItems, gewerbItems, incomeItems,
     eigennutzungGewerbCount,
-    countPrivat, countGewerb, countTotal, einheitenPrivat, einheitenGewerb, einheitenTotal, modulAnzahlTotal, gesamtNUF, gesamtBGF, nufPrivat, nufGewerb,
+    countPrivat, countGewerb, countTotal, einheitenPrivat, einheitenGewerb, einheitenTotal, modulAnzahlTotal, modulAnzahlPrivat, modulAnzahlGewerb, gesamtNUF, gesamtBGF, nufPrivat, nufGewerb,
     bruttoPrivat, nettoGewerb, rabattPct, nextStaffel,
     effPrivat, effGewerbNetto, effGewerbBrutto,
     // Service & Sicherheit (Lizenz + QM) — Status für UI/Toggle
@@ -3125,6 +3127,18 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       {totals.gmCount > 0 && <div className="flex justify-between"><dt>davon Gemeinschaftsmodule</dt><dd className="num text-[#1C1C1A]">{totals.gmCount}</dd></div>}
                       {project.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(project.grundstueckGroesse)} m²</dd></div>}
                       <div className="flex justify-between"><dt>Dein Anteil</dt><dd className="num text-[#1C1C1A]">{totals.countTotal} von {totals.verkaufbareModule} verkaufbaren{totals.gmCount > 0 ? ` (${project.zielModulAnzahl} gesamt)` : ''} · {fmtPct(totals.countTotal / (totals.verkaufbareModule || 1))}</dd></div>
+                      {(() => {
+                        // Tier 3: freies Projekt-Kontingent in großen Modulen (Ziel − Gemeinschaftsmodule − bereits vergeben − eigene Auswahl).
+                        const sellableTarget = verfuegbareZielModule(project);
+                        if (sellableTarget <= 0) return null;
+                        const frei = Math.max(0, sellableTarget - (soldModules || 0) - totals.modulAnzahlTotal);
+                        return (
+                          <>
+                            <div className="flex justify-between"><dt>Bereits vergeben</dt><dd className="num text-[#1C1C1A]">{soldModules}</dd></div>
+                            <div className="flex justify-between"><dt className="text-[#7B2D8E] font-medium">Noch verfügbar</dt><dd className="num font-medium text-[#7B2D8E]">{frei} von {sellableTarget}</dd></div>
+                          </>
+                        );
+                      })()}
                       {project.projektrabatt > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><dt>Projekt-Bonus</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
                     </dl>
                   </div>
@@ -3165,15 +3179,18 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 </div>
 
                 <dl className="space-y-1.5 text-xs font-body mb-5 text-[#6B6961]">
-                  <div className="flex justify-between"><dt>Module gesamt</dt><dd className="num text-[#1C1C1A]">{totals.countTotal}</dd></div>
-                  {totals.einheitenTotal !== totals.countTotal && (
-                    <div className="flex justify-between"><dt className="pl-2">Stellplatz-Einheiten</dt><dd className="num">{totals.einheitenTotal}</dd></div>
-                  )}
-                  {totals.countPrivat > 0 && totals.countGewerb > 0 && (
+                  <div className="flex justify-between"><dt>Einheiten gesamt</dt><dd className="num text-[#1C1C1A]">{totals.modulAnzahlTotal}</dd></div>
+                  {totals.modulAnzahlPrivat > 0 && totals.modulAnzahlGewerb > 0 && (
                     <>
-                      <div className="flex justify-between"><dt className="pl-2">davon privat</dt><dd className="num">{totals.countPrivat}</dd></div>
-                      <div className="flex justify-between"><dt className="pl-2">davon gewerblich</dt><dd className="num">{totals.countGewerb}</dd></div>
+                      <div className="flex justify-between"><dt className="pl-2">davon privat</dt><dd className="num">{totals.modulAnzahlPrivat}</dd></div>
+                      <div className="flex justify-between"><dt className="pl-2">davon gewerblich</dt><dd className="num">{totals.modulAnzahlGewerb}</dd></div>
                     </>
+                  )}
+                  {totals.countTotal !== totals.modulAnzahlTotal && (
+                    <div className="flex justify-between"><dt className="pl-2">Produkte / Konfigurationen</dt><dd className="num">{totals.countTotal}</dd></div>
+                  )}
+                  {totals.einheitenTotal !== totals.modulAnzahlTotal && (
+                    <div className="flex justify-between"><dt className="pl-2">Stellplatz-Einheiten (Footprint)</dt><dd className="num">{totals.einheitenTotal}</dd></div>
                   )}
                   <div className="flex justify-between"><dt>NUF</dt><dd className="num">{fmtNum(totals.gesamtNUF)} m²</dd></div>
                   {totals.rabattPct > 0 && (priceCtx
