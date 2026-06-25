@@ -83,7 +83,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.147';
+const APP_VERSION = '0.9.148';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2843,7 +2843,7 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
   );
 }
 
-function ModulesStep({ customerType, modulart, project, gewerbConfig, selections, setSelections, modes, setModes, totals, onNext, onBack, addUsageState, setAddUsageState }) {
+function ModulesStep({ customerType, modulart, project, gewerbConfig, selections, setSelections, modes, setModes, totals, onNext, onBack, addUsageState, setAddUsageState, soldModules = 0 }) {
   const [variantState, setVariantState] = useState({});
 
   // Reiner Gewerbe-Pfad: alle Beträge netto anzeigen (Vorsteuer-Abzug möglich)
@@ -2947,6 +2947,29 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
           <p className="font-body text-base text-[#6B6961] mb-6 max-w-2xl">
             Pro Modulfamilie wählst Du eine Variante (Küche, Möblierung, Größe) und die Anzahl. Du kannst pro Familie auch mehrere Varianten kombinieren.
           </p>
+
+          {(() => {
+            // Tier 3: freies Projekt-Kontingent (physische Module) — nur Projekt-/Privat-Pfad.
+            // Gewerbe hat einen eigenen Footprint-Banner (Stellplatz-Einheiten) weiter unten.
+            const sellableTarget = (!gewerbConfig && project?.zielModulAnzahl > 0)
+              ? verfuegbareZielModule(project) // Ziel − Gemeinschaftsmodule (physisch, ohne Pool)
+              : 0;
+            if (sellableTarget <= 0) return null;
+            const ist = totals.modulAnzahlTotal;
+            const effZiel = Math.max(0, sellableTarget - (soldModules || 0)); // noch verkaufbar nach bereits vergebenen
+            const frei = Math.max(0, effZiel - ist);
+            const ueber = ist > effZiel;
+            return (
+              <div className={`px-4 py-3 mb-6 flex items-center gap-2.5 border ${ueber ? 'bg-[#FCE4E0] border-[#C5392E]/40' : 'bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)]'}`}>
+                <Layers className={`w-4 h-4 shrink-0 ${ueber ? 'text-[#C5392E]' : 'text-[var(--brand-accent,#D2563E)]'}`} strokeWidth={1.5} />
+                <p className="font-body text-xs text-[#1C1C1A]">
+                  {ueber
+                    ? <>Du hast <span className="font-medium num">{ist - effZiel}</span> Module mehr gewählt, als im Projekt noch frei sind (noch <span className="num">{effZiel}</span> verfügbar).</>
+                    : <>Noch <span className="font-medium num">{frei}</span> von <span className="num">{sellableTarget}</span> Modulen im Projekt frei{ist > 0 ? <> — Deine aktuelle Auswahl: <span className="num">{ist}</span></> : null}.</>}
+                </p>
+              </div>
+            );
+          })()}
 
           {totals.rabattPct > 0 && (
             <div className="bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] px-4 py-3 mb-6 flex items-center gap-2.5">
@@ -8017,14 +8040,16 @@ const EMPTY_GEWERB_CONFIG = {
 
 // Mobile-only Sticky-Leiste: Modulanzahl, Gesamtpreis, Finanzierungsrate, (Rabatt), Zielwert-Fortschritt
 // und integrierte Schritt-Navigation (Zurück / Weiter) — kein langes Scrollen nötig.
-function MobileSummaryBar({ totals, ziel, step, onAdvance, onBack }) {
+function MobileSummaryBar({ totals, ziel, belegt = 0, step, onAdvance, onBack }) {
   const hasZiel = ziel > 0;
   const ist = totals.modulAnzahlTotal; // tatsächliche Module (Stack zählt alle Ebenen)
-  const erreicht = hasZiel && ist === ziel;   // exakt am Ziel
-  const ueberschritten = hasZiel && ist > ziel; // über dem Ziel
+  const effZiel = Math.max(0, ziel - (belegt || 0)); // noch verkaufbar nach bereits vergebenen Modulen (Tier 3)
+  const frei = hasZiel ? Math.max(0, effZiel - ist) : 0; // live frei, nach eigener Auswahl
+  const erreicht = hasZiel && ist === effZiel;   // eigene Auswahl füllt den Rest exakt
+  const ueberschritten = hasZiel && ist > effZiel; // mehr gewählt als noch frei
   const zielColor = !hasZiel ? 'text-[#1C1C1A]'
-    : ueberschritten ? 'text-[#C0392B]'   // rot: Zielanzahl überschritten
-    : erreicht ? 'text-[#7FB069]'         // grün: exakt erreicht
+    : ueberschritten ? 'text-[#C0392B]'   // rot: über dem freien Kontingent
+    : erreicht ? 'text-[#7FB069]'         // grün: Rest exakt gefüllt
     : 'text-[#7B2D8E]';                   // lila: noch Platz
   const advanceDisabled = step === 1 && totals.countTotal === 0;
   const btnLabel = step === 3 ? 'Zum Abschluss' : 'Weiter';
@@ -8040,6 +8065,11 @@ function MobileSummaryBar({ totals, ziel, step, onAdvance, onBack }) {
             <span className={zielColor}>{ist}</span>
             {hasZiel && <span className="text-[#6B6961]"> / {ziel}</span>}
           </p>
+          {hasZiel && (
+            <p className={`font-body text-[9px] leading-none mt-1 ${ueberschritten ? 'text-[#C0392B]' : 'text-[#6B6961]'}`}>
+              {ueberschritten ? `${ist - effZiel} über frei` : `${frei} noch frei`}
+            </p>
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <p className={lbl}>Module&nbsp;€</p>
@@ -8199,6 +8229,7 @@ export default function App() {
   const [leads, setLeads] = useState([]);
   const [lastLead, setLastLead] = useState(null);
   const [offerStatus, setOfferStatus] = useState(null); // null | 'sending' | 'sent' | 'failed' | 'invalid'
+  const [soldModules, setSoldModules] = useState(0); // Tier 3: dauerhaft verkaufte physische Module im aktiven Projekt (aus DB)
 
   useEffect(() => { refreshLeads(); }, []);
   async function refreshLeads() {
@@ -8207,6 +8238,22 @@ export default function App() {
       setLeads(value ? JSON.parse(value) : []);
     } catch { setLeads([]); }
   }
+
+  // Tier 3: bereits dauerhaft verkaufte Module des aktiven Projekts laden (fail-soft).
+  // SECURITY-DEFINER-RPC liefert NUR die Summe (Status verloren/archiviert zählen nicht);
+  // anon liest keine Leads. project?.id ist der Slug (siehe mapDbProjectToFrontend).
+  useEffect(() => {
+    let cancelled = false;
+    const slug = project?.id || null;
+    if (!slug) { setSoldModules(0); return; }
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc('project_sold_modules', { p_slug: slug });
+        if (!cancelled && !error && data != null) setSoldModules(Number(data) || 0);
+      } catch { /* fail-soft: 0 = keine Vorbelegung, statische Anzeige bleibt korrekt */ }
+    })();
+    return () => { cancelled = true; };
+  }, [project?.id]);
 
   const effectiveGewerbConfig = customerType === 'gewerblich' && gewerbConfig.geschosse > 0 && gewerbConfig.zielModulAnzahl > 0 ? gewerbConfig : null;
 
@@ -8299,6 +8346,7 @@ export default function App() {
           };
         }),
         countTotal: totals.countTotal,
+        modulAnzahlTotal: totals.modulAnzahlTotal, // echte physische Module (Stack/Kombi) — Basis fürs Projekt-Kontingent (Tier 3)
         countPrivat: totals.countPrivat,
         countGewerb: totals.countGewerb,
         einheitenTotal: totals.einheitenTotal,
@@ -8399,6 +8447,7 @@ export default function App() {
           verbrauchskosten_monat: 0, // Verbrauchsschätzung wird nicht mehr im Lead geführt (Feedback)
           einnahmen_monat: Math.round(lead.finanzen?.monthlyIncomeNetto ?? 0),
           modulanzahl_gesamt: lead.module?.countTotal ?? 0,
+          modulanzahl_module: lead.module?.modulAnzahlTotal ?? 0, // echte physische Module fürs Projekt-Kontingent (Tier 3)
           nuf_gesamt: lead.module?.gesamtNUF ?? 0,
           bgf_gesamt: lead.module?.gesamtBGF ?? 0,
         };
@@ -8529,7 +8578,7 @@ export default function App() {
             } else setStep(0.5);
           }} />
         : step === 0.5 ? <GewerbeConfigStep config={gewerbConfig} setConfig={setGewerbConfig} onContinue={handleGewerbContinue} onBack={goToWelcome} />
-        : step === 1 ? <ModulesStep customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} />
+        : step === 1 ? <ModulesStep customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} soldModules={soldModules} />
         : step === 2 ? <FinancingStep totals={totals} project={project} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} serviceSelected={serviceSelected} setServiceSelected={setServiceSelected} onNext={() => setStep(3)} onBack={() => setStep(1)} />
         : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} />
         : step === 4 ? <SuccessStep lead={lastLead} onRestart={restart} offerStatus={offerStatus} />
@@ -8577,7 +8626,8 @@ export default function App() {
             }}
             ziel={(effectiveGewerbConfig?.zielModulAnzahl > 0)
               ? effectiveGewerbConfig.zielModulAnzahl
-              : (project?.zielModulAnzahl > 0 ? verfuegbareZielModule(project) : 0)} />
+              : (project?.zielModulAnzahl > 0 ? verfuegbareZielModule(project) : 0)}
+            belegt={soldModules} />
           <div className="h-28 sm:hidden" aria-hidden />
         </>
       )}
