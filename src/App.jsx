@@ -83,7 +83,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.153';
+const APP_VERSION = '0.9.154';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2367,14 +2367,15 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
   const hasMoebliert = moebliertVals.size > 1; // nur zeigen, wenn echte Wahl: möbliert UND unmöbliert vorhanden
   const hasGroesse = products.some(p => p.groesse);
 
-  if (!hasKueche && !hasMoebliert && !hasGroesse) return null;
-
   const kuechen = Array.from(new Set(products.filter(p => p.kueche).map(p => p.kueche)));
   const groessen = Array.from(new Set(products.filter(p => p.groesse).map(p => p.groesse))).sort((a,b)=>a-b);
+  const showGroesse = hasGroesse && groessen.length > 1; // nur bei echter Wahl (analog Möblierung)
+  const showKueche  = hasKueche && kuechen.length > 1;
+  if (!showGroesse && !showKueche && !hasMoebliert) return null; // sonst leerer Trenner ohne wählbare Optionen
 
   return (
     <div className="mt-4 pt-4 border-t border-[#1C1C1A]/8 space-y-3">
-      {hasGroesse && groessen.length > 1 && (
+      {showGroesse && (
         <div>
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">Größe</p>
           <div className="flex gap-1.5 flex-wrap">
@@ -2387,7 +2388,7 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
           </div>
         </div>
       )}
-      {hasKueche && kuechen.length > 1 && (
+      {showKueche && (
         <div>
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">Küche</p>
           <div className="flex gap-1.5 flex-wrap">
@@ -3838,10 +3839,12 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
           </div>
         )}
 
-        <div className="flex justify-between pt-3 mt-1 border-t border-[#1C1C1A]/10 font-display text-base">
-          <span>Gesamt / Monat</span>
-          <span className="num text-[#7B2D8E]">≈ {fmtEUR(gesamtMonat)}</span>
-        </div>
+        {!totals.isPureGewerb && verbrauchPosten.length > 0 && (
+          <div className="flex justify-between pt-3 mt-1 border-t border-[#1C1C1A]/10 font-display text-base">
+            <span>Gesamt / Monat</span>
+            <span className="num text-[#7B2D8E]">≈ {fmtEUR(gesamtMonat)}</span>
+          </div>
+        )}
       </div>
       </div>
     </details>
