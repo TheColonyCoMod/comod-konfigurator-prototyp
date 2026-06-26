@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.155';
+const APP_VERSION = '0.9.156';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2587,7 +2587,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           );
         })()}
         {familyTotal > 0 && (
-          <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} gewählt</span>
+          <span className="absolute top-3 left-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} gewählt</span>
         )}
       </div>
       <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1">
@@ -2785,7 +2785,7 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
             : <ModuleIcon nuf={product.nuf} />;
         })()}
         {familyTotal > 0 && (
-          <span className="absolute top-3 right-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} gewählt</span>
+          <span className="absolute top-3 left-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} gewählt</span>
         )}
       </div>
 
