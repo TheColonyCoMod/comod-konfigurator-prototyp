@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.156';
+const APP_VERSION = '0.9.157';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2510,19 +2510,10 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
   const product = products.find(p => p.groesse === groesse) || products[0];
   const count = product ? (selections[product.kuerzel] || 0) : 0;
 
-  // Wenn Toggle wechselt: alte Auswahl löschen, neue Auswahl beibehalten? Hier einfach: alle Add-Selections in der jeweils anderen Familie löschen
+  // Umschalten wechselt nur die Ansicht — Selektionen der anderen Nutzungsart bleiben erhalten
+  // (konsistent zu den normalen Familienkarten; im 'beides'-Modus dürfen beide nebeneinander bestehen).
   function switchUsage(newUsage) {
     if (newUsage === usageState) return;
-    setSelections(prev => {
-      const next = { ...prev };
-      const oldFamily = usageState === 'p' ? 'add' : 'addb';
-      // Lösche alle Selections der alten Add-Familie
-      for (const k of Object.keys(next)) {
-        const p = ALL_PRODUCTS.find(x => x.kuerzel === k);
-        if (p && p.family === oldFamily) delete next[k];
-      }
-      return next;
-    });
     setAddUsageState(newUsage);
   }
 
@@ -2556,7 +2547,17 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
     return total;
   }, [selections, usageState]);
 
-  // Modulpreis: im Projekt-Beitritt der effektive Preis (Projekt-Rabatt + ggf. Projekt-Marge), sonst Listenpreis.
+  // Module der jeweils ANDEREN Nutzungsart (bleiben beim Umschalten erhalten) — für die Hinweiszeile.
+  const otherFamilyTotal = useMemo(() => {
+    const otherFam = usageState === 'p' ? 'addb' : 'add';
+    let total = 0;
+    for (const k of Object.keys(selections)) {
+      const p = ALL_PRODUCTS.find(x => x.kuerzel === k);
+      if (p && p.family === otherFam) total += selections[k];
+    }
+    return total;
+  }, [selections, usageState]);
+
   // Einmalige anteilige Projektkosten bleiben bewusst AUSSEN vor (Feedback V7) — sonst Preissprünge bei jeder
   // Modulanzahl-Änderung. Projekt-Rabatt/-Marge sind dagegen stabil (auf Ziel-Modulanzahl bzw. fix).
   // Im rein gewerblichen Pfad: netto-Preise (Hinweis steht im Sidebar-Banner)
@@ -2613,6 +2614,11 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <p className="font-body text-[11px] text-[#6B6961] mt-1.5 leading-snug">
             {usageState === 'p' ? 'Z. B. Hobby-Werkstatt, Gartenhaus. Brutto-Preis, KfW/GLS-Finanzierung.' : 'Z. B. Lager, Büro, Praxis. Netto-Preis, Gewerbe-Finanzierung mit Steuervorteilen.'}
           </p>
+          {otherFamilyTotal > 0 && (
+            <p className="font-body text-[11px] text-[var(--brand-accent,#D2563E)] mt-1.5 leading-snug">
+              + {otherFamilyTotal} {otherFamilyTotal === 1 ? 'Modul' : 'Module'} in der {usageState === 'p' ? 'gewerblichen' : 'privaten'} Nutzungsart (bleibt erhalten)
+            </p>
+          )}
         </div>
         )}
 
@@ -2645,6 +2651,12 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
                 <div className="leading-tight">
                   <div className="num text-xs text-[#7B2D8E]">{calcModulEinheiten(product)}</div>
                   <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">Einheiten</div>
+                </div>
+              )}
+              {Array.isArray(product.stackLevels) && product.stackLevels.length > 1 && (
+                <div className="leading-tight" title="Gestapeltes Modul">
+                  <div className="num text-xs text-[#7B2D8E] flex items-center gap-1"><Layers className="w-3 h-3" strokeWidth={2}/>{product.stackLevels.length}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">Ebenen</div>
                 </div>
               )}
             </div>
@@ -2864,6 +2876,12 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
                   <div className="leading-tight">
                     <div className="num text-xs text-[#7B2D8E]">{calcModulEinheiten(product)}</div>
                     <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">Einheiten</div>
+                  </div>
+                )}
+                {Array.isArray(product.stackLevels) && product.stackLevels.length > 1 && (
+                  <div className="leading-tight" title="Gestapeltes Modul">
+                    <div className="num text-xs text-[#7B2D8E] flex items-center gap-1"><Layers className="w-3 h-3" strokeWidth={2}/>{product.stackLevels.length}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">Ebenen</div>
                   </div>
                 )}
               </div>
