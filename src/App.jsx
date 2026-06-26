@@ -23,8 +23,10 @@ function isValidEmail(s) { return EMAIL_RE.test(String(s || '').trim()); }
 // Ohne Site-Key (Dev/Preview ohne Konfiguration) → leerer Token; der Server weist den Aufruf
 // dann ab (fail-closed). Für Dev Turnstile-Test-Keys verwenden.
 let _tsWidgetId = null;
+let _tsVisibleWidgetId = null;
 let _tsScriptLoading = null;
 let _tsResolver = null;
+let _tsFail = null;
 function loadTurnstileScript() {
   if (typeof window === 'undefined') return Promise.resolve(false);
   if (window.turnstile) return Promise.resolve(true);
@@ -39,6 +41,51 @@ function loadTurnstileScript() {
   });
   return _tsScriptLoading;
 }
+// Sichtbares Fallback: interaktive Prüfung in einem Overlay, falls die unsichtbare
+// Prüfung scheitert/timeoutet (strikte Browser, Privacy-Extensions). Löst mit Token auf,
+// wenn der Nutzer sie löst; mit '' bei Abbruch/Fehler (Server lehnt dann fail-closed ab).
+function showTurnstileFallback(resolve) {
+  if (typeof document === 'undefined' || !window.turnstile) { resolve(''); return; }
+  let safety = null;
+  const finish = (tok) => {
+    if (safety) { clearTimeout(safety); safety = null; }
+    const ov = document.getElementById('cf-turnstile-overlay');
+    if (ov) ov.remove();
+    try { if (_tsVisibleWidgetId != null) window.turnstile.remove(_tsVisibleWidgetId); } catch { /* ignore */ }
+    _tsVisibleWidgetId = null;
+    resolve(tok || '');
+  };
+  const existing = document.getElementById('cf-turnstile-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'cf-turnstile-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(28,28,26,0.45);';
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(''); }); // Backdrop-Klick = Abbruch
+  const card = document.createElement('div');
+  card.style.cssText = 'background:#F8F5F0;border:1px solid rgba(28,28,26,0.12);padding:24px;max-width:340px;width:90%;text-align:center;font-family:system-ui,Segoe UI,Helvetica,Arial,sans-serif;';
+  const title = document.createElement('p');
+  title.textContent = 'Kurze Sicherheitsprüfung';
+  title.style.cssText = 'font-size:14px;font-weight:600;color:#1C1C1A;margin:0 0 4px;';
+  const sub = document.createElement('p');
+  sub.textContent = 'Bitte bestätige kurz, dass Du kein Roboter bist.';
+  sub.style.cssText = 'font-size:12px;color:#6B6961;margin:0 0 14px;line-height:1.4;';
+  const host = document.createElement('div');
+  host.style.cssText = 'display:flex;justify-content:center;min-height:65px;';
+  card.appendChild(title); card.appendChild(sub); card.appendChild(host);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  safety = setTimeout(() => finish(''), 120000); // harter Sicherheits-Timeout, damit der Absende-Flow nie hängt
+  try {
+    _tsVisibleWidgetId = window.turnstile.render(host, {
+      sitekey: TURNSTILE_SITE_KEY,
+      size: 'flexible',
+      callback: (tok) => finish(tok),
+      'error-callback': () => finish(''),
+      'timeout-callback': () => finish(''),
+    });
+  } catch { finish(''); }
+}
+
 async function getTurnstileToken() {
   if (!TURNSTILE_SITE_KEY) { console.warn('[Turnstile] kein Site-Key konfiguriert (VITE_TURNSTILE_SITE_KEY)'); return ''; }
   const ok = await loadTurnstileScript();
@@ -52,24 +99,28 @@ async function getTurnstileToken() {
   }
   return await new Promise((resolve) => {
     let settled = false;
+    let fellBack = false;
     const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    // Statt bei Fehlschlag sofort leer aufzulösen: sichtbares Fallback anzeigen.
+    const fail = () => { if (settled || fellBack) return; fellBack = true; showTurnstileFallback(done); };
     _tsResolver = done;
+    _tsFail = fail;
     try {
       if (_tsWidgetId == null) {
         _tsWidgetId = window.turnstile.render(container, {
           sitekey: TURNSTILE_SITE_KEY,
           execution: 'execute',
           size: 'flexible',
-          callback: (tok) => { const r = _tsResolver; _tsResolver = null; if (r) r(tok || ''); },
-          'error-callback': () => { const r = _tsResolver; _tsResolver = null; if (r) r(''); },
-          'timeout-callback': () => { const r = _tsResolver; _tsResolver = null; if (r) r(''); },
+          callback: (tok) => { const r = _tsResolver; _tsResolver = null; if (tok && r) r(tok); else if (_tsFail) _tsFail(); },
+          'error-callback': () => { _tsResolver = null; if (_tsFail) _tsFail(); },
+          'timeout-callback': () => { _tsResolver = null; if (_tsFail) _tsFail(); },
         });
       } else {
         window.turnstile.reset(_tsWidgetId);
       }
       window.turnstile.execute(_tsWidgetId, { sitekey: TURNSTILE_SITE_KEY });
-      setTimeout(() => done(''), 10000); // Sicherheits-Timeout
-    } catch { done(''); }
+      setTimeout(() => fail(), 10000); // unsichtbar hängt → sichtbares Fallback
+    } catch { fail(); }
   });
 }
 
@@ -83,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.154';
+const APP_VERSION = '0.9.155';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -3093,10 +3144,10 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         {totals.eigennutzungGewerbCount > 0 && (
                           <div className="mt-3 pt-3 border-t border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)]">
                             <div className="flex justify-between items-baseline">
-                              <span className="font-body text-[10px] uppercase tracking-wider text-[var(--brand-accent,#D2563E)] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> {totals.belastungProMA <= 0 ? 'Überschuss je Mitarbeiter' : 'pro Mitarbeiter'}</span>
+                              <span className="font-body text-[10px] uppercase tracking-wider text-[var(--brand-accent,#D2563E)] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> {totals.belastungProMA <= 0 ? 'Überschuss je Mitarbeiter' : 'Effektive Belastung pro Mitarbeiter'}</span>
                               <span className={`font-display text-lg num ${totals.belastungProMA <= 0 ? 'text-[#7FB069]' : 'text-[var(--brand-accent,#D2563E)]'}`}>{totals.belastungProMA <= 0 ? '+ ' : ''}{fmtEUR(Math.abs(totals.belastungProMA))}</span>
                             </div>
-                            <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Effektive Belastung{totals.hasIncome ? ' (inkl. Mieteinnahmen)' : ''} ÷ {totals.eigennutzungGewerbCount} eigengenutzte Module</p>
+                            <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Monatsrate abzgl. {totals.hasIncome ? 'Mieteinnahmen und ' : ''}Steuervorteilen, je eigengenutzte Einheit</p>
                           </div>
                         )}
                       </div>
@@ -3213,7 +3264,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     kapazitaetLabel = 'gewünschte Modulanzahl';
                   }
                   const zielwert = gewerbConfig.zielModulAnzahl;
-                  const ist = totals.einheitenTotal;
+                  const ist = totals.modulAnzahlTotal; // Module (zählt Stack-Ebenen) — konsistent zu zielwert & kapazitaetMax
 
                   // Priorität 1: Kapazität überschritten (rot, hart)
                   if (kapazitaetMax > 0 && ist > kapazitaetMax) {
@@ -3224,10 +3275,10 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                           <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> Kapazität überschritten
                         </p>
                         <p className="font-display text-xl num text-[#C5392E]">
-                          +{ueber} Einheit{ueber === 1 ? '' : 'en'} zu viel
+                          +{ueber} Modul{ueber === 1 ? '' : 'e'} zu viel
                         </p>
                         <p className="font-body text-xs text-[#1C1C1A]/80 mt-2 leading-relaxed">
-                          Auf der Fläche passen <span className="num font-medium">{kapazitaetMax}</span> Stellplatz-Einheiten ({kapazitaetLabel}). Deine Auswahl belegt <span className="num font-medium">{ist}</span> Einheiten.
+                          Auf der Fläche passen <span className="num font-medium">{kapazitaetMax}</span> Module ({kapazitaetLabel}). Deine Auswahl: <span className="num font-medium">{ist}</span> Module.
                         </p>
                         <p className="font-body text-xs text-[#6B6961] mt-1.5 leading-relaxed">
                           Bitte entferne Module oder lass uns über eine größere Fläche bzw. zusätzliche Geschosse sprechen.
@@ -3245,13 +3296,13 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                           <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> Über Zielwert
                         </p>
                         <p className="font-display text-xl num text-[#C5392E]">
-                          +{ueber} Einheit{ueber === 1 ? '' : 'en'} über Ziel
+                          +{ueber} Modul{ueber === 1 ? '' : 'e'} über Ziel
                         </p>
                         <p className="font-body text-xs text-[#1C1C1A]/80 mt-2 leading-relaxed">
-                          Dein Zielwert: <span className="num font-medium">{zielwert}</span> Module · Aktuelle Auswahl: <span className="num font-medium">{ist}</span> Einheiten.
+                          Dein Zielwert: <span className="num font-medium">{zielwert}</span> Module · Aktuelle Auswahl: <span className="num font-medium">{ist}</span> Module.
                         </p>
                         <p className="font-body text-xs text-[#6B6961] mt-1.5 leading-relaxed">
-                          Wir besprechen gerne, ob der Zielwert auf {ist} Einheiten angepasst werden soll. Auf Deine Fläche passen noch bis zu {kapazitaetMax} Einheiten.
+                          Wir besprechen gerne, ob der Zielwert auf {ist} Module angepasst werden soll. Auf Deine Fläche passen noch bis zu {kapazitaetMax} Module.
                         </p>
                       </div>
                     );
@@ -3266,10 +3317,10 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                           <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> Unter Zielwert
                         </p>
                         <p className="font-display text-xl num text-[#C5392E]">
-                          Noch {frei} Einheit{frei === 1 ? '' : 'en'} frei
+                          Noch {frei} Modul{frei === 1 ? '' : 'e'} frei
                         </p>
                         <p className="font-body text-xs text-[#1C1C1A]/80 mt-2 leading-relaxed">
-                          Dein Zielwert: <span className="num font-medium">{zielwert}</span> Module · Aktuelle Auswahl: <span className="num font-medium">{ist}</span> Einheiten.
+                          Dein Zielwert: <span className="num font-medium">{zielwert}</span> Module · Aktuelle Auswahl: <span className="num font-medium">{ist}</span> Module.
                         </p>
                         <p className="font-body text-xs text-[#6B6961] mt-1.5 leading-relaxed">
                           Du kannst noch Module hinzufügen — oder wir kalkulieren das unverbindliche Angebot mit Deiner aktuellen Auswahl.
@@ -4122,11 +4173,10 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
             {/* Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) — inkl. Mieteinnahmen */}
             {totals.istMAWohnen && (
               <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> {totals.belastungProMA <= 0 ? 'Überschuss je Mitarbeiter' : 'Belastung pro Mitarbeiter'}</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> {totals.belastungProMA <= 0 ? 'Überschuss je Mitarbeiter' : 'Effektive Belastung pro Mitarbeiter'}</p>
                 <p className={`font-display text-3xl num ${totals.belastungProMA <= 0 ? 'text-[#7FB069]' : ''}`}>{totals.belastungProMA <= 0 ? '+ ' : ''}{fmtEUR(Math.abs(totals.belastungProMA))}</p>
                 <p className="font-body text-[10px] opacity-70 mt-0.5">
-                  effektiv{totals.hasIncome ? ' inkl. Mieteinnahmen' : ''} ÷ {totals.eigennutzungGewerbCount} {totals.eigennutzungGewerbCount === 1 ? 'eigengen. Modul' : 'eigengen. Module'}
-                  {totals.iabEntlastungProMA > 0 && <> · inkl. IAB −{fmtEUR(totals.iabEntlastungProMA)}/MA</>}
+                  Monatsrate abzgl. {totals.hasIncome ? 'Mieteinnahmen und ' : ''}Steuervorteilen, je eigengenutzte Einheit
                 </p>
               </div>
             )}
