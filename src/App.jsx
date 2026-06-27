@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.158';
+const APP_VERSION = '0.9.159';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -8592,6 +8592,14 @@ export default function App() {
             },
             project: project ? { name: project.name || '', location: project.location || '' } : null,
             nutzung: { customerType: customerType || '', modulart: modulart || '' },
+            // Länder-Kontext (vorbereitet für AT): das PDF liest Sätze/Labels hieraus, statt sie hart zu kodieren.
+            // Default DE; für Österreich später: land 'AT', ustPct 0.20, steuerLabel 'KöSt', anreizLabel 'Investitionsfreibetrag (IFB)'.
+            locale: {
+              land: (project?.land || 'DE'),
+              ustPct: UST,
+              steuerLabel: 'GmbH-Steuer',
+              anreizLabel: 'Investitionsabzugsbetrag (IAB)',
+            },
             module: {
               items: totals.lineItems.map((it) => {
                 const eff = calcRabattiertePreise(it, totals.rabattPct || 0, projMarge, projProvision);
@@ -8614,16 +8622,33 @@ export default function App() {
               einmaligGesamtBrutto: totals.einmaligGesamtBrutto,
               gesamtBrutto: totals.bruttoGesamt, // echter Gesamtpreis (Module + Einmalkosten) — für „Einmalige Investition" im PDF
               anzahlung: totals.anzahlung,
+              // Raten
               kfwRate: totals.kfwRate,
               glsRate: totals.glsRate,
-              gewerbeRate: totals.plattformRate, // intern plattformRate, kundensichtbar „Gewerbe-Rate"
-              finanzierungMonat: totals.finanzierungMonat,
-              nebenkostenMonatGesamt: totals.laufendeKostenMonat, // nur laufende Fixkosten (keine Verbrauchsschätzung im Angebot, Feedback)
-              monatlichGesamt: totals.monatlichGesamt,
+              gewerbeRateBrutto: totals.plattformRate,                 // gewerbliche Rate vor Steuer
+              gewerbeRateNachSteuer: totals.gewerblichRateNachSteuer,  // = plattformRateEff (AfA + Ø-Zins)
+              steuerentlastung: totals.steuerentlastung,               // monatliche AfA-/Zins-Entlastung
+              finanzierungMonat: totals.finanzierungMonat,             // brutto gesamt (Alt-Feld, Backward-Compat)
+              finanzierungMonatNachSteuer: totals.belastungFinanzierungEff, // Summe Raten nach Steuer
+              // Laufendes & Einnahmen
+              nebenkostenMonatGesamt: totals.laufendeKostenMonat,      // nur laufende Fixkosten (keine Verbrauchsschätzung im Angebot)
               serviceAktiv: totals.serviceActive,
               serviceMonat: Math.round(totals.serviceMonat || 0),
-              steuerentlastung: totals.steuerentlastung,
-              iabBetrag: iabBetrag > 0 ? iabBetrag : null,
+              mieteinnahmenMonat: totals.hasIncome ? totals.monthlyIncomeNetto : 0,
+              gmEinnahmenMonat: totals.gmCount > 0 ? totals.gmEinnahmenKunde : 0,
+              // Ergebnis (nach Steuer & Einnahmen) — Vorzeichen wie im Tool: positiv = Belastung, negativ = Überschuss
+              monatlichGesamt: totals.monatlichGesamt,                 // brutto/vor Steuer (Alt-Feld, Backward-Compat)
+              effektiveBelastung: totals.effektiveBelastung,
+              cashflowPositive: totals.cashflowPositive,
+              istInvestor: totals.istInvestor,
+              istMAWohnen: totals.istMAWohnen,
+              belastungProMA: totals.istMAWohnen ? totals.belastungProMA : null,
+              eigennutzungGewerbCount: totals.eigennutzungGewerbCount,
+              hatGewerbModule: totals.hatGewerbModule,
+              hatPrivatAnteil: totals.hatPrivatAnteil,
+              // IAB (Variante B): einmaliger Liquiditätsvorteil, kein Raten-Rabatt
+              iabBetrag: iabBetrag > 0 ? Math.round(totals.iabClamped || 0) : null,   // Abzugsbetrag
+              iabSteuerersparnis: iabBetrag > 0 ? Math.round(totals.iabSteuerersparnis || 0) : null, // tatsächliche Ersparnis
             },
           };
         }
