@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.162';
+const APP_VERSION = '0.9.163';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -601,6 +601,7 @@ function mapDbProjectToFrontend(db) {
     gemeinschaftBetriebskostenMonat: db.gemeinschaft_betriebskosten_monat == null ? 0 : Number(db.gemeinschaft_betriebskosten_monat),
     pachtJahr: db.pacht_jahr || 0,
     pachtGewerblich: !!db.pacht_gewerblich,
+    land: db.land || 'DE', // Projekt-Land steuert USt/Finanzierung/Steuerlogik (DE/AT)
     zielModulAnzahl: db.ziel_modul_anzahl,
     maxModulAnzahl: db.max_modul_anzahl,
     grundstueckGroesse: db.grundstueck_groesse,
@@ -1978,7 +1979,7 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
                   {p.pachtJahr > 0 ? (
                     <>
                       <p className="font-display text-base num">{fmtEUR2(p.pachtJahr / (p.zielModulAnzahl || 1) / ZIEL_MODUL_NUF / 12)}</p>
-                    <p className="font-body text-[10px] text-[#6B6961]">/m²/Mt. netto{p.pachtGewerblich ? ' (+19 % bei privat)' : ''}</p>
+                    <p className="font-body text-[10px] text-[#6B6961]">/m²/Mt. netto{p.pachtGewerblich ? ` (+${Math.round(UST*100)} % bei privat)` : ''}</p>
                   </>
                 ) : <p className="font-display text-base num">—</p>}
               </div>
@@ -2491,7 +2492,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                     <FieldLabel required>Wird die Pacht gewerblich oder privat berechnet?</FieldLabel>
                     <div className="flex gap-2">
                       <button onClick={() => setConfig(c => ({...c, pachtGewerblich: true}))}
-                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Gewerblich (+19 % USt)</button>
+                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Gewerblich (+{Math.round(UST*100)} % USt)</button>
                       <button onClick={() => setConfig(c => ({...c, pachtGewerblich: false}))}
                         className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Privat (keine USt)</button>
                     </div>
@@ -3237,7 +3238,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
             {isPureGewerb && (
               <div className="mb-5 -mx-7 px-7 py-2 bg-[#7B2D8E]/8 border-y border-[#7B2D8E]/15">
                 <p className="font-body text-[11px] text-[#7B2D8E] flex items-center gap-1.5">
-                  <Info className="w-3 h-3" strokeWidth={2} /> Alle Beträge netto, exkl. 19 % USt
+                  <Info className="w-3 h-3" strokeWidth={2} /> Alle Beträge netto, exkl. {Math.round(UST*100)} % USt
                 </p>
               </div>
             )}
@@ -3656,7 +3657,9 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
   if (totals.land === 'AT') {
     const hb = financing.hausbank || FIN_DEFAULTS.hausbank;
     const upgrades = totals.privatOptionenKosten || 0;
-    const ekMax = Math.max(0, totals.effPrivat + upgrades - (totals.hausbankRestwertEUR || 0));
+    // EK-Max unabhängig vom Restwert, damit der EK-Slider beim Verstellen der Ballonrate nicht mitspringt.
+    // Die Finanzierungsbasis floored ohnehin auf 0 (hausbankBasis = max(0, … − EK − Restwert)).
+    const ekMax = Math.max(0, totals.effPrivat + upgrades);
     return (
       <div className="bg-white border border-[#1C1C1A]/10 p-7">
         <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
@@ -4102,7 +4105,7 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
             {(totals.nufPrivat > 0 || !pachtSource.isProject) && totals.nufPrivat > 0 && pachtSource.isProject && (
               <div className="flex justify-between py-2 border-b border-[#1C1C1A]/8">
                 <div>
-                  <p className="text-[#1C1C1A]">Pacht-Umlage (private Module{pachtSource.pachtGewerblich ? ', inkl. 19 % USt' : ''})</p>
+                  <p className="text-[#1C1C1A]">Pacht-Umlage (private Module{pachtSource.pachtGewerblich ? `, inkl. ${Math.round(UST*100)} % USt` : ''})</p>
                   <p className="text-xs text-[#6B6961]">{fmtNum(totals.nufPrivat)} m² × {fmtEUR2(p.pachtProM2_priv)}/m²</p>
                 </div>
                 <span className="num shrink-0">{fmtEUR2(p.pachtProM2_priv)}/m²</span>
@@ -4120,7 +4123,7 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
             {!pachtSource.isProject && (
               <div className="flex justify-between py-2 border-b border-[#1C1C1A]/8">
                 <div>
-                  <p className="text-[#1C1C1A]">Pacht{pachtSource.pachtGewerblich ? ' (inkl. 19 % USt)' : ' (privat, ohne USt)'}</p>
+                  <p className="text-[#1C1C1A]">Pacht{pachtSource.pachtGewerblich ? ` (inkl. ${Math.round(UST*100)} % USt)` : ' (privat, ohne USt)'}</p>
                   <p className="text-xs text-[#6B6961]">{fmtEUR(pachtSource.pachtJahr)}/Jahr ÷ 12 ÷ {fmtNum(totals.gesamtNUF)} m²</p>
                 </div>
                 <span className="num shrink-0">{fmtEUR2(p.pachtProM2)}/m²</span>
@@ -5997,7 +6000,7 @@ function AdminModulesView({ authProfile }) {
     const [mRes, wRes] = await Promise.all([
       supabase.from('modules').select('*').is('deleted_at', null).order('sort_order', { ascending: true }),
       // Workspaces für Sichtbarkeits-UI laden (alle außer dem CoMod-Default-Workspace)
-      supabase.from('workspaces').select('id, slug, name').neq('id', '00000000-0000-0000-0000-000000000001').order('name'),
+      supabase.from('workspaces').select('id, slug, name, land').neq('id', '00000000-0000-0000-0000-000000000001').order('name'),
     ]);
     if (mRes.error) setError(mRes.error.message);
     else setModules(mRes.data || []);
@@ -6144,7 +6147,7 @@ const PROJECT_STATUS_LABELS = {
   archived:          { label: 'Archiviert',      color: '#6B6961', bg: '#F0EFEC' },
 };
 
-function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, authProfile }) {
+function AdminProjectEdit({ project, fassaden, workspaces = [], onClose, onSaved, onDeleted, authProfile }) {
   const isNew = !project;
   const isMaster = authProfile?.role === 'master_admin';
   // Partner legen Projekte im EIGENEN Workspace an (RLS: with_check workspace_id = auth_workspace_id()).
@@ -6182,6 +6185,9 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
     gm_finanz_restwert: 0,
     pacht_jahr: 0,
     pacht_gewerblich: false,
+    // Projekt-Land (DE/AT): Neuprojekt erbt das Land des Workspaces (Partner), sonst DE.
+    // Bestehende Projekte überschreiben via ...(project||{}) mit ihrem gespeicherten Wert.
+    land: (workspaces.find(w => w.id === defaultWorkspaceId)?.land) || 'DE',
     provision_pct: null,
     show_global: false,
     fassaden_variante_id: fassaden.find(f => f.slug === 'standard')?.id || null,
@@ -6400,6 +6406,18 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
                 <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Ort</label>
                 <input type="text" value={form.location ?? ''} onChange={update('location')}
                   className="w-full bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-body text-sm focus:outline-none focus:border-[var(--brand-accent,#D2563E)]" />
+              </div>
+              <div>
+                <label className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] block mb-1">Land (USt / Finanzierung / Steuer)</label>
+                <div className="inline-flex border border-[#1C1C1A]/15 overflow-hidden">
+                  {[['DE', 'Deutschland'], ['AT', 'Österreich']].map(([code, name]) => (
+                    <button key={code} type="button" onClick={() => setForm(f => ({ ...f, land: code }))}
+                      className={`px-3 py-1.5 font-body text-sm transition-colors ${(form.land || 'DE') === code ? 'bg-[#1C1C1A] text-[#F8F5F0]' : 'bg-white text-[#1C1C1A] hover:bg-[#1C1C1A]/5'}`}>
+                      {name}
+                    </button>
+                  ))}
+                </div>
+                <p className="font-body text-[10px] text-[#6B6961] mt-1">{(form.land || 'DE') === 'AT' ? '20 % USt · Hausbankfinanzierung · KöSt/IFB/degressive AfA' : '19 % USt · KfW + GLS · deutsche Steuerlogik'}</p>
               </div>
             </div>
           </section>
@@ -6814,7 +6832,7 @@ function AdminProjectEdit({ project, fassaden, onClose, onSaved, onDeleted, auth
               </div>
               <div className="flex items-center gap-2 pt-5">
                 <input type="checkbox" id="pacht_gewerb" checked={!!form.pacht_gewerblich} onChange={update('pacht_gewerblich')} />
-                <label htmlFor="pacht_gewerb" className="font-body text-sm">Gewerbliche Pacht (+19 % USt für Privat-Anteil)</label>
+                <label htmlFor="pacht_gewerb" className="font-body text-sm">Gewerbliche Pacht (+{(form.land || 'DE') === 'AT' ? 20 : 19} % USt für Privat-Anteil)</label>
               </div>
             </div>
           </section>
@@ -7100,7 +7118,7 @@ function AdminProjectsView({ authProfile }) {
         </div>
       )}
 
-      {editing !== undefined && <AdminProjectEdit project={editing} fassaden={fassaden} authProfile={authProfile} onClose={() => setEditing(undefined)} onSaved={handleSaved} onDeleted={handleDeleted} />}
+      {editing !== undefined && <AdminProjectEdit project={editing} fassaden={fassaden} workspaces={workspaces} authProfile={authProfile} onClose={() => setEditing(undefined)} onSaved={handleSaved} onDeleted={handleDeleted} />}
     </div>
   );
 }
@@ -8102,6 +8120,7 @@ function AdminPartnersView({ authProfile }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [partnerLand, setPartnerLand] = useState('DE');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -8188,7 +8207,7 @@ function AdminPartnersView({ authProfile }) {
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke('dynamic-service', { // eine Funktion, action steuert die Aufgabe
-        body: { action: 'create_partner', name: name.trim(), slug: s, email: email.trim(), password, firstName: firstName.trim(), lastName: lastName.trim(), inviteSubject, inviteText },
+        body: { action: 'create_partner', name: name.trim(), slug: s, email: email.trim(), password, firstName: firstName.trim(), lastName: lastName.trim(), land: partnerLand, inviteSubject, inviteText },
       });
       let payload = data;
       if (error && error.context && typeof error.context.json === 'function') {
@@ -8196,7 +8215,7 @@ function AdminPartnersView({ authProfile }) {
       }
       if (payload?.ok) {
         setResult({ ok: true, name: name.trim(), slug: s, email: email.trim(), password, emailSent: !!payload.emailSent, emailError: payload.emailError || null, inviteText });
-        setName(''); setSlug(''); setSlugEdited(false); setFirstName(''); setLastName(''); setEmail(''); setPassword(''); setShowPw(false);
+        setName(''); setSlug(''); setSlugEdited(false); setFirstName(''); setLastName(''); setEmail(''); setPassword(''); setShowPw(false); setPartnerLand('DE');
         loadPartners();
       } else {
         setResult({ error: payload?.error || error?.message || 'Unbekannter Fehler.' });
@@ -8227,6 +8246,18 @@ function AdminPartnersView({ authProfile }) {
             <input className={inputCls} value={effectiveSlug}
               onChange={e => { setSlug(slugify(e.target.value)); setSlugEdited(true); }} placeholder="lagom" />
             <p className="font-body text-[11px] text-[#6B6961] mt-1">{origin}/p/{effectiveSlug || '…'}</p>
+          </div>
+          <div>
+            <label className={labelCls}>Standardland des Partners</label>
+            <div className="inline-flex border border-[#1C1C1A]/15 overflow-hidden">
+              {[['DE', 'Deutschland'], ['AT', 'Österreich']].map(([code, nm]) => (
+                <button key={code} type="button" onClick={() => setPartnerLand(code)}
+                  className={`px-3 py-1.5 font-body text-sm transition-colors ${partnerLand === code ? 'bg-[#1C1C1A] text-[#F8F5F0]' : 'bg-white text-[#1C1C1A] hover:bg-[#1C1C1A]/5'}`}>
+                  {nm}
+                </button>
+              ))}
+            </div>
+            <p className="font-body text-[11px] text-[#6B6961] mt-1">Neue Projekte dieses Partners erben dieses Land als Vorauswahl (pro Projekt änderbar).</p>
           </div>
           <div>
             <label className={labelCls}>Ansprechpartner — Vorname</label>
