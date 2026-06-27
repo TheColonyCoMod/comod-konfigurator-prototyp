@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.163';
+const APP_VERSION = '0.9.164';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -6941,6 +6941,7 @@ function AdminProjectsView({ authProfile }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [editing, setEditing] = useState(undefined);
   const [projVis, setProjVis] = useState(new Set()); // project_ids, die der Partner für seine Kunden sichtbar gemacht hat
+  const [workspaces, setWorkspaces] = useState([]); // für Partner-Standardland beim Neuprojekt
 
   async function loadAll() {
     setLoading(true); setError(null);
@@ -6951,6 +6952,13 @@ function AdminProjectsView({ authProfile }) {
     if (pRes.error) setError(pRes.error.message);
     else setProjects(pRes.data || []);
     if (!fRes.error) setFassaden(fRes.data || []);
+
+    // Workspaces (für Partner-Standardland beim Neuprojekt). Fail-soft: bei Fehler bleibt die Liste leer
+    // → Land defaultet auf DE, der Selektor im Formular bleibt nutzbar.
+    try {
+      const { data: wData } = await supabase.from('workspaces').select('id, slug, name, land').order('name');
+      if (Array.isArray(wData)) setWorkspaces(wData);
+    } catch { /* land-Spalte ggf. noch nicht vorhanden */ }
 
     // Partner: bisher für eigene Kunden sichtbar geschaltete CoMod-Projekte laden.
     // Fail-soft: wenn die Tabelle noch nicht existiert (SQL nicht eingespielt), bleibt das Set leer.
