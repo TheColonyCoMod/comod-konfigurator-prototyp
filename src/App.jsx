@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.157';
+const APP_VERSION = '0.9.158';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1443,21 +1443,31 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   // EK wird gewerblich nicht mehr von der Finanzierungs-Basis abgezogen (siehe Feedback V2: EK macht in Finanzierung keinen Sinn)
   const plattformBasis = Math.max(0, effGewerbNetto - restwertEUR);
   const plattformRate = pmt(financing.plattform.zins, financing.plattform.laufzeit, plattformBasis);
+
+  // === IAB (§7g EStG) — Variante B: einmaliger Liquiditätsvorteil, KEIN monatlicher Raten-Drücker ===
+  // Der IAB (bis 50 % des Netto-Investments) wird im Anschaffungsjahr vorab abgezogen und bringt dort
+  // eine einmalige Steuerersparnis (iabClamped × Steuersatz). Nach §7g mindert er ZUGLEICH die spätere
+  // AfA-Bemessungsgrundlage (afaBasis = effGewerbNetto − IAB) — sonst würde der Vorteil doppelt zählen.
+  // Er wirkt daher bewusst NICHT zusätzlich monatlich auf die Plattform-Rate.
+  const iabClamped = Math.min(iabBetrag || 0, (effGewerbNetto || 0) * 0.5);
+  const iabSteuerersparnis = iabClamped * financing.plattform.steuer; // einmalig, im Anschaffungsjahr
+  const iabEntlastungMonat = 0; // Variante B: IAB nicht mehr auf die Monatsrate umgelegt (siehe oben)
+
+  // === Laufende Steuerentlastung / Monat (gewerblich) ===
+  // = (AfA auf die um den IAB GEMINDERTE Basis  +  DURCHSCHNITTLICHER Jahreszins über die Laufzeit) × Steuersatz / 12.
+  // Durchschnittszins statt Jahr-1-Zins: Σ Raten − Tilgung, /Laufzeit (im Annuitätendarlehen sinkt der
+  // abzugsfähige Zinsanteil jährlich — der konstante Jahr-1-Zins hätte die Entlastung deutlich überzeichnet).
+  const afaBasis = Math.max(0, effGewerbNetto - iabClamped);
+  const zinsenDurchschnittJahr = financing.plattform.laufzeit > 0
+    ? Math.max(0, plattformRate * 12 * financing.plattform.laufzeit - plattformBasis) / financing.plattform.laufzeit
+    : 0;
   const steuerentlastung = effGewerbNetto > 0 && financing.plattform.afaJahre > 0
-    ? ((effGewerbNetto / financing.plattform.afaJahre) + (plattformBasis * financing.plattform.zins)) * financing.plattform.steuer / 12
+    ? ((afaBasis / financing.plattform.afaJahre) + zinsenDurchschnittJahr) * financing.plattform.steuer / 12
     : 0;
 
-  // === IAB-Steuerersparnis (Feedback V4) ===
-  // Der IAB bringt eine einmalige Steuerersparnis (iabBetrag × Steuersatz).
-  // Diese wird zusätzlich auf die Plattform-Laufzeit (Monate) umgelegt, um die effektive
-  // monatliche Belastung weiter zu senken. Auf Wunsch auch als Cent-Betrag pro MA-Modul sichtbar.
-  const iabClamped = Math.min(iabBetrag || 0, (effGewerbNetto || 0) * 0.5);
-  const iabSteuerersparnis = iabClamped * financing.plattform.steuer; // einmalig
-  const plattformLaufzeitMonate = (financing.plattform.laufzeit || 10) * 12;
-  const iabEntlastungMonat = plattformLaufzeitMonate > 0 ? iabSteuerersparnis / plattformLaufzeitMonate : 0;
-
-  // Effektive Plattform-Rate = Rate − laufende Steuerentlastung − anteilige IAB-Entlastung
-  const plattformRateEff = Math.max(0, plattformRate - steuerentlastung - iabEntlastungMonat);
+  // Effektive Plattform-Rate = Rate − laufende Steuerentlastung (AfA auf IAB-geminderter Basis + Ø-Zins).
+  // Der IAB steckt NICHT mehr hier drin, sondern separat als iabSteuerersparnis (einmalig).
+  const plattformRateEff = Math.max(0, plattformRate - steuerentlastung);
 
   const finanzierungMonat = kfwRate + glsRate + plattformRate;
   // Effektive monatliche Belastung (Feedback V4):
@@ -3765,10 +3775,7 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
           <div className="pt-4 border-t border-[#1C1C1A]/10 space-y-2 font-body text-sm">
             <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Modellhafte Belastung mit Steuervorteilen</p>
             <div className="flex justify-between"><span className="text-[#6B6961]">Gewerbe-Rate (vor Steuer)</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
-            <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− Laufende Steuerentlastung (AfA + Zinsen × {fmtPct(financing.plattform.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
-            {totals.iabEntlastungMonat > 0 && (
-              <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− IAB-Vorteil, auf {financing.plattform.laufzeit} J verteilt</span><span className="num">−{fmtEUR(totals.iabEntlastungMonat)}</span></div>
-            )}
+            <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− Laufende Steuerentlastung (AfA{iabClamped > 0 ? ' auf IAB-geminderter Basis' : ''} + Ø-Zins × {fmtPct(financing.plattform.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
             <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Mögliche Rate nach Steuer</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.plattformRateEff)}</span></div>
             {totals.eigennutzungGewerbCount > 0 && totals.plattformRateEff > 0 && (
               <div className="flex justify-between text-[#6B6961] text-xs"><span>pro Mitarbeiter-Modul ({totals.eigennutzungGewerbCount})</span><span className="num">{fmtEUR(totals.plattformRateEff / totals.eigennutzungGewerbCount)}</span></div>
@@ -3776,11 +3783,11 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
             {iabClamped > 0 && (
               <div className="mt-3 pt-3 border-t border-[#1C1C1A]/10">
                 <div className="flex justify-between text-[var(--brand-accent,#D2563E)]">
-                  <span className="font-medium">Einmalige IAB-Steuerersparnis (Anschaffungsjahr)</span>
-                  <span className="num font-medium">{fmtEUR(totals.iabSteuerersparnis)}</span>
+                  <span className="font-medium">Einmaliger IAB-Liquiditätsvorteil (Anschaffungsjahr)</span>
+                  <span className="num font-medium">+{fmtEUR(totals.iabSteuerersparnis)}</span>
                 </div>
                 <p className="font-body text-[11px] text-[#6B6961] mt-1.5 italic">
-                  {fmtEUR(iabClamped)} IAB × {fmtPct(financing.plattform.steuer)} = {fmtEUR(totals.iabSteuerersparnis)} einmalig. Zusätzlich auf {financing.plattform.laufzeit} Jahre verteilt senkt das die Monatsrate um {fmtEUR(totals.iabEntlastungMonat)}.
+                  {fmtEUR(iabClamped)} IAB × {fmtPct(financing.plattform.steuer)} = {fmtEUR(totals.iabSteuerersparnis)} Steuerersparnis sofort im Anschaffungsjahr. Der IAB mindert die spätere AfA-Basis und wirkt daher bewusst nicht zusätzlich auf die Monatsrate — er ist ein einmaliger Liquiditätsvorteil, kein Raten-Rabatt.
                 </p>
               </div>
             )}
@@ -4060,8 +4067,8 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
                 </>}
                 {hasGewerb && <>
                   <div className="flex justify-between"><dt className="opacity-70">Plattform (brutto)</dt><dd className="num">{fmtEUR(totals.plattformRate)}</dd></div>
-                  {(totals.steuerentlastung > 0 || totals.iabEntlastungMonat > 0) && (
-                    <div className="flex justify-between text-[#7FB069]"><dt className="opacity-90">− Steuervorteile</dt><dd className="num">−{fmtEUR(totals.steuerentlastung + totals.iabEntlastungMonat)}</dd></div>
+                  {totals.steuerentlastung > 0 && (
+                    <div className="flex justify-between text-[#7FB069]"><dt className="opacity-90">− Steuervorteile</dt><dd className="num">−{fmtEUR(totals.steuerentlastung)}</dd></div>
                   )}
                 </>}
               </dl>
@@ -4096,8 +4103,8 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
               <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                 <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5">Monatsrate gewerblich <span className="opacity-70">(nach Steuer)</span></p>
                 <p className="font-display text-3xl num">{fmtEUR(totals.gewerblichRateNachSteuer)}</p>
-                {(totals.steuerentlastung > 0 || totals.iabEntlastungMonat > 0) && (
-                  <p className="font-body text-[10px] opacity-70 mt-0.5">inkl. AfA, Zins-Abzug{totals.iabEntlastungMonat > 0 ? ' & IAB-Vorteil' : ''}</p>
+                {totals.steuerentlastung > 0 && (
+                  <p className="font-body text-[10px] opacity-70 mt-0.5">inkl. AfA &amp; Zins-Abzug</p>
                 )}
               </div>
             )}
