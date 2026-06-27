@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.159';
+const APP_VERSION = '0.9.160';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -369,7 +369,10 @@ function effectiveModulPreis(product, _isPureGewerb, priceCtx) {
     const r = calcRabattiertePreise(product, priceCtx.rabattPct || 0, priceCtx.projMarge, priceCtx.projProvision);
     return wantNetto ? r.netto : r.brutto;
   }
-  return wantNetto ? product.netto : product.brutto;
+  // Fallback ohne Projekt-Kontext: aus den Herstellkosten neu berechnen, damit der Preis dem aktiven
+  // USt-Satz folgt (DE 19 % / AT 20 %). Für DE rechnerisch identisch zu den eingebackenen Listenpreisen.
+  const r0 = calcRabattiertePreise(product, 0, undefined, undefined);
+  return wantNetto ? r0.netto : r0.brutto;
 }
 
 // Mapping: Modul-Kürzel → Grundriss-Icon (PNG im public/icons-Verzeichnis)
@@ -719,6 +722,7 @@ async function loadSettingsFromDb() {
     if (map.PROV != null)             PROV = Number(map.PROV);
     if (map.MARGE != null)            MARGE_STD = Number(map.MARGE);
     if (map.UST != null)              UST = Number(map.UST);
+    COUNTRY.DE.ust = UST; // DE-USt folgt den Settings (AT bleibt fix 20 %)
     if (map.ANZ_PCT != null)          ANZ_PCT = Number(map.ANZ_PCT);
     if (map.BEBAUUNGSGRAD != null)    BEBAUUNGSGRAD = Number(map.BEBAUUNGSGRAD);
     if (map.ZIEL_MODUL_NUF != null)   ZIEL_MODUL_NUF = Number(map.ZIEL_MODUL_NUF);
@@ -794,6 +798,11 @@ async function loadSettingsFromDb() {
         afaJahre:    Number(map.AFA_JAHRE ?? FIN_DEFAULTS.plattform.afaJahre),
         restwertPct: Number(map.PLATTFORM_RESTWERT_PCT ?? FIN_DEFAULTS.plattform.restwertPct),
       },
+      hausbank: {
+        zins:        Number(map.HAUSBANK_ZINS ?? FIN_DEFAULTS.hausbank.zins),
+        laufzeit:    Number(map.HAUSBANK_LAUFZEIT_JAHRE ?? FIN_DEFAULTS.hausbank.laufzeit),
+        restwertPct: Number(map.HAUSBANK_RESTWERT_PCT ?? FIN_DEFAULTS.hausbank.restwertPct),
+      },
     };
 
     // Nebenkosten/Verbrauch aus Settings
@@ -840,7 +849,20 @@ let FIN_DEFAULTS = {
   kfw: { foerderhoehe: 150000, zins: 0.02, laufzeit: 25, tilgungsnachlass: 0.15 },
   gls: { zins: 0.05, laufzeit: 10 }, // Laufzeit fix
   plattform: { zins: 0.055, laufzeit: 10, steuer: 0.30, afaJahre: 10, restwertPct: 0 }, // Laufzeit max 10, AfA wie Container (nicht Tiny House)
+  // AT-Privat: allgemeine Hausbankfinanzierung mit BALLONRATE (KfW/GLS gibt es in AT nicht).
+  // Restwert bleibt als Schlussrate offen; nur (Kaufpreis − Restwert) wird annuitätisch getilgt.
+  hausbank: { zins: 0.05, laufzeit: 15, restwertPct: 0.40 }, // Zins 2–10 %, Laufzeit 10–25 J, Restwert 0–60 %
 };
+
+// === Länder-Konfiguration (CoMod ist Verkäufer; grenzüberschreitend nach AT) ===
+// Steuert USt, Privat-Finanzierungsweg und Beschriftungen. Default DE.
+// Hinweis: AT-Gewerbe-Steuerlogik (KöSt 23 %, IFB statt IAB, degressive AfA) folgt in Etappe 2;
+// hier ist nur das Gerüst + die Labels angelegt. DE bleibt unverändert.
+const COUNTRY = {
+  DE: { name: 'Deutschland', ust: 0.19, privatFinanzierung: 'kfw_gls',  loanLabel: 'KfW + GLS',           steuerLabel: 'GmbH-Steuer', anreizLabel: 'Investitionsabzugsbetrag (IAB)' },
+  AT: { name: 'Österreich',  ust: 0.20, privatFinanzierung: 'hausbank', loanLabel: 'Hausbankfinanzierung', steuerLabel: 'KöSt',        anreizLabel: 'Investitionsfreibetrag (IFB)' },
+};
+function getCountry(land) { return COUNTRY[land] || COUNTRY.DE; }
 
 /* ============================================================================
    CALCULATIONS
@@ -1233,7 +1255,16 @@ function isModeToggleable(product) {
   return true;
 }
 
-function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag, customerType = null, serviceSelected = true }) {
+function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag, customerType = null, serviceSelected = true, land = null }) {
+  // === Länder-Kontext: aktiven USt-Satz setzen (DE 19 % / AT 20 %) ===
+  // UST ist eine globale Variable, die dutzende (1+UST)-Helfer lesen. Wir setzen sie hier auf den
+  // Länder-Satz und stellen die DE-/Settings-Basis VOR dem return wieder her (siehe Ende der Funktion),
+  // damit Anzeige-Stellen außerhalb dieser Berechnung unberührt bleiben. DE-Pfad bleibt exakt 0,19.
+  const _land = land || (project && project.land) || 'DE';
+  const _ctry = getCountry(_land);
+  const _ustBackup = UST;
+  UST = _ctry.ust;
+  const _isAT = _land === 'AT';
   // Fassadenstärke: Projektwert (sonst Default 24 cm) → wirkt auf BGF/Footprint
   const facadeM = (project?.fassadeDickeCm != null ? Number(project.fassadeDickeCm) : 24) / 100;
   const lineItems = Object.entries(selections)
@@ -1424,7 +1455,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const privatUpgradesBrutto = privatOptionenKosten || 0;
 
   let kfwBasis = 0, glsBasis = 0;
-  if (hatPrivatEigennutzung) {
+  if (hatPrivatEigennutzung && !_isAT) {
     if (effPrivat <= kfwFoerderMax) {
       // Modul(e) günstiger als Förderhöhe: komplett über KfW
       kfwBasis = effPrivat;
@@ -1436,8 +1467,18 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     }
   }
   const kfwAfterNachlass = kfwBasis * (1 - financing.kfw.tilgungsnachlass);
-  const kfwRate = pmt(financing.kfw.zins, financing.kfw.laufzeit, kfwAfterNachlass);
-  const glsRate = pmt(financing.gls.zins, financing.gls.laufzeit, glsBasis);
+  const kfwRate = _isAT ? 0 : pmt(financing.kfw.zins, financing.kfw.laufzeit, kfwAfterNachlass);
+  const glsRate = _isAT ? 0 : pmt(financing.gls.zins, financing.gls.laufzeit, glsBasis);
+
+  // === AT-Privat: allgemeine Hausbankfinanzierung mit BALLONRATE ===
+  // Es wird nur (Auftragswert + Upgrades − EK − Restwert) annuitätisch getilgt; der Restwert (Default 40 %)
+  // bleibt als Schlussrate offen (Anschlussfinanzierung / Mietkauf / Ablöse möglich). KfW/GLS entfallen in AT.
+  const hb = financing.hausbank || FIN_DEFAULTS.hausbank;
+  const hausbankRestwertEUR = (_isAT && hatPrivatEigennutzung) ? effPrivat * (hb.restwertPct || 0) : 0;
+  const hausbankBasis = (_isAT && hatPrivatEigennutzung)
+    ? Math.max(0, effPrivat + privatUpgradesBrutto - ekPrivat - hausbankRestwertEUR)
+    : 0;
+  const hausbankRate = _isAT ? pmt(hb.zins, hb.laufzeit, hausbankBasis) : 0;
 
   const restwertEUR = effGewerbNetto * financing.plattform.restwertPct;
   // EK wird gewerblich nicht mehr von der Finanzierungs-Basis abgezogen (siehe Feedback V2: EK macht in Finanzierung keinen Sinn)
@@ -1489,7 +1530,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   // - Privat: KfW + GLS (KfW-Tilgungsnachlass bereits berücksichtigt)
   // - Gewerblich nach Steuer: plattformRateEff (= Plattform-Rate − laufende AfA-Steuerentlastung − IAB-Entlastung)
   // - Summe der beiden = effektive Finanzierungs-Belastung
-  const privatFinanzierungMonat = kfwRate + glsRate;
+  const privatFinanzierungMonat = _isAT ? hausbankRate : (kfwRate + glsRate);
   const gewerblichRateNachSteuer = plattformRateEff; // existiert oben, inkl. AfA + IAB
   const belastungFinanzierungEff = privatFinanzierungMonat + gewerblichRateNachSteuer;
 
@@ -1534,7 +1575,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const anschaffungAnzeige = _isPureGewerb ? _nettoGesamt : _bruttoGesamt;
   const einmalKostenAnzeige = Math.max(0, anschaffungAnzeige - modulKostenAnzeige);
 
-  return {
+  const _result = {
     lineItems, privatItems, gewerbItems, incomeItems,
     eigennutzungGewerbCount,
     countPrivat, countGewerb, countTotal, einheitenPrivat, einheitenGewerb, einheitenTotal, modulAnzahlTotal, modulAnzahlPrivat, modulAnzahlGewerb, gesamtNUF, gesamtBGF, nufPrivat, nufGewerb,
@@ -1550,6 +1591,8 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     // Steuerbasis-bewusste Anzeige-Werte (Sticky + Desktop identisch)
     isPureGewerb: _isPureGewerb, modulKostenAnzeige, einmalKostenAnzeige, anschaffungAnzeige,
     kfwBasis, kfwRate, glsBasis, glsRate, privatOptionenKosten,
+    // AT-Privat: Hausbank-Ballonrate (sonst 0)
+    hausbankRate, hausbankBasis, hausbankRestwertEUR,
     plattformBasis, plattformRate, plattformRateEff, steuerentlastung, restwertEUR,
     iabClamped, iabSteuerersparnis, iabEntlastungMonat,
     finanzierungMonat, monatlichGesamt, monatlichInklNebenkosten, anzahlung,
@@ -1568,7 +1611,12 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     gmNettoCashflowMonat: gm.nettoCashflowMonat, gmNettoProModulMonat: gm.nettoProModulMonat, gmCount: gm.gmCount,
     verkaufbareModule: project ? verkaufbareModule(project) : 0, mengenrabattErsparnis,
     mindestflaeche,
+    // Länder-Kontext + Beschriftungen (für UI/PDF)
+    land: _land, ust: _ctry.ust, privatFinanzierung: _ctry.privatFinanzierung,
+    loanLabel: _ctry.loanLabel, steuerLabel: _ctry.steuerLabel, anreizLabel: _ctry.anreizLabel,
   };
+  UST = _ustBackup; // DE-/Settings-Basis wiederherstellen (Anzeige außerhalb dieser Funktion bleibt unberührt)
+  return _result;
 }
 
 /* ============================================================================
@@ -3556,6 +3604,99 @@ function Slider({ label, value, onChange, min, max, step, format = (v) => v, hin
 }
 
 function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPrivat, privatOptionen, setPrivatOptionen, countPrivat, hideUpgrades }) {
+  // === AT-Privat: allgemeine Hausbankfinanzierung mit Ballonrate (KfW/GLS gibt es in AT nicht) ===
+  if (totals.land === 'AT') {
+    const hb = financing.hausbank || FIN_DEFAULTS.hausbank;
+    const upgrades = totals.privatOptionenKosten || 0;
+    const ekMax = Math.max(0, totals.effPrivat + upgrades - (totals.hausbankRestwertEUR || 0));
+    return (
+      <div className="bg-white border border-[#1C1C1A]/10 p-7">
+        <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
+          <h3 className="font-display text-2xl">Hausbankfinanzierung (privat)</h3>
+          <span className="font-body text-xs tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-2 py-1">{totals.countPrivat} Modul{totals.countPrivat > 1 ? 'e' : ''}</span>
+        </div>
+        <p className="font-body text-sm text-[#6B6961] mb-6">
+          Allgemeine Bankfinanzierung mit <span className="font-medium">Ballonrate</span>: Nur der Betrag abzüglich Restwert wird über die Laufzeit getilgt. Der Restwert bleibt als Schlussrate offen und lässt sich am Laufzeitende ablösen, anschlussfinanzieren oder über Mietkauf gestalten.
+        </p>
+
+        {!hideUpgrades && (
+        <div className="mb-6">
+          <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Optionale Upgrades</p>
+          <div className="space-y-2">
+            {PRIVAT_UPGRADES.map(opt => {
+              const aktiv = !!privatOptionen[opt.id];
+              const kosten = opt.proModul * (countPrivat || 0);
+              return (
+                <button key={opt.id} onClick={() => setPrivatOptionen(p => ({ ...p, [opt.id]: !p[opt.id] }))}
+                  className={`w-full flex items-start gap-3 p-3 border text-left transition-colors ${aktiv ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)]' : 'border-[#1C1C1A]/15 hover:border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_40%,transparent)]'}`}>
+                  <div className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${aktiv ? 'bg-[var(--brand-accent,#D2563E)] border-[var(--brand-accent,#D2563E)]' : 'border-[#1C1C1A]/20'}`}>
+                    {aktiv && <Check className="w-3.5 h-3.5 text-[#F8F5F0]" strokeWidth={2.5} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between gap-2">
+                      <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
+                      <span className="font-body text-sm num text-[#6B6961]">{countPrivat > 0 ? fmtEUR(kosten) : `${fmtEUR(opt.proModul)}/Modul`}</span>
+                    </div>
+                    <p className="font-body text-[11px] text-[#6B6961] mt-0.5">{opt.hint}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        )}
+
+        <div className="bg-[#F8F5F0] border border-[#1C1C1A]/8 p-4 mb-6 font-body text-sm space-y-1.5">
+          <div className="flex justify-between"><span className="text-[#6B6961]">Auftragswert privat (inkl. ant. Projektkosten)</span><span className="num">{fmtEUR(totals.effPrivat)}</span></div>
+          {upgrades > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>+ optionale Upgrades</span><span className="num">+{fmtEUR(upgrades)}</span></div>}
+          <div className="flex justify-between"><span className="text-[#6B6961]">− Eigenkapital</span><span className="num">−{fmtEUR(ekPrivat)}</span></div>
+          <div className="flex justify-between text-[#7B2D8E]"><span>− Restwert (Schlussrate, {fmtPct(hb.restwertPct)})</span><span className="num">−{fmtEUR(totals.hausbankRestwertEUR)}</span></div>
+          <div className="flex justify-between pt-1.5 border-t border-[#1C1C1A]/10 font-display text-base"><span>= Finanzierungsbasis</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.hausbankBasis)}</span></div>
+        </div>
+
+        <div className="space-y-6">
+          <Slider label="Zinssatz" value={hb.zins} onChange={v => setFinancing(f => ({...f, hausbank: {...(f.hausbank || FIN_DEFAULTS.hausbank), zins: v}}))} min={0.02} max={0.10} step={0.0025} format={fmtPct} hint="Bonitätsabhängig, 2–10 % (Default 5 %)" />
+          <Slider label="Laufzeit" value={hb.laufzeit} onChange={v => setFinancing(f => ({...f, hausbank: {...(f.hausbank || FIN_DEFAULTS.hausbank), laufzeit: v}}))} min={10} max={25} step={1} format={v => `${v} Jahre`} hint="10–25 Jahre (Default 15)" />
+          <Slider label="Restwert (Ballon-Schlussrate)" value={hb.restwertPct} onChange={v => setFinancing(f => ({...f, hausbank: {...(f.hausbank || FIN_DEFAULTS.hausbank), restwertPct: v}}))} min={0} max={0.60} step={0.05} format={fmtPct} hint="Bleibt am Laufzeitende offen (Default 40 %)" />
+          <div className="pt-4 border-t border-[#1C1C1A]/10">
+            <FieldLabel required={false} hint="Reduziert den zu finanzierenden Betrag">Eigenkapital</FieldLabel>
+            <div className="flex items-baseline justify-between mb-2 mt-2">
+              <span className="font-display text-base num text-[var(--brand-accent,#D2563E)]">{fmtEUR(ekPrivat)}</span>
+              <span className="font-body text-xs text-[#6B6961]">max. {fmtEUR(ekMax)}</span>
+            </div>
+            <input type="range" min={0} max={ekMax || 1} step={1000} value={Math.min(ekPrivat, ekMax)} disabled={ekMax === 0}
+              onChange={e => setEkPrivat(parseInt(e.target.value, 10))} className="w-full" />
+            <div className="mt-2 flex items-center gap-2">
+              <NumberInput value={ekPrivat} onChange={v => setEkPrivat(Math.min(v, ekMax))} placeholder="0"
+                className="flex-1 w-full px-3 py-2 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[var(--brand-accent,#D2563E)]" />
+              <span className="font-body text-xs text-[#6B6961]">€</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 space-y-1.5">
+          <div className="flex justify-between font-display text-base"><span>Hausbank-Monatsrate</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.hausbankRate)}</span></div>
+          {totals.hausbankRestwertEUR > 0 && (
+            <div className="flex justify-between font-body text-sm text-[#7B2D8E]"><span>+ Schlussrate am Laufzeitende ({fmtPct(hb.restwertPct)})</span><span className="num">{fmtEUR(totals.hausbankRestwertEUR)}</span></div>
+          )}
+        </div>
+
+        <div className="mt-5 bg-[#FBF7EF] border border-[#7B2D8E]/30 p-4 flex gap-3 items-start">
+          <Info className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} />
+          <div className="space-y-1.5">
+            <p className="font-body text-sm text-[#1C1C1A] font-medium">Finanzierungspartner</p>
+            <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
+              Wir helfen gerne bei der Suche nach einem optimalen Finanzierungspartner — auf Wunsch auch mit <span className="font-medium">Leasing oder Mietkauf</span>. Die Schlussrate (Restwert) lässt sich am Laufzeitende ablösen, anschlussfinanzieren oder über Mietkauf gestalten.
+            </p>
+            <p className="font-body text-xs text-[#6B6961] leading-relaxed italic">
+              Die hier gezeigten Werte dienen der Orientierung. Die passende Finanzierungsstruktur besprechen wir gerne persönlich mit Dir.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* KfW-Panel */}
@@ -3991,7 +4132,7 @@ function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod
   );
 }
 
-function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing, ekPrivat, setEkPrivat, ekGewerb, setEkGewerb, vermietungDurchCoMod, setVermietungDurchCoMod, mitarbeiterAnzahl, setMitarbeiterAnzahl, iabBetrag, setIabBetrag, privatOptionen, setPrivatOptionen, serviceSelected, setServiceSelected, onNext, onBack }) {
+function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing, setFinancing, ekPrivat, setEkPrivat, ekGewerb, setEkGewerb, vermietungDurchCoMod, setVermietungDurchCoMod, mitarbeiterAnzahl, setMitarbeiterAnzahl, iabBetrag, setIabBetrag, privatOptionen, setPrivatOptionen, serviceSelected, setServiceSelected, onNext, onBack }) {
   const hasPrivat = totals.countPrivat > 0;
   const hasGewerb = totals.countGewerb > 0;
   const hasBoth = hasPrivat && hasGewerb;
@@ -4008,6 +4149,26 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
       <p className="font-body text-base text-[#6B6961] mb-10 max-w-2xl">
         Wir zeigen Dir typische Finanzierungswege sowie die laufenden Neben- und Verbrauchskosten als Richtwerte.
       </p>
+
+      {/* Länderschalter — nur im Direkt-Pfad (ohne Projekt). Projekte tragen ihr Land selbst. */}
+      {!project && setLand && (
+        <div className="mb-8 flex items-center gap-3 flex-wrap">
+          <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Land / Steuerregime</span>
+          <div className="inline-flex border border-[#1C1C1A]/15 overflow-hidden">
+            {[['DE', 'Deutschland'], ['AT', 'Österreich']].map(([code, name]) => (
+              <button key={code} onClick={() => setLand(code)}
+                className={`px-4 py-2 font-body text-sm transition-colors ${land === code ? 'bg-[#1C1C1A] text-[#F8F5F0]' : 'bg-white text-[#1C1C1A] hover:bg-[#1C1C1A]/5'}`}>
+                {name}
+              </button>
+            ))}
+          </div>
+          <span className="font-body text-[11px] text-[#6B6961] italic">
+            {land === 'AT'
+              ? 'Österreich: 20 % USt und Hausbankfinanzierung (Ballonrate) statt KfW/GLS. Gewerbe-Steuerlogik (KöSt/IFB) folgt.'
+              : 'Deutschland: 19 % USt, KfW + GLS, deutsche Steuerlogik.'}
+          </span>
+        </div>
+      )}
 
       {hasBoth && (
         <div className="mb-8 bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] p-5 flex gap-3 items-start">
@@ -4081,7 +4242,7 @@ function FinancingStep({ totals, project, gewerbConfig, financing, setFinancing,
                 <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-3">Monatsrate</p>
                 <dl className="space-y-2.5 text-sm font-body">
                   <div className="flex justify-between items-baseline">
-                    <dt className="opacity-80">Monatsrate privat <span className="opacity-70 text-xs">(KfW + GLS)</span></dt>
+                    <dt className="opacity-80">Monatsrate privat <span className="opacity-70 text-xs">({totals.loanLabel})</span></dt>
                     <dd className="font-display text-lg num">{fmtEUR(totals.privatFinanzierungMonat)}</dd>
                   </div>
                   {totals.hatGewerbModule && (
@@ -8305,6 +8466,7 @@ export default function App() {
   // Scroll-to-Top bei jedem Schrittwechsel — sonst landet der User unten in der Sidebar
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [step]);
   const [customerType, setCustomerType] = useState(null);
+  const [land, setLand] = useState('DE'); // Länderschalter für den Direkt-Pfad (ohne Projekt); Projekt erbt project.land
   const [privatMode, setPrivatMode] = useState(null);
   const [project, setProject] = useState(null);
   const [gewerbConfig, setGewerbConfig] = useState(EMPTY_GEWERB_CONFIG);
@@ -8352,11 +8514,17 @@ export default function App() {
 
   const effectiveGewerbConfig = customerType === 'gewerblich' && gewerbConfig.geschosse > 0 && gewerbConfig.zielModulAnzahl > 0 ? gewerbConfig : null;
 
+  // Aktives Land: Projekt erbt sein Land, sonst der Direkt-Schalter. USt app-weit setzen, damit auch die
+  // Modul-Karten (außerhalb von calculateTotals) dem richtigen Satz folgen. calculateTotals setzt/restauriert
+  // intern denselben Satz — konsistent in beiden Fällen.
+  const activeLand = (project && project.land) || land;
+  UST = getCountry(activeLand).ust;
+
   const totals = useMemo(() => calculateTotals({
     selections, modes, project, gewerbConfig: effectiveGewerbConfig,
     ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag,
-    customerType, serviceSelected,
-  }), [selections, modes, project, effectiveGewerbConfig, ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag, customerType, serviceSelected]);
+    customerType, serviceSelected, land: activeLand,
+  }), [selections, modes, project, effectiveGewerbConfig, ekPrivat, ekGewerb, financing, vermietungDurchCoMod, privatOptionen, iabBetrag, customerType, serviceSelected, activeLand]);
 
   function handleTypeSelect(type) {
     // Bei Typ-Wechsel kompletter Reset der Modul-Auswahl, damit private/gewerbliche Pfade nicht vermischen
@@ -8592,13 +8760,13 @@ export default function App() {
             },
             project: project ? { name: project.name || '', location: project.location || '' } : null,
             nutzung: { customerType: customerType || '', modulart: modulart || '' },
-            // Länder-Kontext (vorbereitet für AT): das PDF liest Sätze/Labels hieraus, statt sie hart zu kodieren.
-            // Default DE; für Österreich später: land 'AT', ustPct 0.20, steuerLabel 'KöSt', anreizLabel 'Investitionsfreibetrag (IFB)'.
+            // Länder-Kontext: Sätze/Labels kommen aus totals (DE 19 % / AT 20 %); das PDF rendert daraus.
             locale: {
-              land: (project?.land || 'DE'),
-              ustPct: UST,
-              steuerLabel: 'GmbH-Steuer',
-              anreizLabel: 'Investitionsabzugsbetrag (IAB)',
+              land: totals.land || 'DE',
+              ustPct: totals.ust ?? UST,
+              loanLabel: totals.loanLabel || 'KfW + GLS',
+              steuerLabel: totals.steuerLabel || 'GmbH-Steuer',
+              anreizLabel: totals.anreizLabel || 'Investitionsabzugsbetrag (IAB)',
             },
             module: {
               items: totals.lineItems.map((it) => {
@@ -8625,6 +8793,8 @@ export default function App() {
               // Raten
               kfwRate: totals.kfwRate,
               glsRate: totals.glsRate,
+              hausbankRate: totals.hausbankRate,                       // AT-Privat Ballonrate (sonst 0)
+              hausbankRestwert: totals.hausbankRestwertEUR,            // Schlussrate am Laufzeitende
               gewerbeRateBrutto: totals.plattformRate,                 // gewerbliche Rate vor Steuer
               gewerbeRateNachSteuer: totals.gewerblichRateNachSteuer,  // = plattformRateEff (AfA + Ø-Zins)
               steuerentlastung: totals.steuerentlastung,               // monatliche AfA-/Zins-Entlastung
@@ -8674,7 +8844,7 @@ export default function App() {
   }
 
   function restart() {
-    setStep(0); setCustomerType(null); setPrivatMode(null); setProject(null);
+    setStep(0); setCustomerType(null); setLand('DE'); setPrivatMode(null); setProject(null);
     setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setSelections({}); setModes({}); setFinancing(FIN_DEFAULTS);
     setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null); setOfferStatus(null);
@@ -8699,7 +8869,7 @@ export default function App() {
           }} />
         : step === 0.5 ? <GewerbeConfigStep config={gewerbConfig} setConfig={setGewerbConfig} onContinue={handleGewerbContinue} onBack={goToWelcome} />
         : step === 1 ? <ModulesStep customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} soldModules={soldModules} />
-        : step === 2 ? <FinancingStep totals={totals} project={project} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} serviceSelected={serviceSelected} setServiceSelected={setServiceSelected} onNext={() => setStep(3)} onBack={() => setStep(1)} />
+        : step === 2 ? <FinancingStep totals={totals} project={project} land={land} setLand={setLand} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} serviceSelected={serviceSelected} setServiceSelected={setServiceSelected} onNext={() => setStep(3)} onBack={() => setStep(1)} />
         : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} />
         : step === 4 ? <SuccessStep lead={lastLead} onRestart={restart} offerStatus={offerStatus} />
         : null}
