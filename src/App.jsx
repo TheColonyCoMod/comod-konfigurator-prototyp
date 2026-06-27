@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.161';
+const APP_VERSION = '0.9.162';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -803,6 +803,11 @@ async function loadSettingsFromDb() {
         laufzeit:    Number(map.HAUSBANK_LAUFZEIT_JAHRE ?? FIN_DEFAULTS.hausbank.laufzeit),
         restwertPct: Number(map.HAUSBANK_RESTWERT_PCT ?? FIN_DEFAULTS.hausbank.restwertPct),
       },
+      at: {
+        steuer:          Number(map.AT_STEUER_KOEST ?? FIN_DEFAULTS.at.steuer),
+        afaDegressivPct: Number(map.AT_AFA_DEGRESSIV_PCT ?? FIN_DEFAULTS.at.afaDegressivPct),
+        ifbPct:          Number(map.AT_IFB_PCT ?? FIN_DEFAULTS.at.ifbPct),
+      },
     };
 
     // Nebenkosten/Verbrauch aus Settings
@@ -852,7 +857,14 @@ let FIN_DEFAULTS = {
   // AT-Privat: allgemeine Hausbankfinanzierung mit BALLONRATE (KfW/GLS gibt es in AT nicht).
   // Restwert bleibt als Schlussrate offen; nur (Kaufpreis − Restwert) wird annuitätisch getilgt.
   hausbank: { zins: 0.05, laufzeit: 15, restwertPct: 0.40 }, // Zins 2–10 %, Laufzeit 10–25 J, Restwert 0–60 %
+  // AT-Gewerbe: KöSt 23 %, degressive AfA (30 % vom Restbuchwert), IFB (§11) als zusätzlicher Abzug.
+  at: { steuer: 0.23, afaDegressivPct: 0.30, ifbPct: ifbDefaultPct() }, // IFB 10–20 %; 20 % befristet bis 31.12.2026
 };
+
+// IFB-Default: befristet erhöht auf 20 % bis 31.12.2026, danach (ab 1.1.2027) regulär 10 %.
+function ifbDefaultPct() {
+  return (new Date() < new Date('2027-01-01T00:00:00')) ? 0.20 : 0.10;
+}
 
 // === Länder-Konfiguration (CoMod ist Verkäufer; grenzüberschreitend nach AT) ===
 // Steuert USt, Privat-Finanzierungsweg und Beschriftungen. Default DE.
@@ -1485,29 +1497,49 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
   const plattformBasis = Math.max(0, effGewerbNetto - restwertEUR);
   const plattformRate = pmt(financing.plattform.zins, financing.plattform.laufzeit, plattformBasis);
 
-  // === IAB (§7g EStG) — Variante B: einmaliger Liquiditätsvorteil, KEIN monatlicher Raten-Drücker ===
-  // Der IAB (bis 50 % des Netto-Investments) wird im Anschaffungsjahr vorab abgezogen und bringt dort
-  // eine einmalige Steuerersparnis (iabClamped × Steuersatz). Nach §7g mindert er ZUGLEICH die spätere
-  // AfA-Bemessungsgrundlage (afaBasis = effGewerbNetto − IAB) — sonst würde der Vorteil doppelt zählen.
-  // Er wirkt daher bewusst NICHT zusätzlich monatlich auf die Plattform-Rate.
-  const iabClamped = Math.min(iabBetrag || 0, (effGewerbNetto || 0) * 0.5);
-  const iabSteuerersparnis = iabClamped * financing.plattform.steuer; // einmalig, im Anschaffungsjahr
-  const iabEntlastungMonat = 0; // Variante B: IAB nicht mehr auf die Monatsrate umgelegt (siehe oben)
+  // === Gewerbe-Steuerwirkung (länderabhängig) ===
+  // DE: §7g IAB (bis 50 %) mindert die AfA-Basis (Variante B) + LINEARE AfA. Steuersatz Default 30 %.
+  // AT: §11 IFB (10–20 %) ist ein ZUSÄTZLICHER Abzug (mindert die AfA-Basis NICHT) + DEGRESSIVE AfA
+  //     (30 % vom Restbuchwert, Ø über die Laufzeit). KöSt-Default 23 %.
+  // In beiden Fällen ist der Anreiz (IAB/IFB) ein EINMALIGER Liquiditätsvorteil, kein monatlicher Raten-Drücker.
+  const _at = financing.at || FIN_DEFAULTS.at;
+  const _steuer = _isAT ? (_at.steuer ?? FIN_DEFAULTS.at.steuer) : financing.plattform.steuer;
 
-  // === Laufende Steuerentlastung / Monat (gewerblich) ===
-  // = (AfA auf die um den IAB GEMINDERTE Basis  +  DURCHSCHNITTLICHER Jahreszins über die Laufzeit) × Steuersatz / 12.
-  // Durchschnittszins statt Jahr-1-Zins: Σ Raten − Tilgung, /Laufzeit (im Annuitätendarlehen sinkt der
-  // abzugsfähige Zinsanteil jährlich — der konstante Jahr-1-Zins hätte die Entlastung deutlich überzeichnet).
-  const afaBasis = Math.max(0, effGewerbNetto - iabClamped);
+  // Durchschnittlicher abzugsfähiger Jahreszins über die Laufzeit (beide Länder): Σ Raten − Tilgung, /Laufzeit
   const zinsenDurchschnittJahr = financing.plattform.laufzeit > 0
     ? Math.max(0, plattformRate * 12 * financing.plattform.laufzeit - plattformBasis) / financing.plattform.laufzeit
     : 0;
-  const steuerentlastung = effGewerbNetto > 0 && financing.plattform.afaJahre > 0
-    ? ((afaBasis / financing.plattform.afaJahre) + zinsenDurchschnittJahr) * financing.plattform.steuer / 12
+
+  let iabClamped = 0, iabSteuerersparnis = 0, afaDurchschnittJahr = 0, anreizPct = 0;
+  const afaModus = _isAT ? 'degressiv' : 'linear';
+  const iabEntlastungMonat = 0; // IAB/IFB wirken nicht monatlich auf die Rate (einmaliger Liquiditätsvorteil)
+
+  if (_isAT) {
+    // Degressive AfA (Restbuchwert): kumuliert nach N Jahren B·(1−(1−d)^N); Ø/Jahr = B·(1−(1−d)^N)/N.
+    // Das Front-loading der degressiven Methode bleibt im Durchschnitt erhalten.
+    const d = Math.max(0, Math.min(0.30, _at.afaDegressivPct ?? 0.30));
+    const N = financing.plattform.laufzeit || 10;
+    const afaKumPct = N > 0 ? (1 - Math.pow(1 - d, N)) : 0;
+    afaDurchschnittJahr = effGewerbNetto > 0 ? (effGewerbNetto * afaKumPct) / N : 0;
+    // IFB (§11): ZUSÄTZLICHER Betriebsausgaben-Abzug — mindert die AfA-Basis NICHT. Einmalige Steuerersparnis.
+    anreizPct = Math.max(0.10, Math.min(0.20, _at.ifbPct ?? FIN_DEFAULTS.at.ifbPct));
+    iabClamped = effGewerbNetto * anreizPct;     // IFB-Betrag (Bemessung)
+    iabSteuerersparnis = iabClamped * _steuer;   // einmalige IFB-Steuerersparnis
+  } else {
+    // DE (Variante B): IAB (bis 50 %) mindert die AfA-Basis; lineare AfA über afaJahre.
+    iabClamped = Math.min(iabBetrag || 0, (effGewerbNetto || 0) * 0.5);
+    iabSteuerersparnis = iabClamped * _steuer;
+    anreizPct = effGewerbNetto > 0 ? iabClamped / effGewerbNetto : 0;
+    const afaBasis = Math.max(0, effGewerbNetto - iabClamped);
+    afaDurchschnittJahr = financing.plattform.afaJahre > 0 ? afaBasis / financing.plattform.afaJahre : 0;
+  }
+
+  // Laufende Steuerentlastung / Monat = (AfA + Ø-Zins) × Steuersatz / 12
+  const steuerentlastung = effGewerbNetto > 0
+    ? (afaDurchschnittJahr + zinsenDurchschnittJahr) * _steuer / 12
     : 0;
 
-  // Effektive Plattform-Rate = Rate − laufende Steuerentlastung (AfA auf IAB-geminderter Basis + Ø-Zins).
-  // Der IAB steckt NICHT mehr hier drin, sondern separat als iabSteuerersparnis (einmalig).
+  // Effektive Plattform-Rate = Rate − laufende Steuerentlastung. Anreiz (IAB/IFB) separat einmalig.
   const plattformRateEff = Math.max(0, plattformRate - steuerentlastung);
 
   const finanzierungMonat = kfwRate + glsRate + plattformRate;
@@ -1594,7 +1626,7 @@ function calculateTotals({ selections, modes, project, gewerbConfig, ekPrivat, e
     // AT-Privat: Hausbank-Ballonrate (sonst 0)
     hausbankRate, hausbankBasis, hausbankRestwertEUR,
     plattformBasis, plattformRate, plattformRateEff, steuerentlastung, restwertEUR,
-    iabClamped, iabSteuerersparnis, iabEntlastungMonat,
+    iabClamped, iabSteuerersparnis, iabEntlastungMonat, anreizPct, afaModus, steuerEff: _steuer,
     finanzierungMonat, monatlichGesamt, monatlichInklNebenkosten, anzahlung,
     bruttoGesamt: effPrivat + effGewerbBrutto,
     nettoGesamt: (effPrivat / (1 + UST)) + effGewerbNetto,
@@ -3880,6 +3912,77 @@ function GewerblichFinanzPanel({ totals, financing, setFinancing }) {
 function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIabBetrag }) {
   const [aktiv, setAktiv] = useState(false);
   if (totals.countGewerb === 0) return null;
+
+  // === Österreich: KöSt, degressive AfA (vom Restbuchwert), IFB (§11, zusätzlich zur AfA) ===
+  if (totals.land === 'AT') {
+    const at = financing.at || FIN_DEFAULTS.at;
+    const setAt = (patch) => setFinancing(f => ({ ...f, at: { ...(f.at || FIN_DEFAULTS.at), ...patch } }));
+    const istBefristet = new Date() < new Date('2027-01-01T00:00:00');
+    return (
+      <div className="bg-[#F8F5F0] border border-dashed border-[#1C1C1A]/20 p-7">
+        <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
+          <h3 className="font-display text-2xl flex items-center gap-2"><Receipt className="w-5 h-5 text-[#6B6961]" strokeWidth={1.5} />Mögliche Steuervorteile (AT)</h3>
+          <span className="font-body text-xs tracking-wider uppercase text-[#6B6961] bg-white px-2 py-1 border border-[#1C1C1A]/15">Optional</span>
+        </div>
+        <p className="font-body text-sm text-[#6B6961] mb-5 leading-relaxed">
+          Als gewerblicher Käufer in Österreich kannst Du u. U. die <span className="font-medium">degressive AfA</span> (bis 30 % vom Restbuchwert) und den <span className="font-medium">Investitionsfreibetrag (IFB)</span> nutzen. Der IFB ist ein <span className="font-medium">zusätzlicher</span> Betriebsausgaben-Abzug — er mindert die AfA-Basis nicht.
+        </p>
+        <div className="bg-white border border-[#C5392E]/30 p-3 mb-3 flex gap-2 items-start">
+          <Info className="w-4 h-4 text-[#C5392E] shrink-0 mt-0.5" strokeWidth={1.5} />
+          <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
+            <span className="font-medium">Keine Steuerberatung.</span> Modellrechnung auf Basis der <span className="font-medium">Annahme, dass die Module als bewegliches Wirtschaftsgut gelten</span> (Voraussetzung für degressive AfA und IFB; für Gebäude wäre der IFB ausgeschlossen). Das hängt von Einstufung, Region und Finanzamt ab — bitte unbedingt mit dem Steuerberater klären. Wir können es nicht garantieren.
+          </p>
+        </div>
+
+        <button onClick={() => setAktiv(!aktiv)}
+          className={`w-full px-4 py-3 font-body text-sm border transition-colors ${aktiv ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#1C1C1A] hover:border-[var(--brand-accent,#D2563E)]'}`}>
+          {aktiv ? 'Steuervorteile-Modellrechnung aktiv' : 'Modellrechnung mit Steuervorteilen anzeigen'}
+        </button>
+
+        {aktiv && (
+          <div className="mt-5 space-y-5">
+            <Slider label="Unternehmenssteuer (KöSt-Annahme)" value={at.steuer} onChange={v => setAt({ steuer: v })} min={0.15} max={0.40} step={0.01} format={fmtPct} hint="GmbH: KöSt 23 % (flach). Einzelunternehmer/EPU: progressiver Tarif, abweichend." />
+            <Slider label="Degressive AfA (vom Restbuchwert)" value={at.afaDegressivPct} onChange={v => setAt({ afaDegressivPct: v })} min={0} max={0.30} step={0.05} format={fmtPct} hint="Bewegliches Wirtschaftsgut: bis 30 % p. a. vom Restbuchwert (Front-loading; Ø über die Laufzeit gerechnet)." />
+            <div>
+              <Slider label="Investitionsfreibetrag (IFB)" value={at.ifbPct} onChange={v => setAt({ ifbPct: v })} min={0.10} max={0.20} step={0.01} format={fmtPct} hint="Zusätzlicher Abzug auf die Investition (mindert die AfA-Basis nicht)." />
+              {istBefristet ? (
+                <p className="font-body text-[11px] text-[var(--brand-accent,#D2563E)] mt-2 leading-relaxed">
+                  Hinweis: Der IFB ist aktuell <span className="font-medium">befristet auf 20 % erhöht</span> (für Anschaffungen bis 31.12.2026). Voraussichtlich erfolgt zum <span className="font-medium">1.1.2027 die Senkung auf den Normalsatz von 10 %</span> (15 % bei Öko-Investitionen). Bitte beim Steuerberater bestätigen.
+                </p>
+              ) : (
+                <p className="font-body text-[11px] text-[#6B6961] mt-2 leading-relaxed">
+                  Hinweis: Seit 1.1.2027 gilt voraussichtlich wieder der Normalsatz von 10 % (15 % bei Öko-Investitionen). Bitte beim Steuerberater bestätigen.
+                </p>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-[#1C1C1A]/10 space-y-2 font-body text-sm">
+              <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Modellhafte Belastung mit Steuervorteilen</p>
+              <div className="flex justify-between"><span className="text-[#6B6961]">Gewerbe-Rate (vor Steuer)</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
+              <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− Laufende Steuerentlastung (degr. AfA + Ø-Zins × {fmtPct(at.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
+              <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Mögliche Rate nach Steuer</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.plattformRateEff)}</span></div>
+              {totals.eigennutzungGewerbCount > 0 && totals.plattformRateEff > 0 && (
+                <div className="flex justify-between text-[#6B6961] text-xs"><span>pro Mitarbeiter-Modul ({totals.eigennutzungGewerbCount})</span><span className="num">{fmtEUR(totals.plattformRateEff / totals.eigennutzungGewerbCount)}</span></div>
+              )}
+              {totals.iabSteuerersparnis > 0 && (
+                <div className="mt-3 pt-3 border-t border-[#1C1C1A]/10">
+                  <div className="flex justify-between text-[var(--brand-accent,#D2563E)]">
+                    <span className="font-medium">Einmaliger IFB-Liquiditätsvorteil (Anschaffungsjahr)</span>
+                    <span className="num font-medium">+{fmtEUR(totals.iabSteuerersparnis)}</span>
+                  </div>
+                  <p className="font-body text-[11px] text-[#6B6961] mt-1.5 italic">
+                    {fmtPct(at.ifbPct)} von {fmtEUR(totals.effGewerbNetto)} = {fmtEUR(totals.iabClamped)} IFB × {fmtPct(at.steuer)} = {fmtEUR(totals.iabSteuerersparnis)} Steuerersparnis. Der IFB kommt zusätzlich zur AfA — er senkt nicht die Monatsrate, sondern bringt Liquidität im Anschaffungsjahr.
+                  </p>
+                </div>
+              )}
+            </div>
+            <p className="font-body text-xs text-[#6B6961] italic">Diese Werte sind Modellwerte. Bitte unbedingt mit dem (österreichischen) Steuerberater abstimmen.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // IAB: maximal 50% des Netto-Investments (Vereinfachung der gesetzlichen Regelung)
   const iabMax = Math.max(0, (totals.effGewerbNetto || 0) * 0.5);
   const iabClamped = Math.min(iabBetrag, iabMax);
@@ -8832,9 +8935,9 @@ export default function App() {
               eigennutzungGewerbCount: totals.eigennutzungGewerbCount,
               hatGewerbModule: totals.hatGewerbModule,
               hatPrivatAnteil: totals.hatPrivatAnteil,
-              // IAB (Variante B): einmaliger Liquiditätsvorteil, kein Raten-Rabatt
-              iabBetrag: iabBetrag > 0 ? Math.round(totals.iabClamped || 0) : null,   // Abzugsbetrag
-              iabSteuerersparnis: iabBetrag > 0 ? Math.round(totals.iabSteuerersparnis || 0) : null, // tatsächliche Ersparnis
+              // Anreiz (Variante B): DE = IAB, AT = IFB — beides einmaliger Liquiditätsvorteil
+              iabBetrag: totals.iabClamped > 0 ? Math.round(totals.iabClamped) : null,            // Abzugs-/Bemessungsbetrag
+              iabSteuerersparnis: totals.iabSteuerersparnis > 0 ? Math.round(totals.iabSteuerersparnis) : null, // tatsächliche Ersparnis
             },
           };
         }
