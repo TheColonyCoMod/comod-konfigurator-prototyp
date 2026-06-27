@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.160';
+const APP_VERSION = '0.9.161';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1753,7 +1753,7 @@ function ModuleIcon({ nuf }) {
    STEPS
    ============================================================================ */
 
-function WelcomeStep({ onSelect }) {
+function WelcomeStep({ onSelect, land, setLand }) {
   const options = [
     { id: 'privat', icon: Home, image: '/headers/header_privat.jpg', title: 'Privater Kunde', subtitle: 'Eigenes Wohnen, optional gewerbliche Erweiterung',
       desc: 'Module für die private Nutzung — auf Deinem eigenen Grundstück oder als Teil eines unserer Projekte. Auch gewerbliche Module möglich (z. B. Praxis, Büro).' },
@@ -1771,6 +1771,22 @@ function WelcomeStep({ onSelect }) {
         <p className="font-body text-lg text-[#6B6961] max-w-2xl leading-relaxed">
           In wenigen Schritten konfigurierst Du Dein CoMod-Setup, siehst die Kosten, die Monatsrate und kannst direkt ein unverbindliches Angebot anfordern.
         </p>
+        {setLand && (
+          <div className="mt-8 flex items-center gap-3 flex-wrap">
+            <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Standort</span>
+            <div className="inline-flex border border-[#1C1C1A]/15 overflow-hidden">
+              {[['DE', 'Deutschland'], ['AT', 'Österreich']].map(([code, name]) => (
+                <button key={code} onClick={() => setLand(code)}
+                  className={`px-4 py-2 font-body text-sm transition-colors ${land === code ? 'bg-[#1C1C1A] text-[#F8F5F0]' : 'bg-white text-[#1C1C1A] hover:bg-[#1C1C1A]/5'}`}>
+                  {name}
+                </button>
+              ))}
+            </div>
+            <span className="font-body text-[11px] text-[#6B6961] italic">
+              {land === 'AT' ? '20 % USt, Hausbankfinanzierung (Ballonrate) statt KfW/GLS.' : '19 % USt, KfW + GLS.'}
+            </span>
+          </div>
+        )}
       </div>
       <div className="grid md:grid-cols-2 gap-5">
         {options.map(o => {
@@ -8859,7 +8875,7 @@ export default function App() {
       <Header step={Math.floor(step)} onJump={jumpToStep} view={view} setView={setView} brandLogoUrl={brand?.logoUrl} />
 
       {view === 'admin' ? <AdminGate authUser={authUser} authProfile={authProfile} />
-        : step === 0 ? <WelcomeStep onSelect={handleTypeSelect} />
+        : step === 0 ? <WelcomeStep onSelect={handleTypeSelect} land={land} setLand={setLand} />
         : step === 0.3 ? <PrivatModeStep onSelectMode={handlePrivatMode} onBack={goToWelcome} />
         : step === 0.4 ? <ProjectPickerStep selectedProject={project} onSelect={handleProjectSelect} onBack={() => setStep(0.3)} />
         : step === 0.45 ? <ModulartStep onSelect={handleModulart} onBack={() => {
