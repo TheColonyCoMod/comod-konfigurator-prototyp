@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.164';
+const APP_VERSION = '0.9.165';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -703,6 +703,13 @@ async function loadContentBlocksFromDb() {
     return false;
   }
 }
+
+// ===== Sprache / i18n =====
+// Modul-globale aktive Sprache ('de' | 'en'), wird in der App aus dem lang-State gesetzt (wie UST).
+// t(de, en): liefert EN nur, wenn aktiv 'en' UND eine englische Variante vorhanden ist — sonst DE.
+// Dadurch bleiben noch nicht übersetzte Stellen sauber auf Deutsch (kein kaputter Halbzustand).
+let LANG = 'de';
+function t(de, en) { return (LANG === 'en' && en != null) ? en : de; }
 
 let RABATT_STAFFEL = [
   { ab: 5, prozent: 0.05 }, { ab: 10, prozent: 0.10 }, { ab: 25, prozent: 0.15 },
@@ -1719,7 +1726,7 @@ function FieldLabel({ children, required, hint }) {
 }
 
 function StepIndicator({ currentStep, onJump }) {
-  const steps = ['Auswahl', 'Module', 'Finanzierung', 'Unverb. Angebot'];
+  const steps = [t('Auswahl', 'Selection'), t('Module', 'Modules'), t('Finanzierung', 'Financing'), t('Unverb. Angebot', 'Free Quote')];
   return (
     <div className="flex items-center gap-3 font-body text-xs tracking-wider uppercase">
       {steps.map((label, i) => (
@@ -1736,7 +1743,7 @@ function StepIndicator({ currentStep, onJump }) {
   );
 }
 
-function Header({ step, onJump, view, setView, brandLogoUrl }) {
+function Header({ step, onJump, view, setView, brandLogoUrl, lang, setLang }) {
   function handleRestart() {
     // Nur fragen, wenn der Nutzer schon irgendwo unterwegs ist (step > 1 oder im Admin)
     const inProgress = view === 'customer' && step > 1;
@@ -1758,10 +1765,22 @@ function Header({ step, onJump, view, setView, brandLogoUrl }) {
           <span className="font-body text-xs text-[#6B6961] tracking-[0.2em] uppercase border-l border-[#1C1C1A]/15 pl-3 hidden md:inline">Konfigurator</span>
         </div>
         {view === 'customer' && step < 4 && <div className="hidden lg:block"><StepIndicator currentStep={step} onJump={onJump} /></div>}
-        <button onClick={() => setView(view === 'customer' ? 'admin' : 'customer')}
-          className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] transition-colors flex items-center gap-1.5">
-          {view === 'customer' ? <><Settings className="w-3.5 h-3.5" /> Admin</> : <><ChevronLeft className="w-3.5 h-3.5" /> Konfigurator</>}
-        </button>
+        <div className="flex items-center gap-3">
+          {setLang && (
+            <div className="inline-flex border border-[#1C1C1A]/15 overflow-hidden" role="group" aria-label="Language">
+              {['de', 'en'].map(code => (
+                <button key={code} onClick={() => setLang(code)} aria-pressed={lang === code}
+                  className={`px-2 py-1 font-body text-[11px] tracking-wider uppercase transition-colors ${lang === code ? 'bg-[#1C1C1A] text-[#F8F5F0]' : 'bg-white text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                  {code}
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={() => setView(view === 'customer' ? 'admin' : 'customer')}
+            className="font-body text-xs tracking-wider uppercase text-[#6B6961] hover:text-[#1C1C1A] transition-colors flex items-center gap-1.5">
+            {view === 'customer' ? <><Settings className="w-3.5 h-3.5" /> {t('Admin', 'Admin')}</> : <><ChevronLeft className="w-3.5 h-3.5" /> {t('Konfigurator', 'Configurator')}</>}
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -1788,25 +1807,25 @@ function ModuleIcon({ nuf }) {
 
 function WelcomeStep({ onSelect, land, setLand }) {
   const options = [
-    { id: 'privat', icon: Home, image: '/headers/header_privat.jpg', title: 'Privater Kunde', subtitle: 'Eigenes Wohnen, optional gewerbliche Erweiterung',
-      desc: 'Module für die private Nutzung — auf Deinem eigenen Grundstück oder als Teil eines unserer Projekte. Auch gewerbliche Module möglich (z. B. Praxis, Büro).' },
-    { id: 'gewerblich', icon: Building2, image: '/headers/header_gewerbe.jpg', title: 'Firma / Investor', subtitle: 'Tourismus, Mitarbeiter, Investment',
-      desc: 'Du hast bereits eine Fläche oder suchst noch? Wir berechnen den Mindestflächenbedarf — oder die volle Wirtschaftlichkeit, wenn Du Deine Fläche kennst.' },
+    { id: 'privat', icon: Home, image: '/headers/header_privat.jpg', title: t('Privater Kunde', 'Private customer'), subtitle: t('Eigenes Wohnen, optional gewerbliche Erweiterung', 'Your own home, optional commercial add-on'),
+      desc: t('Module für die private Nutzung — auf Deinem eigenen Grundstück oder als Teil eines unserer Projekte. Auch gewerbliche Module möglich (z. B. Praxis, Büro).', 'Modules for private use — on your own plot or as part of one of our projects. Commercial modules also possible (e.g. practice, office).') },
+    { id: 'gewerblich', icon: Building2, image: '/headers/header_gewerbe.jpg', title: t('Firma / Investor', 'Company / Investor'), subtitle: t('Tourismus, Mitarbeiter, Investment', 'Tourism, staff, investment'),
+      desc: t('Du hast bereits eine Fläche oder suchst noch? Wir berechnen den Mindestflächenbedarf — oder die volle Wirtschaftlichkeit, wenn Du Deine Fläche kennst.', 'Already have a plot or still looking? We calculate the minimum area needed — or the full economics once you know your plot.') },
   ];
   return (
     <div className="max-w-5xl mx-auto px-8 py-16">
       <div className="mb-16">
-        <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-6">Willkommen</p>
+        <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-6">{t('Willkommen', 'Welcome')}</p>
         <h1 className="font-display text-5xl md:text-6xl leading-tight tracking-tight mb-6">
-          Wer bist Du<span className="text-[var(--brand-accent,#D2563E)]"> &</span><br/>
-          <em className="font-display">was brauchst Du?</em>
+          {t('Wer bist Du', 'Who are you')}<span className="text-[var(--brand-accent,#D2563E)]"> &</span><br/>
+          <em className="font-display">{t('was brauchst Du?', 'what do you need?')}</em>
         </h1>
         <p className="font-body text-lg text-[#6B6961] max-w-2xl leading-relaxed">
-          In wenigen Schritten konfigurierst Du Dein CoMod-Setup, siehst die Kosten, die Monatsrate und kannst direkt ein unverbindliches Angebot anfordern.
+          {t('In wenigen Schritten konfigurierst Du Dein CoMod-Setup, siehst die Kosten, die Monatsrate und kannst direkt ein unverbindliches Angebot anfordern.', 'In a few steps you configure your CoMod setup, see the costs and the monthly rate, and can request a non-binding quote right away.')}
         </p>
         {setLand && (
           <div className="mt-8 flex items-center gap-3 flex-wrap">
-            <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Standort</span>
+            <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">{t('Standort', 'Location')}</span>
             <div className="inline-flex border border-[#1C1C1A]/15 overflow-hidden">
               {[['DE', 'Deutschland'], ['AT', 'Österreich']].map(([code, name]) => (
                 <button key={code} onClick={() => setLand(code)}
@@ -1851,7 +1870,7 @@ function WelcomeStep({ onSelect, land, setLand }) {
                 <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-4">{o.subtitle}</p>
                 <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-6">{o.desc}</p>
                 <div className="flex items-center gap-2 font-body text-sm text-[var(--brand-accent,#D2563E)] opacity-0 group-hover:opacity-100 transition-opacity mt-auto">
-                  Weiter <ArrowRight className="w-4 h-4" />
+                  {t('Weiter', 'Continue')} <ArrowRight className="w-4 h-4" />
                 </div>
               </div>
             </button>
@@ -1860,7 +1879,7 @@ function WelcomeStep({ onSelect, land, setLand }) {
       </div>
       <div className="mt-16 pt-8 border-t border-[#1C1C1A]/10 flex items-center gap-3 text-sm font-body text-[#6B6961]">
         <Sparkles className="w-4 h-4 text-[#7B2D8E]" strokeWidth={1.5} />
-        <span>Unverbindliche Modellrechnung zur ersten Orientierung — alle Zahlen sind Indikationen, keine zugesicherten Werte.</span>
+        <span>{t('Unverbindliche Modellrechnung zur ersten Orientierung — alle Zahlen sind Indikationen, keine zugesicherten Werte.', 'Non-binding model calculation for initial guidance — all figures are indicative, not guaranteed values.')}</span>
       </div>
     </div>
   );
@@ -1868,22 +1887,22 @@ function WelcomeStep({ onSelect, land, setLand }) {
 
 function PrivatModeStep({ onSelectMode, onBack }) {
   const options = [
-    { id: 'eigen', icon: MapPin, title: 'Eigenes Grundstück', subtitle: 'Module auf Deiner Fläche',
-      desc: 'Du hast oder planst ein eigenes Grundstück. Du bekommst Modulpreise plus die einmaligen Pflicht-Projektkosten.' },
-    { id: 'projekt', icon: FolderOpen, title: 'Einem CoMod-Projekt anschließen', subtitle: 'Mit Rabatten und Quartiers-Vorteilen',
-      desc: 'Du wirst Teil eines unserer kuratierten Projekte. Mit Projektrabatt, geringerer Umlage und ggf. Einnahmen aus Gemeinschaftsmodulen.' },
+    { id: 'eigen', icon: MapPin, title: t('Eigenes Grundstück', 'Own plot'), subtitle: t('Module auf Deiner Fläche', 'Modules on your land'),
+      desc: t('Du hast oder planst ein eigenes Grundstück. Du bekommst Modulpreise plus die einmaligen Pflicht-Projektkosten.', 'You have or are planning your own plot. You get module prices plus the one-off mandatory project costs.') },
+    { id: 'projekt', icon: FolderOpen, title: t('Einem CoMod-Projekt anschließen', 'Join a CoMod project'), subtitle: t('Mit Rabatten und Quartiers-Vorteilen', 'With discounts and neighbourhood benefits'),
+      desc: t('Du wirst Teil eines unserer kuratierten Projekte. Mit Projektrabatt, geringerer Umlage und ggf. Einnahmen aus Gemeinschaftsmodulen.', 'You become part of one of our curated projects — with a project discount, lower shared costs and potential income from community modules.') },
   ];
   return (
     <div className="max-w-5xl mx-auto px-8 py-12">
       <button onClick={onBack} className="font-body text-sm text-[#6B6961] hover:text-[#1C1C1A] flex items-center gap-1.5 mb-8 transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Zurück
+        <ChevronLeft className="w-4 h-4" /> {t('Zurück', 'Back')}
       </button>
-      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Privatkunde</p>
+      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">{t('Privatkunde', 'Private customer')}</p>
       <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">
-        Wo sollen Deine <em>Module</em> stehen<span className="opacity-40"> …</span>
+        {t('Wo sollen Deine', 'Where should your')} <em>{t('Module', 'modules')}</em> {t('stehen', 'go')}<span className="opacity-40"> …</span>
       </h1>
       <p className="font-body text-base text-[#6B6961] mb-10 max-w-2xl">
-        Du hast zwei Wege: eigenes Grundstück oder einem unserer kuratierten Projekte beitreten.
+        {t('Du hast zwei Wege: eigenes Grundstück oder einem unserer kuratierten Projekte beitreten.', 'You have two options: your own plot, or joining one of our curated projects.')}
       </p>
       <div className="grid md:grid-cols-2 gap-5">
         {options.map(o => {
@@ -1898,7 +1917,7 @@ function PrivatModeStep({ onSelectMode, onBack }) {
               <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-4">{o.subtitle}</p>
               <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-6">{o.desc}</p>
               <div className="flex items-center gap-2 font-body text-sm text-[var(--brand-accent,#D2563E)] opacity-0 group-hover:opacity-100 transition-opacity">
-                Auswählen <ArrowRight className="w-4 h-4" />
+                {t('Auswählen', 'Select')} <ArrowRight className="w-4 h-4" />
               </div>
             </button>
           );
@@ -8625,6 +8644,9 @@ export default function App() {
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [step]);
   const [customerType, setCustomerType] = useState(null);
   const [land, setLand] = useState('DE'); // Länderschalter für den Direkt-Pfad (ohne Projekt); Projekt erbt project.land
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem('comod_lang') === 'en' ? 'en' : 'de'; } catch { return 'de'; }
+  });
   const [privatMode, setPrivatMode] = useState(null);
   const [project, setProject] = useState(null);
   const [gewerbConfig, setGewerbConfig] = useState(EMPTY_GEWERB_CONFIG);
@@ -8677,6 +8699,8 @@ export default function App() {
   // intern denselben Satz — konsistent in beiden Fällen.
   const activeLand = (project && project.land) || land;
   UST = getCountry(activeLand).ust;
+  LANG = lang; // aktive Sprache global setzen, damit t() überall den aktuellen Wert liest
+  useEffect(() => { try { localStorage.setItem('comod_lang', lang); } catch { /* ignore */ } }, [lang]);
 
   const totals = useMemo(() => calculateTotals({
     selections, modes, project, gewerbConfig: effectiveGewerbConfig,
@@ -9014,7 +9038,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#F8F5F0] text-[#1C1C1A] font-body">
       <FontStyles />
-      <Header step={Math.floor(step)} onJump={jumpToStep} view={view} setView={setView} brandLogoUrl={brand?.logoUrl} />
+      <Header step={Math.floor(step)} onJump={jumpToStep} view={view} setView={setView} brandLogoUrl={brand?.logoUrl} lang={lang} setLang={setLang} />
 
       {view === 'admin' ? <AdminGate authUser={authUser} authProfile={authProfile} />
         : step === 0 ? <WelcomeStep onSelect={handleTypeSelect} land={land} setLand={setLand} />
