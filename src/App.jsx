@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.166';
+const APP_VERSION = '0.9.167';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -2554,7 +2554,7 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
     <div className="mt-4 pt-4 border-t border-[#1C1C1A]/8 space-y-3">
       {showGroesse && (
         <div>
-          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">Größe</p>
+          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Größe', 'Size')}</p>
           <div className="flex gap-1.5 flex-wrap">
             {groessen.map(g => (
               <button key={g} onClick={() => setSelectedVariant({...selectedVariant, groesse: g})}
@@ -2567,7 +2567,7 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
       )}
       {showKueche && (
         <div>
-          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">Küche</p>
+          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Küche', 'Kitchen')}</p>
           <div className="flex gap-1.5 flex-wrap">
             {kuechen.map(k => (
               <button key={k} onClick={() => setSelectedVariant({...selectedVariant, kueche: k})}
@@ -2580,12 +2580,12 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
       )}
       {hasMoebliert && (
         <div>
-          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">Möblierung</p>
+          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Möblierung', 'Furnishing')}</p>
           <div className="flex gap-1.5 flex-wrap">
             <button onClick={() => setSelectedVariant({...selectedVariant, moebliert: false})}
-              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Ohne Möbel</button>
+              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>{t('Ohne Möbel', 'Unfurnished')}</button>
             <button onClick={() => setSelectedVariant({...selectedVariant, moebliert: true})}
-              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === true ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>Möbliert</button>
+              className={`px-3 py-1.5 font-body text-xs border transition-colors ${selectedVariant.moebliert === true ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>{t('Möbliert', 'Furnished')}</button>
           </div>
         </div>
       )}
@@ -2597,15 +2597,15 @@ function AvailabilityToggle({ product, mode, onChange }) {
   if (!isModeToggleable(product)) return null;
   return (
     <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
-      <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">Nutzung dieses Moduls</p>
+      <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">{t('Nutzung dieses Moduls', 'Use of this module')}</p>
       <div className="flex gap-1">
         <button onClick={() => onChange('eigennutzung')}
           className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${mode === 'eigennutzung' ? 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-          <Gift className="w-3 h-3" strokeWidth={2} /> Eigennutzung
+          <Gift className="w-3 h-3" strokeWidth={2} /> {t('Eigennutzung', 'Own use')}
         </button>
         <button onClick={() => onChange('einnahmen')}
           className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${mode === 'einnahmen' ? 'bg-[#7B2D8E] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-          <TrendingUp className="w-3 h-3" strokeWidth={2} /> Vermietung
+          <TrendingUp className="w-3 h-3" strokeWidth={2} /> {t('Vermietung', 'Renting')}
         </button>
       </div>
     </div>
@@ -2701,7 +2701,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           <div className="absolute top-0 right-0 w-[96px] h-[96px] overflow-hidden pointer-events-none z-10">
             <span className="absolute font-body text-[9px] tracking-[0.12em] uppercase text-white text-center"
               style={{ backgroundColor: '#7B2D8E', width: '136px', padding: '3px 0', top: '18px', right: '-34px', transform: 'rotate(45deg)', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
-              Gewerblich
+              {t('Gewerblich', 'Commercial')}
             </span>
           </div>
         )}
@@ -2714,42 +2714,42 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           );
         })()}
         {familyTotal > 0 && (
-          <span className="absolute top-3 left-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} gewählt</span>
+          <span className="absolute top-3 left-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} {t('gewählt', 'selected')}</span>
         )}
       </div>
       <div className="p-6 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1">
         <div className="mb-4">
           <h4 className="font-display text-xl leading-tight mb-1">CoMod Add</h4>
-          <p className="font-body text-xs text-[#6B6961] leading-snug">Ergänzungsmodul leer — z. B. Hobby, Lager, Praxis, Büro</p>
+          <p className="font-body text-xs text-[#6B6961] leading-snug">{t('Ergänzungsmodul leer — z. B. Hobby, Lager, Praxis, Büro', 'Empty add-on module — e.g. hobby, storage, practice, office')}</p>
         </div>
 
         {/* Privat / Gewerblich Toggle — nur wenn beide Nutzungsarten Ergänzungsmodule haben */}
         {hasP && hasG && (
         <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
-          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">Nutzung & Finanzierung</p>
+          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">{t('Nutzung & Finanzierung', 'Use & financing')}</p>
           <div className="flex gap-1">
             <button onClick={() => switchUsage('p')}
               className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${usageState === 'p' ? 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-              <Home className="w-3 h-3" strokeWidth={2} /> Privat genutzt
+              <Home className="w-3 h-3" strokeWidth={2} /> {t('Privat genutzt', 'Private use')}
             </button>
             <button onClick={() => switchUsage('g')}
               className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${usageState === 'g' ? 'bg-[#7B2D8E] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-              <Briefcase className="w-3 h-3" strokeWidth={2} /> Gewerblich genutzt
+              <Briefcase className="w-3 h-3" strokeWidth={2} /> {t('Gewerblich genutzt', 'Commercial use')}
             </button>
           </div>
           <p className="font-body text-[11px] text-[#6B6961] mt-1.5 leading-snug">
-            {usageState === 'p' ? 'Z. B. Hobby-Werkstatt, Gartenhaus. Brutto-Preis, KfW/GLS-Finanzierung.' : 'Z. B. Lager, Büro, Praxis. Netto-Preis, Gewerbe-Finanzierung mit Steuervorteilen.'}
+            {usageState === 'p' ? t('Z. B. Hobby-Werkstatt, Gartenhaus. Brutto-Preis, KfW/GLS-Finanzierung.', 'E.g. hobby workshop, garden house. Gross price, KfW/GLS financing.') : t('Z. B. Lager, Büro, Praxis. Netto-Preis, Gewerbe-Finanzierung mit Steuervorteilen.', 'E.g. storage, office, practice. Net price, commercial financing with tax benefits.')}
           </p>
           {otherFamilyTotal > 0 && (
             <p className="font-body text-[11px] text-[var(--brand-accent,#D2563E)] mt-1.5 leading-snug">
-              + {otherFamilyTotal} {otherFamilyTotal === 1 ? 'Modul' : 'Module'} in der {usageState === 'p' ? 'gewerblichen' : 'privaten'} Nutzungsart (bleibt erhalten)
+              + {otherFamilyTotal} {otherFamilyTotal === 1 ? t('Modul','module') : t('Module','modules')} {t('in der', 'in the')} {usageState === 'p' ? t('gewerblichen','commercial') : t('privaten','private')} {t('Nutzungsart (bleibt erhalten)', 'use type (kept)')}
             </p>
           )}
         </div>
         )}
 
         <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
-          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">Größe</p>
+          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Größe', 'Size')}</p>
           <div className="flex gap-1.5 flex-wrap">
             {[12, 24, 32].map(g => (
               <button key={g} onClick={() => setGroesse(g)}
@@ -2762,7 +2762,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 
         <div className="flex items-end justify-between gap-4 pt-4 mt-4 border-t border-[#1C1C1A]/8">
           <div className="space-y-1 text-xs font-body">
-            <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
+            <p className="text-[11px] text-[#6B6961]">{t('Aktuelle Auswahl:', 'Current selection:')}</p>
             <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
             <div className="flex gap-4 pt-0.5">
               <div className="leading-tight">
@@ -2776,18 +2776,18 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
               {calcModulEinheiten(product) > 1 && (
                 <div className="leading-tight">
                   <div className="num text-xs text-[#7B2D8E]">{calcModulEinheiten(product)}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">Einheiten</div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">{t('Einheiten', 'Units')}</div>
                 </div>
               )}
               {Array.isArray(product.stackLevels) && product.stackLevels.length > 1 && (
-                <div className="leading-tight" title="Gestapeltes Modul">
+                <div className="leading-tight" title={t("Gestapeltes Modul", "Stacked module")}>
                   <div className="num text-xs text-[#7B2D8E] flex items-center gap-1"><Layers className="w-3 h-3" strokeWidth={2}/>{product.stackLevels.length}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">Ebenen</div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">{t('Ebenen', 'Levels')}</div>
                 </div>
               )}
             </div>
             <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
-            <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis</p>
+            <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">{t('Modulpreis', 'Module price')}</p>
           </div>
           <div className="flex items-center gap-2">
             {count > 0 ? (
@@ -2805,7 +2805,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
               </>
             ) : (
               <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] transition-colors">
-                <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Hinzufügen
+                <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('Hinzufügen', 'Add')}
               </button>
             )}
           </div>
@@ -2813,13 +2813,13 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 
         {familyTotal > count && (
           <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
-            <p className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] mb-1.5">Alle Größen in dieser Familie</p>
+            <p className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] mb-1.5">{t('Alle Größen in dieser Familie', 'All sizes in this family')}</p>
             <div className="space-y-1">
               {products.filter(p => (selections[p.kuerzel] || 0) > 0).map(p => (
                 <div key={p.kuerzel} className="flex justify-between gap-2 font-body text-xs">
                   <span className="text-[#6B6961]">{selections[p.kuerzel]}× <span className="text-[#1C1C1A]">{getDisplayName(p)}</span></span>
                   <button onClick={() => setSelections(prev => { const n = {...prev}; delete n[p.kuerzel]; return n; })}
-                    className="text-[#6B6961] hover:text-[#C5392E] transition-colors text-[10px]">entfernen</button>
+                    className="text-[#6B6961] hover:text-[#C5392E] transition-colors text-[10px]">{t('entfernen', 'remove')}</button>
                 </div>
               ))}
             </div>
@@ -2911,7 +2911,7 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
           <div className="absolute top-0 right-0 w-[96px] h-[96px] overflow-hidden pointer-events-none z-10">
             <span className="absolute font-body text-[9px] tracking-[0.12em] uppercase text-white text-center"
               style={{ backgroundColor: '#7B2D8E', width: '136px', padding: '3px 0', top: '18px', right: '-34px', transform: 'rotate(45deg)', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
-              Gewerblich
+              {t('Gewerblich', 'Commercial')}
             </span>
           </div>
         )}
@@ -2923,7 +2923,7 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
             : <ModuleIcon nuf={product.nuf} />;
         })()}
         {familyTotal > 0 && (
-          <span className="absolute top-3 left-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} gewählt</span>
+          <span className="absolute top-3 left-3 font-body text-[10px] tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[#F8F5F0] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] px-2 py-0.5 num">{familyTotal} {t('gewählt', 'selected')}</span>
         )}
       </div>
 
@@ -2934,19 +2934,19 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
 
         {canToggle && (
           <div className="mb-3 pb-3 border-b border-[#1C1C1A]/8">
-            <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">Nutzung &amp; Finanzierung</p>
+            <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">{t('Nutzung & Finanzierung', 'Use & financing')}</p>
             <div className="flex gap-1">
               <button onClick={() => switchTwinUsage('p')}
                 className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${effUsage === 'p' ? 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-                <Home className="w-3 h-3" strokeWidth={2} /> Privat genutzt
+                <Home className="w-3 h-3" strokeWidth={2} /> {t('Privat genutzt', 'Private use')}
               </button>
               <button onClick={() => switchTwinUsage('g')}
                 className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${effUsage === 'g' ? 'bg-[#7B2D8E] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-                <Briefcase className="w-3 h-3" strokeWidth={2} /> Gewerblich genutzt
+                <Briefcase className="w-3 h-3" strokeWidth={2} /> {t('Gewerblich genutzt', 'Commercial use')}
               </button>
             </div>
             <p className="font-body text-[11px] text-[#6B6961] mt-1.5 leading-snug">
-              {effUsage === 'p' ? 'Eigennutzung zum Wohnen. Brutto-Preis, KfW/GLS-Finanzierung.' : 'Z. B. Büro/Praxis für die Selbstständigkeit. Netto-Preis, Gewerbe-Finanzierung mit Steuervorteilen.'}
+              {effUsage === 'p' ? t('Eigennutzung zum Wohnen. Brutto-Preis, KfW/GLS-Finanzierung.', 'Owner-occupied living. Gross price, KfW/GLS financing.') : t('Z. B. Büro/Praxis für die Selbstständigkeit. Netto-Preis, Gewerbe-Finanzierung mit Steuervorteilen.', 'E.g. office/practice for self-employment. Net price, commercial financing with tax benefits.')}
             </p>
           </div>
         )}
@@ -2956,13 +2956,13 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
 
         {familyTotal > count && (
           <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
-            <p className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] mb-1.5">Alle Varianten in dieser Familie</p>
+            <p className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] mb-1.5">{t('Alle Varianten in dieser Familie', 'All variants in this family')}</p>
             <div className="space-y-1">
               {products.filter(p => (selections[p.kuerzel] || 0) > 0).map(p => (
                 <div key={p.kuerzel} className="flex justify-between gap-2 font-body text-xs">
                   <span className="text-[#6B6961]">{selections[p.kuerzel]}× <span className="text-[#1C1C1A]">{getDisplayName(p)}</span></span>
                   <button onClick={() => setSelections(prev => { const n = {...prev}; delete n[p.kuerzel]; return n; })}
-                    className="text-[#6B6961] hover:text-[#C5392E] transition-colors text-[10px]">entfernen</button>
+                    className="text-[#6B6961] hover:text-[#C5392E] transition-colors text-[10px]">{t('entfernen', 'remove')}</button>
                 </div>
               ))}
             </div>
@@ -2978,7 +2978,7 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
             <div className="mt-3 px-3 py-2 bg-[#7B2D8E]/10 border border-[#7B2D8E]/25 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5 text-[#7B2D8E]" strokeWidth={2} />
-                <span className="font-body text-xs text-[#1C1C1A]">Mieteinnahmen-Indikation / Monat</span>
+                <span className="font-body text-xs text-[#1C1C1A]">{t('Mieteinnahmen-Indikation / Monat', 'Indicative rental income / month')}</span>
               </div>
               <span className="font-display text-sm num text-[#1C1C1A]">{fmtEUR(product.einnahmen)}</span>
             </div>
@@ -2987,7 +2987,7 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
           {/* Preis + Hinzufügen — immer bündig ganz unten */}
           <div className="flex items-end justify-between gap-4 pt-4 mt-3 border-t border-[#1C1C1A]/10">
             <div className="space-y-1 text-xs font-body">
-              <p className="text-[11px] text-[#6B6961]">Aktuelle Auswahl:</p>
+              <p className="text-[11px] text-[#6B6961]">{t('Aktuelle Auswahl:', 'Current selection:')}</p>
               <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
               <div className="flex gap-4 pt-0.5">
                 <div className="leading-tight">
@@ -3001,18 +3001,18 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
                 {calcModulEinheiten(product) > 1 && (
                   <div className="leading-tight">
                     <div className="num text-xs text-[#7B2D8E]">{calcModulEinheiten(product)}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">Einheiten</div>
+                    <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">{t('Einheiten', 'Units')}</div>
                   </div>
                 )}
                 {Array.isArray(product.stackLevels) && product.stackLevels.length > 1 && (
-                  <div className="leading-tight" title="Gestapeltes Modul">
+                  <div className="leading-tight" title={t("Gestapeltes Modul", "Stacked module")}>
                     <div className="num text-xs text-[#7B2D8E] flex items-center gap-1"><Layers className="w-3 h-3" strokeWidth={2}/>{product.stackLevels.length}</div>
-                    <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">Ebenen</div>
+                    <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">{t('Ebenen', 'Levels')}</div>
                   </div>
                 )}
               </div>
               <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
-              <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">Modulpreis</p>
+              <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">{t('Modulpreis', 'Module price')}</p>
             </div>
             <div className="flex items-center gap-2">
               {count > 0 ? (
@@ -3030,7 +3030,7 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
                 </>
               ) : (
                 <button onClick={() => adjust(1)} className="font-body text-sm flex items-center gap-1.5 px-4 py-2 border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] transition-colors">
-                  <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> Hinzufügen
+                  <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('Hinzufügen', 'Add')}
                 </button>
               )}
             </div>
@@ -3682,16 +3682,16 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
     return (
       <div className="bg-white border border-[#1C1C1A]/10 p-7">
         <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-          <h3 className="font-display text-2xl">Hausbankfinanzierung (privat)</h3>
-          <span className="font-body text-xs tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-2 py-1">{totals.countPrivat} Modul{totals.countPrivat > 1 ? 'e' : ''}</span>
+          <h3 className="font-display text-2xl">{t('Hausbankfinanzierung (privat)', 'Bank financing (private)')}</h3>
+          <span className="font-body text-xs tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-2 py-1">{totals.countPrivat} {totals.countPrivat > 1 ? t('Module', 'modules') : t('Modul', 'module')}</span>
         </div>
         <p className="font-body text-sm text-[#6B6961] mb-6">
-          Allgemeine Bankfinanzierung mit <span className="font-medium">Ballonrate</span>: Nur der Betrag abzüglich Restwert wird über die Laufzeit getilgt. Der Restwert bleibt als Schlussrate offen und lässt sich am Laufzeitende ablösen, anschlussfinanzieren oder über Mietkauf gestalten.
+          {t('Allgemeine Bankfinanzierung mit', 'General bank financing with a')} <span className="font-medium">{t('Ballonrate', 'balloon payment')}</span>{t(': Nur der Betrag abzüglich Restwert wird über die Laufzeit getilgt. Der Restwert bleibt als Schlussrate offen und lässt sich am Laufzeitende ablösen, anschlussfinanzieren oder über Mietkauf gestalten.', ': only the amount minus the residual value is repaid over the term. The residual value stays open as a final payment and can be settled, refinanced or arranged via hire-purchase at the end of the term.')}
         </p>
 
         {!hideUpgrades && (
         <div className="mb-6">
-          <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Optionale Upgrades</p>
+          <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">{t('Optionale Upgrades', 'Optional upgrades')}</p>
           <div className="space-y-2">
             {PRIVAT_UPGRADES.map(opt => {
               const aktiv = !!privatOptionen[opt.id];
@@ -3705,7 +3705,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between gap-2">
                       <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
-                      <span className="font-body text-sm num text-[#6B6961]">{countPrivat > 0 ? fmtEUR(kosten) : `${fmtEUR(opt.proModul)}/Modul`}</span>
+                      <span className="font-body text-sm num text-[#6B6961]">{countPrivat > 0 ? fmtEUR(kosten) : `${fmtEUR(opt.proModul)}${t('/Modul', '/module')}`}</span>
                     </div>
                     <p className="font-body text-[11px] text-[#6B6961] mt-0.5">{opt.hint}</p>
                   </div>
@@ -3717,22 +3717,22 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
         )}
 
         <div className="bg-[#F8F5F0] border border-[#1C1C1A]/8 p-4 mb-6 font-body text-sm space-y-1.5">
-          <div className="flex justify-between"><span className="text-[#6B6961]">Auftragswert privat (inkl. ant. Projektkosten)</span><span className="num">{fmtEUR(totals.effPrivat)}</span></div>
-          {upgrades > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>+ optionale Upgrades</span><span className="num">+{fmtEUR(upgrades)}</span></div>}
-          <div className="flex justify-between"><span className="text-[#6B6961]">− Eigenkapital</span><span className="num">−{fmtEUR(ekPrivat)}</span></div>
-          <div className="flex justify-between text-[#7B2D8E]"><span>− Restwert (Schlussrate, {fmtPct(hb.restwertPct)})</span><span className="num">−{fmtEUR(totals.hausbankRestwertEUR)}</span></div>
-          <div className="flex justify-between pt-1.5 border-t border-[#1C1C1A]/10 font-display text-base"><span>= Finanzierungsbasis</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.hausbankBasis)}</span></div>
+          <div className="flex justify-between"><span className="text-[#6B6961]">{t('Auftragswert privat (inkl. ant. Projektkosten)', 'Private order value (incl. pro-rata project costs)')}</span><span className="num">{fmtEUR(totals.effPrivat)}</span></div>
+          {upgrades > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>+ {t('optionale Upgrades', 'optional upgrades')}</span><span className="num">+{fmtEUR(upgrades)}</span></div>}
+          <div className="flex justify-between"><span className="text-[#6B6961]">− {t('Eigenkapital', 'Equity')}</span><span className="num">−{fmtEUR(ekPrivat)}</span></div>
+          <div className="flex justify-between text-[#7B2D8E]"><span>− {t('Restwert (Schlussrate,', 'Residual (final payment,')} {fmtPct(hb.restwertPct)})</span><span className="num">−{fmtEUR(totals.hausbankRestwertEUR)}</span></div>
+          <div className="flex justify-between pt-1.5 border-t border-[#1C1C1A]/10 font-display text-base"><span>= {t('Finanzierungsbasis', 'Financing base')}</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.hausbankBasis)}</span></div>
         </div>
 
         <div className="space-y-6">
-          <Slider label="Zinssatz" value={hb.zins} onChange={v => setFinancing(f => ({...f, hausbank: {...(f.hausbank || FIN_DEFAULTS.hausbank), zins: v}}))} min={0.02} max={0.10} step={0.0025} format={fmtPct} hint="Bonitätsabhängig, 2–10 % (Default 5 %)" />
-          <Slider label="Laufzeit" value={hb.laufzeit} onChange={v => setFinancing(f => ({...f, hausbank: {...(f.hausbank || FIN_DEFAULTS.hausbank), laufzeit: v}}))} min={10} max={25} step={1} format={v => `${v} Jahre`} hint="10–25 Jahre (Default 15)" />
-          <Slider label="Restwert (Ballon-Schlussrate)" value={hb.restwertPct} onChange={v => setFinancing(f => ({...f, hausbank: {...(f.hausbank || FIN_DEFAULTS.hausbank), restwertPct: v}}))} min={0} max={0.60} step={0.05} format={fmtPct} hint="Bleibt am Laufzeitende offen (Default 40 %)" />
+          <Slider label={t('Zinssatz', 'Interest rate')} value={hb.zins} onChange={v => setFinancing(f => ({...f, hausbank: {...(f.hausbank || FIN_DEFAULTS.hausbank), zins: v}}))} min={0.02} max={0.10} step={0.0025} format={fmtPct} hint={t('Bonitätsabhängig, 2–10 % (Default 5 %)', 'Depends on creditworthiness, 2–10 % (default 5 %)')} />
+          <Slider label={t('Laufzeit', 'Term')} value={hb.laufzeit} onChange={v => setFinancing(f => ({...f, hausbank: {...(f.hausbank || FIN_DEFAULTS.hausbank), laufzeit: v}}))} min={10} max={25} step={1} format={v => `${v} ${t('Jahre', 'years')}`} hint={t('10–25 Jahre (Default 15)', '10–25 years (default 15)')} />
+          <Slider label={t('Restwert (Ballon-Schlussrate)', 'Residual (balloon payment)')} value={hb.restwertPct} onChange={v => setFinancing(f => ({...f, hausbank: {...(f.hausbank || FIN_DEFAULTS.hausbank), restwertPct: v}}))} min={0} max={0.60} step={0.05} format={fmtPct} hint={t('Bleibt am Laufzeitende offen (Default 40 %)', 'Stays open at the end of the term (default 40 %)')} />
           <div className="pt-4 border-t border-[#1C1C1A]/10">
-            <FieldLabel required={false} hint="Reduziert den zu finanzierenden Betrag">Eigenkapital</FieldLabel>
+            <FieldLabel required={false} hint={t('Reduziert den zu finanzierenden Betrag', 'Reduces the amount to be financed')}>{t('Eigenkapital', 'Equity')}</FieldLabel>
             <div className="flex items-baseline justify-between mb-2 mt-2">
               <span className="font-display text-base num text-[var(--brand-accent,#D2563E)]">{fmtEUR(ekPrivat)}</span>
-              <span className="font-body text-xs text-[#6B6961]">max. {fmtEUR(ekMax)}</span>
+              <span className="font-body text-xs text-[#6B6961]">{t('max.', 'max.')} {fmtEUR(ekMax)}</span>
             </div>
             <input type="range" min={0} max={ekMax || 1} step={1000} value={Math.min(ekPrivat, ekMax)} disabled={ekMax === 0}
               onChange={e => setEkPrivat(parseInt(e.target.value, 10))} className="w-full" />
@@ -3745,21 +3745,21 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
         </div>
 
         <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 space-y-1.5">
-          <div className="flex justify-between font-display text-base"><span>Hausbank-Monatsrate</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.hausbankRate)}</span></div>
+          <div className="flex justify-between font-display text-base"><span>{t('Hausbank-Monatsrate', 'Bank monthly rate')}</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.hausbankRate)}</span></div>
           {totals.hausbankRestwertEUR > 0 && (
-            <div className="flex justify-between font-body text-sm text-[#7B2D8E]"><span>+ Schlussrate am Laufzeitende ({fmtPct(hb.restwertPct)})</span><span className="num">{fmtEUR(totals.hausbankRestwertEUR)}</span></div>
+            <div className="flex justify-between font-body text-sm text-[#7B2D8E]"><span>+ {t('Schlussrate am Laufzeitende', 'Final payment at end of term')} ({fmtPct(hb.restwertPct)})</span><span className="num">{fmtEUR(totals.hausbankRestwertEUR)}</span></div>
           )}
         </div>
 
         <div className="mt-5 bg-[#FBF7EF] border border-[#7B2D8E]/30 p-4 flex gap-3 items-start">
           <Info className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} />
           <div className="space-y-1.5">
-            <p className="font-body text-sm text-[#1C1C1A] font-medium">Finanzierungspartner</p>
+            <p className="font-body text-sm text-[#1C1C1A] font-medium">{t('Finanzierungspartner', 'Financing partner')}</p>
             <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
-              Wir helfen gerne bei der Suche nach einem optimalen Finanzierungspartner — auf Wunsch auch mit <span className="font-medium">Leasing oder Mietkauf</span>. Die Schlussrate (Restwert) lässt sich am Laufzeitende ablösen, anschlussfinanzieren oder über Mietkauf gestalten.
+              {t('Wir helfen gerne bei der Suche nach einem optimalen Finanzierungspartner — auf Wunsch auch mit', 'We are happy to help you find the right financing partner — if you wish, also via')} <span className="font-medium">{t('Leasing oder Mietkauf', 'leasing or hire-purchase')}</span>. {t('Die Schlussrate (Restwert) lässt sich am Laufzeitende ablösen, anschlussfinanzieren oder über Mietkauf gestalten.', 'The final payment (residual) can be settled, refinanced or arranged via hire-purchase at the end of the term.')}
             </p>
             <p className="font-body text-xs text-[#6B6961] leading-relaxed italic">
-              Die hier gezeigten Werte dienen der Orientierung. Die passende Finanzierungsstruktur besprechen wir gerne persönlich mit Dir.
+              {t('Die hier gezeigten Werte dienen der Orientierung. Die passende Finanzierungsstruktur besprechen wir gerne persönlich mit Dir.', 'The values shown here are for guidance. We are happy to discuss the right financing structure with you personally.')}
             </p>
           </div>
         </div>
@@ -3772,40 +3772,40 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
       {/* KfW-Panel */}
       <div className="bg-white border border-[#1C1C1A]/10 p-7">
         <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-          <h3 className="font-display text-2xl">1. KfW-Förderung (privat)</h3>
-          <span className="font-body text-xs tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-2 py-1">{totals.countPrivat} Modul{totals.countPrivat > 1 ? 'e' : ''}</span>
+          <h3 className="font-display text-2xl">{t('1. KfW-Förderung (privat)', '1. KfW subsidy (private)')}</h3>
+          <span className="font-body text-xs tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-2 py-1">{totals.countPrivat} {totals.countPrivat > 1 ? t('Module','modules') : t('Modul','module')}</span>
         </div>
         <p className="font-body text-sm text-[#6B6961] mb-7">
-          Tilgungszuschuss-fähige Förderung der KfW für energieeffizientes Wohnen — bis 150.000 € pro Modul. Der Tilgungsnachlass reduziert den effektiv zurückzuzahlenden Betrag.
+          {t('Tilgungszuschuss-fähige Förderung der KfW für energieeffizientes Wohnen — bis 150.000 € pro Modul. Der Tilgungsnachlass reduziert den effektiv zurückzuzahlenden Betrag.', 'KfW subsidy with a repayment rebate for energy-efficient living — up to €150,000 per module. The repayment rebate reduces the amount you actually pay back.')}
         </p>
         <div className="space-y-6">
-          <Slider label="KfW Förderhöhe je Modul" value={financing.kfw.foerderhoehe} onChange={v => setFinancing(f => ({...f, kfw: {...f.kfw, foerderhoehe: v}}))} min={100000} max={150000} step={5000} format={fmtEUR} hint="Programm variiert — aktuell max. 150.000 €" />
-          <Slider label="KfW Zinssatz" value={financing.kfw.zins} onChange={v => setFinancing(f => ({...f, kfw: {...f.kfw, zins: v}}))} min={0.02} max={0.03} step={0.0025} format={fmtPct} hint="Aktuell 2–3 % bonitätsabhängig" />
-          <Slider label="KfW Laufzeit" value={financing.kfw.laufzeit} onChange={v => setFinancing(f => ({...f, kfw: {...f.kfw, laufzeit: v}}))} min={10} max={35} step={1} format={v => `${v} Jahre`} />
-          <Slider label="Tilgungsnachlass" value={financing.kfw.tilgungsnachlass} onChange={v => setFinancing(f => ({...f, kfw: {...f.kfw, tilgungsnachlass: v}}))} min={0.10} max={0.15} step={0.01} format={fmtPct} hint="10–15 % je nach Effizienzklasse" />
+          <Slider label={t('KfW Förderhöhe je Modul', 'KfW subsidy per module')} value={financing.kfw.foerderhoehe} onChange={v => setFinancing(f => ({...f, kfw: {...f.kfw, foerderhoehe: v}}))} min={100000} max={150000} step={5000} format={fmtEUR} hint={t('Programm variiert — aktuell max. 150.000 €', 'Programme varies — currently max. €150,000')} />
+          <Slider label={t('KfW Zinssatz', 'KfW interest rate')} value={financing.kfw.zins} onChange={v => setFinancing(f => ({...f, kfw: {...f.kfw, zins: v}}))} min={0.02} max={0.03} step={0.0025} format={fmtPct} hint={t('Aktuell 2–3 % bonitätsabhängig', 'Currently 2–3 %, depending on creditworthiness')} />
+          <Slider label={t('KfW Laufzeit', 'KfW term')} value={financing.kfw.laufzeit} onChange={v => setFinancing(f => ({...f, kfw: {...f.kfw, laufzeit: v}}))} min={10} max={35} step={1} format={v => `${v} ${t('Jahre','years')}`} />
+          <Slider label={t('Tilgungsnachlass', 'Repayment rebate')} value={financing.kfw.tilgungsnachlass} onChange={v => setFinancing(f => ({...f, kfw: {...f.kfw, tilgungsnachlass: v}}))} min={0.10} max={0.15} step={0.01} format={fmtPct} hint={t('10–15 % je nach Effizienzklasse', '10–15 % depending on efficiency class')} />
         </div>
         <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 space-y-1.5 font-body text-sm">
-          <div className="flex justify-between"><span className="text-[#6B6961]">KfW-Förderbetrag gesamt</span><span className="num">{fmtEUR(totals.kfwBasis)}</span></div>
-          <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>davon Tilgungsnachlass ({fmtPct(financing.kfw.tilgungsnachlass)})</span><span className="num">−{fmtEUR(totals.kfwBasis * financing.kfw.tilgungsnachlass)}</span></div>
-          <div className="flex justify-between pt-2 border-t border-[#1C1C1A]/10"><span className="text-[#1C1C1A]">Zurückzuzahlender Betrag</span><span className="num">{fmtEUR(totals.kfwBasis * (1 - financing.kfw.tilgungsnachlass))}</span></div>
-          <div className="flex justify-between font-display text-base pt-2"><span>KfW-Monatsrate</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.kfwRate)}</span></div>
+          <div className="flex justify-between"><span className="text-[#6B6961]">{t('KfW-Förderbetrag gesamt', 'Total KfW subsidy')}</span><span className="num">{fmtEUR(totals.kfwBasis)}</span></div>
+          <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>{t('davon Tilgungsnachlass', 'of which repayment rebate')} ({fmtPct(financing.kfw.tilgungsnachlass)})</span><span className="num">−{fmtEUR(totals.kfwBasis * financing.kfw.tilgungsnachlass)}</span></div>
+          <div className="flex justify-between pt-2 border-t border-[#1C1C1A]/10"><span className="text-[#1C1C1A]">{t('Zurückzuzahlender Betrag', 'Amount to repay')}</span><span className="num">{fmtEUR(totals.kfwBasis * (1 - financing.kfw.tilgungsnachlass))}</span></div>
+          <div className="flex justify-between font-display text-base pt-2"><span>{t('KfW-Monatsrate', 'KfW monthly rate')}</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.kfwRate)}</span></div>
         </div>
       </div>
 
       {/* GLS-Panel */}
       <div className="bg-white border border-[#1C1C1A]/10 p-7">
         <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-          <h3 className="font-display text-2xl">2. GLS Bank (Restfinanzierung)</h3>
-          <span className="font-body text-xs tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-2 py-1">10 J · fix</span>
+          <h3 className="font-display text-2xl">{t('2. GLS Bank (Restfinanzierung)', '2. GLS Bank (remaining financing)')}</h3>
+          <span className="font-body text-xs tracking-wider uppercase text-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-2 py-1">{t('10 J · fix', '10 yrs · fixed')}</span>
         </div>
         <p className="font-body text-sm text-[#6B6961] mb-5">
-          Der Auftragswert abzüglich KfW-Förderhöhe und Eigenkapital — zuzüglich optionaler Upgrades — wird über die GLS Bank finanziert.
+          {t('Der Auftragswert abzüglich KfW-Förderhöhe und Eigenkapital — zuzüglich optionaler Upgrades — wird über die GLS Bank finanziert.', 'The order value less the KfW subsidy and equity — plus optional upgrades — is financed via GLS Bank.')}
         </p>
 
         {/* Optionale Upgrades (Feedback V4) — im Projekt-Beitritt ausgeblendet, da bereits in der Umlage enthalten */}
         {!hideUpgrades && (
         <div className="mb-6">
-          <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">Optionale Upgrades</p>
+          <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-3">{t('Optionale Upgrades', 'Optional upgrades')}</p>
           <div className="space-y-2">
             {PRIVAT_UPGRADES.map(opt => {
               const aktiv = !!privatOptionen[opt.id];
@@ -3819,7 +3819,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between gap-2">
                       <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
-                      <span className="font-body text-sm num text-[#6B6961]">{countPrivat > 0 ? fmtEUR(kosten) : `${fmtEUR(opt.proModul)}/Modul`}</span>
+                      <span className="font-body text-sm num text-[#6B6961]">{countPrivat > 0 ? fmtEUR(kosten) : `${fmtEUR(opt.proModul)}${t('/Modul','/module')}`}</span>
                     </div>
                     <p className="font-body text-[11px] text-[#6B6961] mt-0.5">{opt.hint}</p>
                   </div>
@@ -3829,24 +3829,24 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
           </div>
           {totals.privatOptionenKosten > 0 && (
             <p className="font-body text-xs text-[var(--brand-accent,#D2563E)] mt-2 text-right">
-              Upgrades gesamt: <span className="num font-medium">{fmtEUR(totals.privatOptionenKosten)}</span> → fließen in GLS-Finanzierung
+              {t('Upgrades gesamt:', 'Upgrades total:')} <span className="num font-medium">{fmtEUR(totals.privatOptionenKosten)}</span> → {t('fließen in GLS-Finanzierung', 'added to GLS financing')}
             </p>
           )}
         </div>
         )}
 
         <div className="bg-[#F8F5F0] border border-[#1C1C1A]/8 p-4 mb-6 font-body text-sm space-y-1.5">
-          <div className="flex justify-between"><span className="text-[#6B6961]">Auftragswert privat (inkl. ant. Projektkosten)</span><span className="num">{fmtEUR(totals.effPrivat)}</span></div>
-          <div className="flex justify-between"><span className="text-[#6B6961]">− KfW-Förderhöhe</span><span className="num">−{fmtEUR(totals.kfwBasis)}</span></div>
-          {totals.privatOptionenKosten > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>+ optionale Upgrades</span><span className="num">+{fmtEUR(totals.privatOptionenKosten)}</span></div>}
-          <div className="flex justify-between"><span className="text-[#6B6961]">− Eigenkapital</span><span className="num">−{fmtEUR(ekPrivat)}</span></div>
-          <div className="flex justify-between pt-1.5 border-t border-[#1C1C1A]/10 font-display text-base"><span>= GLS-Basis</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.glsBasis)}</span></div>
+          <div className="flex justify-between"><span className="text-[#6B6961]">{t('Auftragswert privat (inkl. ant. Projektkosten)', 'Private order value (incl. pro-rata project costs)')}</span><span className="num">{fmtEUR(totals.effPrivat)}</span></div>
+          <div className="flex justify-between"><span className="text-[#6B6961]">− {t('KfW-Förderhöhe', 'KfW subsidy amount')}</span><span className="num">−{fmtEUR(totals.kfwBasis)}</span></div>
+          {totals.privatOptionenKosten > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>+ {t('optionale Upgrades', 'optional upgrades')}</span><span className="num">+{fmtEUR(totals.privatOptionenKosten)}</span></div>}
+          <div className="flex justify-between"><span className="text-[#6B6961]">− {t('Eigenkapital', 'Equity')}</span><span className="num">−{fmtEUR(ekPrivat)}</span></div>
+          <div className="flex justify-between pt-1.5 border-t border-[#1C1C1A]/10 font-display text-base"><span>= {t('GLS-Basis', 'GLS base')}</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.glsBasis)}</span></div>
         </div>
         <div className="space-y-6">
-          <Slider label="GLS Zinssatz" value={financing.gls.zins} onChange={v => setFinancing(f => ({...f, gls: {...f.gls, zins: v}}))} min={0.04} max={0.06} step={0.0025} format={fmtPct} hint="Üblicher Bereich 4–6 %" />
+          <Slider label={t('GLS Zinssatz', 'GLS interest rate')} value={financing.gls.zins} onChange={v => setFinancing(f => ({...f, gls: {...f.gls, zins: v}}))} min={0.04} max={0.06} step={0.0025} format={fmtPct} hint={t('Üblicher Bereich 4–6 %', 'Typical range 4–6 %')} />
           <div className="pt-4 border-t border-[#1C1C1A]/10">
             <div className="flex justify-between items-baseline mb-2 gap-2">
-              <FieldLabel required={false} hint="Reduziert den über die GLS Bank zu finanzierenden Betrag">Eigenkapital</FieldLabel>
+              <FieldLabel required={false} hint={t('Reduziert den über die GLS Bank zu finanzierenden Betrag', 'Reduces the amount financed via GLS Bank')}>{t('Eigenkapital', 'Equity')}</FieldLabel>
             </div>
             {(() => {
               // EK-Maximum: der GLS-finanzierbare Teil (Auftragswert über KfW-Förderung + optionale Upgrades)
@@ -3873,7 +3873,7 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
                   </div>
                   {ekMax === 0 && (
                     <p className="font-body text-[11px] text-[#6B6961] mt-2 italic">
-                      Dein Auftragswert liegt vollständig in der KfW-Förderung — Eigenkapital ist hier nicht erforderlich.
+                      {t('Dein Auftragswert liegt vollständig in der KfW-Förderung — Eigenkapital ist hier nicht erforderlich.', 'Your order value is fully covered by the KfW subsidy — equity is not required here.')}
                     </p>
                   )}
                 </>
@@ -3882,23 +3882,23 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
           </div>
           <div className="flex items-center gap-2 px-3 py-2.5 bg-[#1C1C1A]/3 border border-[#1C1C1A]/10 font-body text-xs text-[#6B6961]">
             <Info className="w-3.5 h-3.5" strokeWidth={1.5} />
-            <span>Laufzeit fix bei 10 Jahren</span>
+            <span>{t('Laufzeit fix bei 10 Jahren', 'Term fixed at 10 years')}</span>
           </div>
         </div>
         <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 flex justify-between font-display text-base">
-          <span>GLS-Monatsrate</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.glsRate)}</span>
+          <span>{t('GLS-Monatsrate', 'GLS monthly rate')}</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.glsRate)}</span>
         </div>
 
         {/* Info-Hinweis zur Hausbank-Option */}
         <div className="mt-5 bg-[#FBF7EF] border border-[#7B2D8E]/30 p-4 flex gap-3 items-start">
           <Info className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} />
           <div className="space-y-1.5">
-            <p className="font-body text-sm text-[#1C1C1A] font-medium">Gut zu wissen</p>
+            <p className="font-body text-sm text-[#1C1C1A] font-medium">{t('Gut zu wissen', 'Good to know')}</p>
             <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
-              Die GLS Bank finanziert dieses Modellprojekt mit <span className="font-medium">10 Jahren Laufzeit</span>. Bei höheren Restbeträgen lassen sich die monatlichen Raten flexibel gestalten — z.&nbsp;B. durch eine höhere Anzahlung oder eine zusätzliche Finanzierung über Deine Hausbank.
+              {t('Die GLS Bank finanziert dieses Modellprojekt mit 10 Jahren Laufzeit. Bei höheren Restbeträgen lassen sich die monatlichen Raten flexibel gestalten — z. B. durch eine höhere Anzahlung oder eine zusätzliche Finanzierung über Deine Hausbank.', 'GLS Bank finances this model project over a 10-year term. For higher remaining amounts, the monthly rates can be structured flexibly — e.g. via a larger down payment or additional financing through your own bank.')}
             </p>
             <p className="font-body text-xs text-[#6B6961] leading-relaxed italic">
-              Die hier gezeigten Werte dienen der Orientierung. Die passende Finanzierungsstruktur besprechen wir gerne persönlich mit Dir.
+              {t('Die hier gezeigten Werte dienen der Orientierung. Die passende Finanzierungsstruktur besprechen wir gerne persönlich mit Dir.', 'The values shown here are for guidance. We are happy to discuss the right financing structure with you personally.')}
             </p>
           </div>
         </div>
@@ -3917,7 +3917,7 @@ function GewerblichFinanzPanel({ totals, financing, setFinancing }) {
       <p className="font-body text-sm text-[#6B6961] mb-7 num">Effektive Kosten netto {fmtEUR(totals.effGewerbNetto)}</p>
       <div className="space-y-6">
         <Slider label="Zinssatz" value={financing.plattform.zins} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, zins: v}}))} min={0.03} max={0.10} step={0.0025} format={fmtPct} hint="Bonitätsabhängig, 3–10 % möglich (Default 5,5 %)" />
-        <Slider label="Laufzeit" value={financing.plattform.laufzeit} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, laufzeit: v}}))} min={5} max={10} step={1} format={v => `${v} Jahre`} hint="Max. 10 Jahre — nur Verkürzung möglich" />
+        <Slider label="Laufzeit" value={financing.plattform.laufzeit} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, laufzeit: v}}))} min={5} max={10} step={1} format={v => `${v} ${t('Jahre','years')}`} hint="Max. 10 Jahre — nur Verkürzung möglich" />
         <Slider label="Restwert am Laufzeitende" value={financing.plattform.restwertPct} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, restwertPct: v}}))} min={0} max={0.5} step={0.05} format={fmtPct} />
       </div>
       <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 space-y-1.5 font-body text-sm">
@@ -4281,22 +4281,22 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
   return (
     <div className="max-w-7xl mx-auto px-8 py-12">
       <button onClick={onBack} className="font-body text-sm text-[#6B6961] hover:text-[#1C1C1A] flex items-center gap-1.5 mb-8 transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Zurück
+        <ChevronLeft className="w-4 h-4" /> {t('Zurück', 'Back')}
       </button>
-      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Schritt 3 von 4</p>
+      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">{t('Schritt 3 von 4', 'Step 3 of 4')}</p>
       <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">
-        Wie möchtest Du <em>finanzieren</em><span className="opacity-40"> …</span>
+        {t('Wie möchtest Du', 'How would you like to')} <em>{t('finanzieren', 'finance')}</em><span className="opacity-40"> …</span>
       </h1>
       <p className="font-body text-base text-[#6B6961] mb-10 max-w-2xl">
-        Wir zeigen Dir typische Finanzierungswege sowie die laufenden Neben- und Verbrauchskosten als Richtwerte.
+        {t('Wir zeigen Dir typische Finanzierungswege sowie die laufenden Neben- und Verbrauchskosten als Richtwerte.', 'We show you typical financing options as well as the ongoing ancillary and utility costs as guide values.')}
       </p>
 
       {/* Länderschalter — nur im Direkt-Pfad (ohne Projekt). Projekte tragen ihr Land selbst. */}
       {!project && setLand && (
         <div className="mb-8 flex items-center gap-3 flex-wrap">
-          <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Land / Steuerregime</span>
+          <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">{t('Land / Steuerregime', 'Country / tax regime')}</span>
           <div className="inline-flex border border-[#1C1C1A]/15 overflow-hidden">
-            {[['DE', 'Deutschland'], ['AT', 'Österreich']].map(([code, name]) => (
+            {[['DE', t('Deutschland','Germany')], ['AT', t('Österreich','Austria')]].map(([code, name]) => (
               <button key={code} onClick={() => setLand(code)}
                 className={`px-4 py-2 font-body text-sm transition-colors ${land === code ? 'bg-[#1C1C1A] text-[#F8F5F0]' : 'bg-white text-[#1C1C1A] hover:bg-[#1C1C1A]/5'}`}>
                 {name}
@@ -4305,8 +4305,8 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
           </div>
           <span className="font-body text-[11px] text-[#6B6961] italic">
             {land === 'AT'
-              ? 'Österreich: 20 % USt und Hausbankfinanzierung (Ballonrate) statt KfW/GLS. Gewerbe-Steuerlogik (KöSt/IFB) folgt.'
-              : 'Deutschland: 19 % USt, KfW + GLS, deutsche Steuerlogik.'}
+              ? t('Österreich: 20 % USt und Hausbankfinanzierung (Ballonrate) statt KfW/GLS. Gewerbe-Steuerlogik (KöSt/IFB) folgt.', 'Austria: 20 % VAT and bank financing (balloon) instead of KfW/GLS. Commercial tax logic (KöSt/IFB) to follow.')
+              : t('Deutschland: 19 % USt, KfW + GLS, deutsche Steuerlogik.', 'Germany: 19 % VAT, KfW + GLS, German tax logic.')}
           </span>
         </div>
       )}
@@ -4315,7 +4315,7 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
         <div className="mb-8 bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] p-5 flex gap-3 items-start">
           <Info className="w-5 h-5 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={1.5} />
           <p className="font-body text-sm text-[#1C1C1A]/80">
-            <span className="text-[#1C1C1A] font-medium">Mischfinanzierung erkannt.</span> {totals.countPrivat} private und {totals.countGewerb} gewerbliche Module — beide Finanzierungswege werden parallel gezeigt. Die gewerblichen Module bieten zusätzlich Steuervorteile.
+            <span className="text-[#1C1C1A] font-medium">{t('Mischfinanzierung erkannt.', 'Mixed financing detected.')}</span> {totals.countPrivat} {t('private und', 'private and')} {totals.countGewerb} {t('gewerbliche Module — beide Finanzierungswege werden parallel gezeigt. Die gewerblichen Module bieten zusätzlich Steuervorteile.', 'commercial modules — both financing paths are shown in parallel. The commercial modules additionally offer tax benefits.')}
           </p>
         </div>
       )}
@@ -4328,24 +4328,24 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
           {totals.serviceOptional && totals.serviceProM2 > 0 && (
             <div className="bg-white border border-[#A87DAE]/40 p-5 sm:p-7">
               <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-                <h3 className="font-display text-xl sm:text-2xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#7B2D8E]" strokeWidth={1.5} />Service &amp; Sicherheit</h3>
-                <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">optional</span>
+                <h3 className="font-display text-xl sm:text-2xl flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#7B2D8E]" strokeWidth={1.5} />{t('Service & Sicherheit', 'Service & security')}</h3>
+                <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">{t('optional', 'optional')}</span>
               </div>
               <p className="font-body text-sm text-[#6B6961] mb-4">
-                Unser monatliches Rundum-Paket: Service &amp; Nutzung, Sicherheit &amp; Sensorik, Versicherungen &amp; Schutz, Instandhaltung &amp; Rücklagen — Betreuung, Verwaltung, Versicherung und Wartung über unsere Partner. Ohne das Paket kümmerst Du Dich selbst darum.
+                {t('Unser monatliches Rundum-Paket: Service & Nutzung, Sicherheit & Sensorik, Versicherungen & Schutz, Instandhaltung & Rücklagen — Betreuung, Verwaltung, Versicherung und Wartung über unsere Partner. Ohne das Paket kümmerst Du Dich selbst darum.', 'Our monthly all-round package: service & use, security & sensors, insurance & protection, maintenance & reserves — support, administration, insurance and maintenance via our partners. Without the package you take care of this yourself.')}
               </p>
               <div className="flex gap-2 mb-3">
                 <button onClick={() => setServiceSelected(true)}
-                  className={`flex-1 px-3 py-2.5 font-body text-sm border transition-colors ${serviceSelected ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] ring-1 ring-[#7B2D8E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Mit Service-Paket</button>
+                  className={`flex-1 px-3 py-2.5 font-body text-sm border transition-colors ${serviceSelected ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] ring-1 ring-[#7B2D8E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>{t('Mit Service-Paket', 'With service package')}</button>
                 <button onClick={() => setServiceSelected(false)}
-                  className={`flex-1 px-3 py-2.5 font-body text-sm border transition-colors ${!serviceSelected ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ohne Service</button>
+                  className={`flex-1 px-3 py-2.5 font-body text-sm border transition-colors ${!serviceSelected ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>{t('Ohne Service', 'Without service')}</button>
               </div>
               <div className="flex justify-between items-baseline text-sm font-body pt-3 border-t border-[#1C1C1A]/8">
-                <span className="text-[#6B6961]">{serviceSelected ? 'Im laufenden Betrag enthalten' : 'Nicht enthalten'}</span>
-                <span className="num text-[#7B2D8E]">{serviceSelected ? `+ ${fmtEUR(totals.serviceMonat)} / Mt.` : '0 € / Mt.'}</span>
+                <span className="text-[#6B6961]">{serviceSelected ? t('Im laufenden Betrag enthalten', 'Included in the ongoing amount') : t('Nicht enthalten', 'Not included')}</span>
+                <span className="num text-[#7B2D8E]">{serviceSelected ? `+ ${fmtEUR(totals.serviceMonat)} / ${t('Mt.','mo')}` : `0 € / ${t('Mt.','mo')}`}</span>
               </div>
               {!serviceSelected && (
-                <p className="font-body text-[11px] text-[#6B6961] italic mt-2">Ohne Service-Paket entfällt die laufende Betreuung durch CoMod. Details klären wir im persönlichen Angebot.</p>
+                <p className="font-body text-[11px] text-[#6B6961] italic mt-2">{t('Ohne Service-Paket entfällt die laufende Betreuung durch CoMod. Details klären wir im persönlichen Angebot.', 'Without the service package, ongoing support by CoMod does not apply. We clarify the details in the personal quote.')}</p>
               )}
             </div>
           )}
@@ -4356,21 +4356,21 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
         <aside className="lg:w-96 lg:shrink-0">
           <div className="lg:sticky lg:top-24 bg-[#1C1C1A] text-[#F8F5F0] p-5 sm:p-6">
             <p className="font-body text-xs tracking-[0.3em] uppercase opacity-70 mb-2">
-              {totals.istInvestor ? 'Investmentrechnung' : (totals.hasIncome ? 'Wirtschaftlichkeit' : 'Deine Monatsrate')}
+              {totals.istInvestor ? t('Investmentrechnung','Investment calculation') : (totals.hasIncome ? t('Wirtschaftlichkeit','Economics') : t('Deine Monatsrate','Your monthly rate'))}
             </p>
-            <h3 className="font-display text-xl mb-5">Monatlich</h3>
+            <h3 className="font-display text-xl mb-5">{t('Monatlich', 'Monthly')}</h3>
 
             <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
-              <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-3">Finanzierung im Detail</p>
+              <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-3">{t('Finanzierung im Detail', 'Financing in detail')}</p>
               <dl className="space-y-2 text-sm font-body">
                 {hasPrivat && <>
-                  <div className="flex justify-between"><dt className="opacity-70">KfW-Rate</dt><dd className="num">{fmtEUR(totals.kfwRate)}</dd></div>
-                  <div className="flex justify-between"><dt className="opacity-70">GLS-Rate</dt><dd className="num">{fmtEUR(totals.glsRate)}</dd></div>
+                  <div className="flex justify-between"><dt className="opacity-70">{t('KfW-Rate','KfW rate')}</dt><dd className="num">{fmtEUR(totals.kfwRate)}</dd></div>
+                  <div className="flex justify-between"><dt className="opacity-70">{t('GLS-Rate','GLS rate')}</dt><dd className="num">{fmtEUR(totals.glsRate)}</dd></div>
                 </>}
                 {hasGewerb && <>
-                  <div className="flex justify-between"><dt className="opacity-70">Plattform (brutto)</dt><dd className="num">{fmtEUR(totals.plattformRate)}</dd></div>
+                  <div className="flex justify-between"><dt className="opacity-70">{t('Plattform (brutto)','Platform (gross)')}</dt><dd className="num">{fmtEUR(totals.plattformRate)}</dd></div>
                   {totals.steuerentlastung > 0 && (
-                    <div className="flex justify-between text-[#7FB069]"><dt className="opacity-90">− Steuervorteile</dt><dd className="num">−{fmtEUR(totals.steuerentlastung)}</dd></div>
+                    <div className="flex justify-between text-[#7FB069]"><dt className="opacity-90">− {t('Steuervorteile','tax benefits')}</dt><dd className="num">−{fmtEUR(totals.steuerentlastung)}</dd></div>
                   )}
                 </>}
               </dl>
@@ -4380,20 +4380,20 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
             {/* Variante A: Misch- oder reiner Privatkunde — Aufteilung Privat / Gewerblich */}
             {totals.hatPrivatAnteil && (
               <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-3">Monatsrate</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-3">{t('Monatsrate', 'Monthly rate')}</p>
                 <dl className="space-y-2.5 text-sm font-body">
                   <div className="flex justify-between items-baseline">
-                    <dt className="opacity-80">Monatsrate privat <span className="opacity-70 text-xs">({totals.loanLabel})</span></dt>
+                    <dt className="opacity-80">{t('Monatsrate privat', 'Monthly rate private')} <span className="opacity-70 text-xs">({totals.loanLabel})</span></dt>
                     <dd className="font-display text-lg num">{fmtEUR(totals.privatFinanzierungMonat)}</dd>
                   </div>
                   {totals.hatGewerbModule && (
                     <div className="flex justify-between items-baseline">
-                      <dt className="opacity-80">Monatsrate gewerblich <span className="opacity-70 text-xs">(nach Steuer)</span></dt>
+                      <dt className="opacity-80">{t('Monatsrate gewerblich','Monthly rate commercial')} <span className="opacity-70 text-xs">({t('nach Steuer','after tax')})</span></dt>
                       <dd className="font-display text-lg num">{fmtEUR(totals.gewerblichRateNachSteuer)}</dd>
                     </div>
                   )}
                   <div className="flex justify-between items-baseline pt-2.5 border-t border-[#F8F5F0]/10">
-                    <dt className="font-body text-xs uppercase tracking-wider opacity-70">Summe Monatsrate</dt>
+                    <dt className="font-body text-xs uppercase tracking-wider opacity-70">{t('Summe Monatsrate','Total monthly rate')}</dt>
                     <dd className="font-display text-2xl num">{fmtEUR(totals.belastungFinanzierungEff)}</dd>
                   </div>
                 </dl>
@@ -4403,10 +4403,10 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
             {/* Variante B & C: rein gewerblich — eine konsolidierte Finanzierungs-Belastung */}
             {!totals.hatPrivatAnteil && totals.hatGewerbModule && (
               <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5">Monatsrate gewerblich <span className="opacity-70">(nach Steuer)</span></p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5">{t('Monatsrate gewerblich','Monthly rate commercial')} <span className="opacity-70">({t('nach Steuer','after tax')})</span></p>
                 <p className="font-display text-3xl num">{fmtEUR(totals.gewerblichRateNachSteuer)}</p>
                 {totals.steuerentlastung > 0 && (
-                  <p className="font-body text-[10px] opacity-70 mt-0.5">inkl. AfA &amp; Zins-Abzug</p>
+                  <p className="font-body text-[10px] opacity-70 mt-0.5">{t('inkl. AfA & Zins-Abzug','incl. depreciation & interest deduction')}</p>
                 )}
               </div>
             )}
@@ -4416,25 +4416,25 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
               const nk = totals.nebenkosten || {};
               const pacht = nk.pachtMonat || 0;
               const fixPosten = (nk.posten || []).filter(po => po.typ === 'fix');
-              const titel = totals.isPureGewerb ? 'Laufende Fix-Kosten' : 'Service- & Sicherheitspaket';
+              const titel = totals.isPureGewerb ? t('Laufende Fix-Kosten','Ongoing fixed costs') : t('Service- & Sicherheitspaket','Service & security package');
               return (
                 <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
                   <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Repeat className="w-3 h-3" strokeWidth={2}/> {titel}</p>
                   <p className="font-display text-xl num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</p>
                   <details className="group mt-1.5">
                     <summary className="cursor-pointer list-none flex items-center gap-1 font-body text-[10px] uppercase tracking-wider opacity-70 hover:opacity-100">
-                      <ChevronRight className="w-3 h-3 transition-transform group-open:rotate-90" strokeWidth={2} /> Details anzeigen
+                      <ChevronRight className="w-3 h-3 transition-transform group-open:rotate-90" strokeWidth={2} /> {t('Details anzeigen','Show details')}
                     </summary>
                     <dl className="mt-2 space-y-1 text-xs font-body">
                       {pacht > 0 && (
-                        <div className="flex justify-between opacity-80"><dt>Pacht-Umlage</dt><dd className="num">{fmtEUR(pacht)}</dd></div>
+                        <div className="flex justify-between opacity-80"><dt>{t('Pacht-Umlage','Lease share')}</dt><dd className="num">{fmtEUR(pacht)}</dd></div>
                       )}
                       {totals.serviceActive && fixPosten.map(po => (
                         <div key={po.id} className="flex justify-between opacity-80"><dt>{po.label}</dt><dd className="num">{fmtEUR(po.proM2 * totals.gesamtNUF)}</dd></div>
                       ))}
-                      <div className="flex justify-between pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><dt className="opacity-90">Summe / Monat</dt><dd className="num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</dd></div>
+                      <div className="flex justify-between pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><dt className="opacity-90">{t('Summe / Monat','Total / month')}</dt><dd className="num text-[#A87DAE]">{fmtEUR(totals.laufendeKostenMonat)}</dd></div>
                     </dl>
-                    <p className="font-body text-[10px] opacity-60 mt-1.5 italic">Richtwerte je {fmtNum(totals.gesamtNUF)} m² NUF — im Backend pflegbar.</p>
+                    <p className="font-body text-[10px] opacity-60 mt-1.5 italic">{t('Richtwerte je','Guide values per')} {fmtNum(totals.gesamtNUF)} m² {t('NUF — im Backend pflegbar.','usable area — editable in the backend.')}</p>
                   </details>
                 </div>
               );
@@ -4443,7 +4443,7 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
             {/* Mieteinnahmen */}
             {totals.hasIncome && (
               <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> Mieteinnahmen-Indikation / Monat</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2} /> {t('Mieteinnahmen-Indikation / Monat','Indicative rental income / month')}</p>
                 <p className="font-display text-3xl num text-[#A87DAE]">+ {fmtEUR(totals.monthlyIncomeNetto)}</p>
               </div>
             )}
@@ -4452,30 +4452,30 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
             {totals.gmCount > 0 && (
               <details className="pb-4 mb-4 border-b border-[#F8F5F0]/15 group" open>
                 <summary className="flex items-center justify-between cursor-pointer list-none mb-2">
-                  <p className="font-body text-sm uppercase tracking-wider opacity-90 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" strokeWidth={2} /> Gemeinschaftsmodule im Projekt</p>
+                  <p className="font-body text-sm uppercase tracking-wider opacity-90 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" strokeWidth={2} /> {t('Gemeinschaftsmodule im Projekt','Community modules in the project')}</p>
                   <ChevronRight className="w-4 h-4 opacity-65 transition-transform group-open:rotate-90" strokeWidth={2} />
                 </summary>
 
                 <div className="space-y-1 mb-3">
-                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1">Vom Projekt bereitgestellt</p>
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1">{t('Vom Projekt bereitgestellt','Provided by the project')}</p>
                   {totals.gmItems.map((it, i) => (
                     <div key={i} className="flex justify-between font-body text-sm opacity-80"><span><span className="num">{it.anzahl}×</span> {it.displayName}</span></div>
                   ))}
-                  <div className="flex justify-between font-body text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span className="opacity-75">Gesamtkosten (brutto)</span><span className="num">{fmtEUR(totals.gmKostenGesamtBrutto)}</span></div>
+                  <div className="flex justify-between font-body text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span className="opacity-75">{t('Gesamtkosten (brutto)','Total cost (gross)')}</span><span className="num">{fmtEUR(totals.gmKostenGesamtBrutto)}</span></div>
                 </div>
 
                 {/* Einmalig: Mehrkosten vs. Ersparnis */}
                 <div className="bg-[#F8F5F0]/5 p-3 mb-3">
-                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1.5">Einmalig — deine Bilanz ({totals.countTotal} {totals.countTotal === 1 ? 'Modul' : 'Module'})</p>
-                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">+ Umlage Projektkosten</span><span className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</span></div>
-                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">+ Umlage Gemeinschaftsmodule</span><span className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</span></div>
-                  <div className="flex justify-between font-body text-sm text-[#7FB069]"><span>− Ersparnis Mengenrabatt</span><span className="num">−{fmtEUR(totals.mengenrabattErsparnis)}</span></div>
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1.5">{t('Einmalig — deine Bilanz','One-off — your balance')} ({totals.countTotal} {totals.countTotal === 1 ? t('Modul','module') : t('Module','modules')})</p>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">+ {t('Umlage Projektkosten','project cost share')}</span><span className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">+ {t('Umlage Gemeinschaftsmodule','community module share')}</span><span className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</span></div>
+                  <div className="flex justify-between font-body text-sm text-[#7FB069]"><span>− {t('Ersparnis Mengenrabatt','volume discount saving')}</span><span className="num">−{fmtEUR(totals.mengenrabattErsparnis)}</span></div>
                   {(() => {
                     const netMehr = totals.countTotal * totals.umlageProModul + totals.countTotal * totals.gmKostenProModulBrutto - totals.mengenrabattErsparnis;
                     const istErsparnis = netMehr < 0;
                     return (
                       <div className="flex justify-between font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10">
-                        <span>{istErsparnis ? 'Deine Ersparnis' : 'Netto-Mehrkosten'}</span>
+                        <span>{istErsparnis ? t('Deine Ersparnis','Your saving') : t('Netto-Mehrkosten','Net extra cost')}</span>
                         <span className={`num ${istErsparnis ? 'text-[#7FB069]' : ''}`}>{fmtEUR(Math.abs(netMehr))}</span>
                       </div>
                     );
@@ -4484,14 +4484,14 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
 
                 {/* Laufend: Cashflow der Gemeinschaftsmodule */}
                 <div className="bg-[#F8F5F0]/5 p-3">
-                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1.5">Laufend / Monat — Gemeinschaftsmodule (Projekt gesamt)</p>
-                  <div className="flex justify-between font-body text-sm text-[#A87DAE]"><span>Einnahmen brutto</span><span className="num">+{fmtEUR(totals.gmEinnahmenBruttoMonat)}</span></div>
-                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">− Betreiber-Fee (CoMod)</span><span className="num">−{fmtEUR(totals.gmFeeMonat)}</span></div>
-                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">− Betriebskosten (Pacht, QM, Verbrauch)</span><span className="num">−{fmtEUR(totals.gmBetriebMonat)}</span></div>
-                  <div className="flex justify-between gap-2 font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span>Effektive Gesamteinnahmen durch Gemeinschaftsmodule</span><span className={`num shrink-0 ${totals.gmNettoCashflowMonat >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmNettoCashflowMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmNettoCashflowMonat))}</span></div>
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1.5">{t('Laufend / Monat — Gemeinschaftsmodule (Projekt gesamt)','Ongoing / month — community modules (whole project)')}</p>
+                  <div className="flex justify-between font-body text-sm text-[#A87DAE]"><span>{t('Einnahmen brutto','Gross income')}</span><span className="num">+{fmtEUR(totals.gmEinnahmenBruttoMonat)}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">− {t('Betreiber-Fee (CoMod)','operator fee (CoMod)')}</span><span className="num">−{fmtEUR(totals.gmFeeMonat)}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">− {t('Betriebskosten (Pacht, QM, Verbrauch)','operating costs (lease, QM, utilities)')}</span><span className="num">−{fmtEUR(totals.gmBetriebMonat)}</span></div>
+                  <div className="flex justify-between gap-2 font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10"><span>{t('Effektive Gesamteinnahmen durch Gemeinschaftsmodule','Effective total income from community modules')}</span><span className={`num shrink-0 ${totals.gmNettoCashflowMonat >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmNettoCashflowMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmNettoCashflowMonat))}</span></div>
                   <div className="mt-2 pt-2 border-t border-[#F8F5F0]/10">
-                    <p className="font-body text-[11px] opacity-70">Davon beträgt dein monatlicher Anteil ({totals.countTotal} von {totals.verkaufbareModule} verkaufbaren Modulen)</p>
-                    <p className={`font-display text-2xl num ${totals.gmEinnahmenKunde >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmEinnahmenKunde >= 0 ? '+ ' : '− '}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}<span className="font-body text-xs opacity-70"> / Monat</span></p>
+                    <p className="font-body text-[11px] opacity-70">{t('Davon beträgt dein monatlicher Anteil','Your monthly share of this')} ({totals.countTotal} {t('von','of')} {totals.verkaufbareModule} {t('verkaufbaren Modulen','sellable modules')})</p>
+                    <p className={`font-display text-2xl num ${totals.gmEinnahmenKunde >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmEinnahmenKunde >= 0 ? '+ ' : '− '}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}<span className="font-body text-xs opacity-70"> / {t('Monat','month')}</span></p>
                   </div>
                 </div>
               </details>
@@ -4500,10 +4500,10 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
             {/* Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) — inkl. Mieteinnahmen */}
             {totals.istMAWohnen && (
               <div className="pb-4 mb-4 border-b border-[#F8F5F0]/15">
-                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> {totals.belastungProMA <= 0 ? 'Überschuss je Mitarbeiter' : 'Effektive Belastung pro Mitarbeiter'}</p>
+                <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1 flex items-center gap-1.5"><Users className="w-3 h-3" strokeWidth={2} /> {totals.belastungProMA <= 0 ? t('Überschuss je Mitarbeiter','Surplus per employee') : t('Effektive Belastung pro Mitarbeiter','Effective cost per employee')}</p>
                 <p className={`font-display text-3xl num ${totals.belastungProMA <= 0 ? 'text-[#7FB069]' : ''}`}>{totals.belastungProMA <= 0 ? '+ ' : ''}{fmtEUR(Math.abs(totals.belastungProMA))}</p>
                 <p className="font-body text-[10px] opacity-70 mt-0.5">
-                  Monatsrate abzgl. {totals.hasIncome ? 'Mieteinnahmen und ' : ''}Steuervorteilen, je eigengenutzte Einheit
+                  {t('Monatsrate abzgl.','Monthly rate less')} {totals.hasIncome ? t('Mieteinnahmen und ','rental income and ') : ''}{t('Steuervorteilen, je eigengenutzte Einheit','tax benefits, per owner-used unit')}
                 </p>
               </div>
             )}
@@ -4512,16 +4512,16 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
             <div className="mb-5">
               <p className="font-body text-xs uppercase tracking-wider opacity-70 mb-1">
                 {totals.cashflowPositive
-                  ? (totals.istInvestor ? 'Cashflow / Monat' : 'Überschuss / Monat')
-                  : 'Effektive Monatsrate'}
+                  ? (totals.istInvestor ? t('Cashflow / Monat','Cash flow / month') : t('Überschuss / Monat','Surplus / month'))
+                  : t('Effektive Monatsrate','Effective monthly rate')}
               </p>
               <p className={`font-display text-4xl num ${totals.cashflowPositive ? 'text-[#7FB069]' : ''}`}>
                 {totals.cashflowPositive ? '+' : ''}{fmtEUR(Math.abs(totals.effektiveBelastung))}
               </p>
               {totals.cashflowPositive
-                ? <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" strokeWidth={2.5} /> rechnerisch positiv</p>
+                ? <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1"><Check className="w-3 h-3" strokeWidth={2.5} /> {t('rechnerisch positiv','positive on paper')}</p>
                 : <p className="font-body text-[10px] opacity-70 mt-1.5 leading-relaxed">
-                    Finanzierung {totals.hatGewerbModule ? '(nach Steuer) ' : ''}+ laufende Fixkosten{(totals.hasIncome || totals.gmCount > 0) ? ' − Einnahmen' : ''}
+                    {t('Finanzierung','Financing')} {totals.hatGewerbModule ? t('(nach Steuer) ','(after tax) ') : ''}+ {t('laufende Fixkosten','ongoing fixed costs')}{(totals.hasIncome || totals.gmCount > 0) ? ' − ' + t('Einnahmen','income') : ''}
                   </p>}
             </div>
 
@@ -4531,15 +4531,15 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
                 <summary className="flex items-baseline justify-between gap-2 cursor-pointer list-none">
                   <span className="font-body text-xs uppercase tracking-wider opacity-70 flex items-center gap-1.5">
                     <ChevronRight className="w-3 h-3 shrink-0 transition-transform group-open:rotate-90" strokeWidth={2} />
-                    Verbrauchskostenschätzung
+                    {t('Verbrauchskostenschätzung','Estimated utility costs')}
                   </span>
-                  <span className="font-body text-sm num opacity-70 shrink-0">ca. {fmtEUR(totals.verbrauchskostenMonat)}/Mt.</span>
+                  <span className="font-body text-sm num opacity-70 shrink-0">{t('ca.','approx.')} {fmtEUR(totals.verbrauchskostenMonat)}{t('/Mt.','/mo')}</span>
                 </summary>
-                <p className="font-body text-[10px] opacity-70 mt-2 pl-5">{getContentText('tooltip_verbrauchskosten', 'Strom, Wasser, Heizung — trägt der Bewohner, hängt vom tatsächlichen Verbrauch ab.')}</p>
+                <p className="font-body text-[10px] opacity-70 mt-2 pl-5">{getContentText('tooltip_verbrauchskosten', t('Strom, Wasser, Heizung — trägt der Bewohner, hängt vom tatsächlichen Verbrauch ab.','Electricity, water, heating — paid by the occupant, depends on actual consumption.'), LANG)}</p>
               </details>
             )}
 
-            <Button variant="inverse" onClick={onNext} className="w-full">Unverbindliches Angebot anfragen <ChevronRight className="w-4 h-4" /></Button>
+            <Button variant="inverse" onClick={onNext} className="w-full">{t('Unverbindliches Angebot anfragen','Request a non-binding quote')} <ChevronRight className="w-4 h-4" /></Button>
           </div>
         </aside>
       </div>
