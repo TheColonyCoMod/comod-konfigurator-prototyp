@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.165';
+const APP_VERSION = '0.9.166';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1931,14 +1931,14 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
   return (
     <div className="max-w-5xl mx-auto px-8 py-12">
       <button onClick={onBack} className="font-body text-sm text-[#6B6961] hover:text-[#1C1C1A] flex items-center gap-1.5 mb-8 transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Zurück
+        <ChevronLeft className="w-4 h-4" /> {t('Zurück', 'Back')}
       </button>
-      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Privat — Projekt-Zuordnung</p>
+      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">{t('Privat — Projekt-Zuordnung', 'Private — project assignment')}</p>
       <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">
-        Wähle Dein <em>CoMod-Projekt</em><span className="opacity-40"> …</span>
+        {t('Wähle Dein', 'Choose your')} <em>{t('CoMod-Projekt', 'CoMod project')}</em><span className="opacity-40"> …</span>
       </h1>
       <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">
-        Du wirst Teil eines Quartiers — mit klar definierten Eckdaten, geringeren Umlagen und ggf. Einnahmen aus Gemeinschaftsmodulen.
+        {t('Du wirst Teil eines Quartiers — mit klar definierten Eckdaten, geringeren Umlagen und ggf. Einnahmen aus Gemeinschaftsmodulen.', 'You become part of a neighbourhood — with clearly defined parameters, lower shared costs and potential income from community modules.')}
       </p>
 
       <div className="grid md:grid-cols-2 gap-5">
@@ -1978,27 +1978,27 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
               <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-3">{p.description}</p>
               {p.description2 && <p className="font-body text-xs text-[#7B2D8E] leading-relaxed mb-4 italic">{p.description2}</p>}
               <div className="flex gap-4 mb-4 font-body text-xs text-[#6B6961]">
-                <span><span className="num text-[#1C1C1A]">{p.zielModulAnzahl}</span> Module Zielgröße</span>
+                <span><span className="num text-[#1C1C1A]">{p.zielModulAnzahl}</span> {t('Module Zielgröße', 'modules target')}</span>
                 <span className="opacity-50">·</span>
-                <span>max. <span className="num text-[#1C1C1A]">{p.maxModulAnzahl}</span> möglich</span>
+                <span>{t('max.', 'max.')} <span className="num text-[#1C1C1A]">{p.maxModulAnzahl}</span> {t('möglich', 'possible')}</span>
               </div>
               <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#1C1C1A]/10 mt-auto">
                 <div>
-                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Projektkosten</p>
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">{t('Projektkosten', 'Project costs')}</p>
                   <p className="font-display text-base num">{fmtEUR(p.umlageProModulEinmalig > 0 ? p.umlageProModulEinmalig : calcProjektUmlageProModul(p))}</p>
-                  <p className="font-body text-[10px] text-[#6B6961]">/Modul einm.</p>
+                  <p className="font-body text-[10px] text-[#6B6961]">{t('/Modul einm.', '/module once')}</p>
                 </div>
                 <div>
-                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Rabatt gesamt</p>
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">{t('Rabatt gesamt', 'Total discount')}</p>
                   <p className="font-display text-base num text-[var(--brand-accent,#D2563E)]">{fmtPct(gesamtrabatt)}</p>
-                  <p className="font-body text-[10px] text-[#6B6961]">{fmtPct(mengenrabatt)} Menge + {fmtPct(p.projektrabatt)} Projekt</p>
+                  <p className="font-body text-[10px] text-[#6B6961]">{fmtPct(mengenrabatt)} {t('Menge', 'volume')} + {fmtPct(p.projektrabatt)} {t('Projekt', 'project')}</p>
                 </div>
                 <div>
-                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">Pacht-Umlage</p>
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">{t('Pacht-Umlage', 'Lease share')}</p>
                   {p.pachtJahr > 0 ? (
                     <>
                       <p className="font-display text-base num">{fmtEUR2(p.pachtJahr / (p.zielModulAnzahl || 1) / ZIEL_MODUL_NUF / 12)}</p>
-                    <p className="font-body text-[10px] text-[#6B6961]">/m²/Mt. netto{p.pachtGewerblich ? ` (+${Math.round(UST*100)} % bei privat)` : ''}</p>
+                    <p className="font-body text-[10px] text-[#6B6961]">{t('/m²/Mt. netto', '/m²/mo net')}{p.pachtGewerblich ? ` (+${Math.round(UST*100)} % ${t('bei privat', 'for private')})` : ''}</p>
                   </>
                 ) : <p className="font-display text-base num">—</p>}
               </div>
@@ -2013,24 +2013,24 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
       <div className="mt-10 grid md:grid-cols-2 gap-4">
         <div className="bg-white border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] p-5">
           <p className="font-body text-[11px] uppercase tracking-wider text-[var(--brand-accent,#D2563E)] mb-3 flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5" strokeWidth={2} /> Vorteile
+            <Plus className="w-3.5 h-3.5" strokeWidth={2} /> {t('Vorteile', 'Benefits')}
           </p>
           <ul className="space-y-2 font-body text-sm text-[#1C1C1A]/85 leading-relaxed">
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>Mengenrabatte aus der Gesamtgröße des Projekts</span></li>
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>Zusätzliche Einnahmenpotenziale aus Gemeinschaftsmodulen (Gym, CoWork, Wellness)</span></li>
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>Nutzung der Gemeinschaftsmodule ohne eigene Investition</span></li>
-            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>Wir kümmern uns um Grundstück, Genehmigung & Bauleitung</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>{t('Mengenrabatte aus der Gesamtgröße des Projekts', 'Volume discounts from the overall project size')}</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>{t('Zusätzliche Einnahmenpotenziale aus Gemeinschaftsmodulen (Gym, CoWork, Wellness)', 'Additional income potential from community modules (gym, co-work, wellness)')}</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>{t('Nutzung der Gemeinschaftsmodule ohne eigene Investition', 'Use of the community modules without your own investment')}</span></li>
+            <li className="flex gap-2"><Check className="w-4 h-4 text-[var(--brand-accent,#D2563E)] shrink-0 mt-0.5" strokeWidth={2} /><span>{t('Wir kümmern uns um Grundstück, Genehmigung & Bauleitung', 'We handle the plot, permits & construction management')}</span></li>
           </ul>
         </div>
         <div className="bg-white border border-[#7B2D8E]/30 p-5">
           <p className="font-body text-[11px] uppercase tracking-wider text-[#7B2D8E] mb-3 flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5" strokeWidth={2} /> Zu bedenken
+            <Info className="w-3.5 h-3.5" strokeWidth={2} /> {t('Zu bedenken', 'To consider')}
           </p>
           <ul className="space-y-2 font-body text-sm text-[#1C1C1A]/85 leading-relaxed">
-            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>Höheres Gesamtinvestment durch Anteil an Gemeinschaftsflächen</span></li>
-            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>Höhere einmalige Projektkosten (Architektur, PM) auf alle Beteiligten umgelegt</span></li>
-            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>Laufende Umlagen für Pacht, Gemeinschaftsflächen und Verwaltung</span></li>
-            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>Standort und Ausführung werden gemeinsam mit allen Beteiligten festgelegt</span></li>
+            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>{t('Höheres Gesamtinvestment durch Anteil an Gemeinschaftsflächen', 'Higher total investment due to your share of communal areas')}</span></li>
+            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>{t('Höhere einmalige Projektkosten (Architektur, PM) auf alle Beteiligten umgelegt', 'Higher one-off project costs (architecture, PM) shared across all participants')}</span></li>
+            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>{t('Laufende Umlagen für Pacht, Gemeinschaftsflächen und Verwaltung', 'Ongoing charges for lease, communal areas and administration')}</span></li>
+            <li className="flex gap-2"><span className="text-[#7B2D8E] shrink-0 mt-0.5">·</span><span>{t('Standort und Ausführung werden gemeinsam mit allen Beteiligten festgelegt', 'Location and execution are decided jointly with all participants')}</span></li>
           </ul>
         </div>
       </div>
@@ -2038,7 +2038,7 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
       <div className="mt-6 bg-[#FBF7EF] border border-[#7B2D8E]/30 p-4 flex gap-3 items-start">
         <Info className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} />
         <p className="font-body text-xs text-[#6B6961] leading-relaxed">
-          {getContentText('hinweis_projekt_umlage', 'Alle Umlagen kalkuliert auf die Ziel-Modulanzahl. Wir geben das Projekt erst frei, wenn die Ziel-Modulanzahl erreicht ist. Bei höherer tatsächlicher Auslastung verringern sich Deine Umlagen anteilig — schlechter werden sie nicht.')}
+          {getContentText('hinweis_projekt_umlage', t('Alle Umlagen kalkuliert auf die Ziel-Modulanzahl. Wir geben das Projekt erst frei, wenn die Ziel-Modulanzahl erreicht ist. Bei höherer tatsächlicher Auslastung verringern sich Deine Umlagen anteilig — schlechter werden sie nicht.', 'All charges are calculated on the target number of modules. We only release the project once the target module count is reached. If actual occupancy is higher, your charges decrease proportionally — they never get worse.'), LANG)}
         </p>
       </div>
     </div>
@@ -2047,30 +2047,30 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
 
 function ModulartStep({ onSelect, onBack }) {
   const options = [
-    { id: 'privat', icon: Home, title: 'Private Module',
-      subtitle: 'Wohnen — KfW-förderfähig',
-      desc: 'Wohnmodule für Dich, Deine Familie oder als zusätzliche Wohneinheit. Finanzierung über KfW & GLS mit Tilgungsnachlass.',
-      finanzhinweis: 'KfW + GLS' },
-    { id: 'business', icon: Briefcase, title: 'Module für Dein Business',
-      subtitle: 'Lager, Büro, Praxis, Studio',
-      desc: 'Gewerbliche Module für Selbstständige, Freiberufler oder Investments. Gewerbe-Finanzierung — mit Steuervorteilen wie AfA und Vorsteuerabzug.',
-      finanzhinweis: 'Gewerbe-Finanzierung' },
-    { id: 'beides', icon: Users, title: 'Beides',
-      subtitle: 'Privatwohnen UND Business',
-      desc: 'Z. B. Wohnung für die Familie + Büro oder Praxis. Beide Modul-Arten parallel — mit der jeweils passenden Finanzierungslogik.',
-      finanzhinweis: 'KfW + GLS + Gewerbe-Finanzierung' },
+    { id: 'privat', icon: Home, title: t('Private Module', 'Private modules'),
+      subtitle: t('Wohnen — KfW-förderfähig', 'Living — KfW-eligible'),
+      desc: t('Wohnmodule für Dich, Deine Familie oder als zusätzliche Wohneinheit. Finanzierung über KfW & GLS mit Tilgungsnachlass.', 'Living modules for you, your family or as an additional dwelling. Financed via KfW & GLS with a repayment rebate.'),
+      finanzhinweis: t('KfW + GLS', 'KfW + GLS') },
+    { id: 'business', icon: Briefcase, title: t('Module für Dein Business', 'Modules for your business'),
+      subtitle: t('Lager, Büro, Praxis, Studio', 'Storage, office, practice, studio'),
+      desc: t('Gewerbliche Module für Selbstständige, Freiberufler oder Investments. Gewerbe-Finanzierung — mit Steuervorteilen wie AfA und Vorsteuerabzug.', 'Commercial modules for the self-employed, freelancers or investments. Commercial financing — with tax benefits like depreciation and input-VAT deduction.'),
+      finanzhinweis: t('Gewerbe-Finanzierung', 'Commercial financing') },
+    { id: 'beides', icon: Users, title: t('Beides', 'Both'),
+      subtitle: t('Privatwohnen UND Business', 'Private living AND business'),
+      desc: t('Z. B. Wohnung für die Familie + Büro oder Praxis. Beide Modul-Arten parallel — mit der jeweils passenden Finanzierungslogik.', 'E.g. a home for the family + an office or practice. Both module types in parallel — each with its matching financing logic.'),
+      finanzhinweis: t('KfW + GLS + Gewerbe-Finanzierung', 'KfW + GLS + commercial financing') },
   ];
   return (
     <div className="max-w-6xl mx-auto px-8 py-12">
       <button onClick={onBack} className="font-body text-sm text-[#6B6961] hover:text-[#1C1C1A] flex items-center gap-1.5 mb-8 transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Zurück
+        <ChevronLeft className="w-4 h-4" /> {t('Zurück', 'Back')}
       </button>
-      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Modul-Art</p>
+      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">{t('Modul-Art', 'Module type')}</p>
       <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">
-        Welche <em>Art von Modulen</em><span className="opacity-40"> …</span>
+        {t('Welche', 'Which')} <em>{t('Art von Modulen', 'kind of modules')}</em><span className="opacity-40"> …</span>
       </h1>
       <p className="font-body text-base text-[#6B6961] mb-10 max-w-2xl">
-        Auch auf einem privaten Grundstück oder in einem Projekt lassen sich Wohnmodule und gewerbliche Module kombinieren — die Finanzierung passen wir dann automatisch an.
+        {t('Auch auf einem privaten Grundstück oder in einem Projekt lassen sich Wohnmodule und gewerbliche Module kombinieren — die Finanzierung passen wir dann automatisch an.', 'Living modules and commercial modules can be combined — on a private plot or within a project — and we adjust the financing automatically.')}
       </p>
       <div className="grid md:grid-cols-3 gap-5">
         {options.map(o => {
@@ -3047,7 +3047,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
   // Reiner Gewerbe-Pfad: alle Beträge netto anzeigen (Vorsteuer-Abzug möglich)
   const isPureGewerb = customerType === 'gewerblich';
   // Kategorie-Label: im privaten Pfad heißt "wohnen" → "Wohnmodule" (statt "Mitarbeiterwohnen …")
-  const catLabel = (cid) => (cid === 'wohnen' && customerType === 'privat') ? 'Wohnmodule' : (CATEGORIES[cid]?.label || cid);
+  const catLabel = (cid) => (cid === 'wohnen' && customerType === 'privat') ? t('Wohnmodule', 'Living modules') : (CATEGORIES[cid]?.label || cid);
   const priceMode = isPureGewerb ? 'netto' : 'brutto';
   // Helper: nimmt einen Posten mit { brutto, netto } und gibt den anzuzeigenden Wert
   const showPrice = (item) => isPureGewerb && item?.netto != null ? item.netto : (item?.brutto ?? item);
@@ -3132,18 +3132,18 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
       <div className="flex flex-col lg:flex-row gap-10">
         <div className="flex-1 min-w-0">
           <button onClick={onBack} className="font-body text-sm text-[#6B6961] hover:text-[#1C1C1A] flex items-center gap-1.5 mb-8 transition-colors">
-            <ChevronLeft className="w-4 h-4" /> Zurück
+            <ChevronLeft className="w-4 h-4" /> {t('Zurück', 'Back')}
           </button>
           <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">
-            {project ? `Projekt — ${project.name}` : 'Module wählen'}
+            {project ? `${t('Projekt', 'Project')} — ${project.name}` : t('Module wählen', 'Choose modules')}
             {' · '}
-            {modulart === 'privat' ? 'Private Module' : modulart === 'business' ? 'Business' : 'Privat + Business'}
+            {modulart === 'privat' ? t('Private Module', 'Private modules') : modulart === 'business' ? t('Business', 'Business') : t('Privat + Business', 'Private + Business')}
           </p>
           <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">
-            Wähle Deine <em>Module</em>
+            {t('Wähle Deine', 'Choose your')} <em>{t('Module', 'modules')}</em>
           </h1>
           <p className="font-body text-base text-[#6B6961] mb-6 max-w-2xl">
-            Pro Modulfamilie wählst Du eine Variante (Küche, Möblierung, Größe) und die Anzahl. Du kannst pro Familie auch mehrere Varianten kombinieren.
+            {t('Pro Modulfamilie wählst Du eine Variante (Küche, Möblierung, Größe) und die Anzahl. Du kannst pro Familie auch mehrere Varianten kombinieren.', 'For each module family you choose a variant (kitchen, furnishing, size) and the quantity. You can also combine several variants per family.')}
           </p>
 
           {(() => {
@@ -3162,8 +3162,8 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 <Layers className={`w-4 h-4 shrink-0 ${ueber ? 'text-[#C5392E]' : 'text-[var(--brand-accent,#D2563E)]'}`} strokeWidth={1.5} />
                 <p className="font-body text-xs text-[#1C1C1A]">
                   {ueber
-                    ? <>Du hast <span className="font-medium num">{ist - effZiel}</span> Module mehr gewählt, als im Projekt noch frei sind (noch <span className="num">{effZiel}</span> verfügbar).</>
-                    : <>Noch <span className="font-medium num">{frei}</span> von <span className="num">{sellableTarget}</span> Modulen im Projekt frei{ist > 0 ? <> — Deine aktuelle Auswahl: <span className="num">{ist}</span></> : null}.</>}
+                    ? <>{t('Du hast', 'You selected')} <span className="font-medium num">{ist - effZiel}</span> {t('Module mehr gewählt, als im Projekt noch frei sind (noch', 'more modules than are still free in the project (')}<span className="num">{effZiel}</span> {t('verfügbar).', 'available).')}</>
+                    : <>{t('Noch', 'Still')} <span className="font-medium num">{frei}</span> {t('von', 'of')} <span className="num">{sellableTarget}</span> {t('Modulen im Projekt frei', 'modules free in the project')}{ist > 0 ? <> — {t('Deine aktuelle Auswahl:', 'your current selection:')} <span className="num">{ist}</span></> : null}.</>}
                 </p>
               </div>
             );
@@ -3173,12 +3173,12 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
             <div className="bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] px-4 py-3 mb-6 flex items-center gap-2.5">
               <TrendingUp className="w-4 h-4 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
               <p className="font-body text-xs text-[#1C1C1A]">
-                <span className="font-medium num">{fmtPct(totals.rabattPct)} Rabatt</span> berücksichtigt
+                <span className="font-medium num">{fmtPct(totals.rabattPct)} {t('Rabatt', 'discount')}</span> {t('berücksichtigt', 'applied')}
                 {gewerbConfig && gewerbConfig.zielModulAnzahl > 0
-                  ? <> — basierend auf Deinem Zielwert von <span className="num">{gewerbConfig.zielModulAnzahl}</span> Modulen.</>
+                  ? <> — {t('basierend auf Deinem Zielwert von', 'based on your target of')} <span className="num">{gewerbConfig.zielModulAnzahl}</span> {t('Modulen.', 'modules.')}</>
                   : project && project.zielModulAnzahl > 0
-                    ? <> — Mengen-Rabatt aus dem Gesamt-Projekt ({project.zielModulAnzahl} Module) {project.projektrabatt > 0 && <>+ Projekt-Bonus {fmtPct(project.projektrabatt)}</>}.</>
-                    : <> — basierend auf <span className="num">{totals.countTotal}</span> ausgewählten Modulen.</>}
+                    ? <> — {t('Mengen-Rabatt aus dem Gesamt-Projekt', 'volume discount from the overall project')} ({project.zielModulAnzahl} {t('Module', 'modules')}) {project.projektrabatt > 0 && <>+ {t('Projekt-Bonus', 'project bonus')} {fmtPct(project.projektrabatt)}</>}.</>
+                    : <> — {t('basierend auf', 'based on')} <span className="num">{totals.countTotal}</span> {t('ausgewählten Modulen.', 'selected modules.')}</>}
               </p>
             </div>
           )}
@@ -3186,7 +3186,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
             <div className="bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] px-4 py-3 mb-6 flex items-center gap-2.5">
               <TrendingUp className="w-4 h-4 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} />
               <p className="font-body text-xs text-[#1C1C1A]">
-                Noch <span className="font-medium num">{totals.nextStaffel.ab - totals.modulAnzahlTotal}</span> Module bis zum nächsten Rabatt-Sprung ({fmtPct(totals.nextStaffel.prozent)}).
+                {t('Noch', 'Still')} <span className="font-medium num">{totals.nextStaffel.ab - totals.modulAnzahlTotal}</span> {t('Module bis zum nächsten Rabatt-Sprung', 'modules to the next discount tier')} ({fmtPct(totals.nextStaffel.prozent)}).
               </p>
             </div>
           )}
@@ -3195,7 +3195,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
             <div className="flex gap-2 font-body text-xs tracking-wider uppercase flex-wrap mb-8">
               <button onClick={() => setCatFilter('alle')}
                 className={`px-3 py-1.5 transition-colors ${catFilter === 'alle' ? 'border-[var(--brand-accent,#D2563E)] text-[var(--brand-accent,#D2563E)]' : 'border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'} border`}>
-                Alle Kategorien
+                {t('Alle Kategorien', 'All categories')}
               </button>
               {availableCategories.map(c => (
                 <button key={c} onClick={() => setCatFilter(c)}
@@ -3252,18 +3252,18 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
 
         <aside className="lg:w-96 lg:shrink-0">
           <div className="lg:sticky lg:top-24 bg-white border border-[#1C1C1A]/10 p-7">
-            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Dein unverbindliches Angebot</p>
-            <h3 className="font-display text-2xl mb-6">Übersicht</h3>
+            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">{t('Dein unverbindliches Angebot', 'Your non-binding quote')}</p>
+            <h3 className="font-display text-2xl mb-6">{t('Übersicht', 'Overview')}</h3>
             {isPureGewerb && (
               <div className="mb-5 -mx-7 px-7 py-2 bg-[#7B2D8E]/8 border-y border-[#7B2D8E]/15">
                 <p className="font-body text-[11px] text-[#7B2D8E] flex items-center gap-1.5">
-                  <Info className="w-3 h-3" strokeWidth={2} /> Alle Beträge netto, exkl. {Math.round(UST*100)} % USt
+                  <Info className="w-3 h-3" strokeWidth={2} /> {t('Alle Beträge netto, exkl.', 'All amounts net, excl.')} {Math.round(UST*100)} % {t('USt', 'VAT')}
                 </p>
               </div>
             )}
             {totals.countTotal === 0 ? (
               <p className="font-body text-sm text-[#6B6961] py-8 text-center border-y border-[#1C1C1A]/10">
-                Noch keine Module gewählt<span className="opacity-50"> …</span>
+                {t('Noch keine Module gewählt', 'No modules selected yet')}<span className="opacity-50"> …</span>
               </p>
             ) : (
               <>
@@ -3272,26 +3272,26 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   <div className="-mx-7 px-7 py-5 mb-5 bg-gradient-to-b from-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] to-transparent border-y border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)]">
                     {totals.finanzierungMonat > 0 && (
                       <div className="mb-3">
-                        <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[var(--brand-accent,#D2563E)] mb-1">Voraussichtliche Monatsrate</p>
+                        <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[var(--brand-accent,#D2563E)] mb-1">{t('Voraussichtliche Monatsrate', 'Expected monthly rate')}</p>
                         <p className="font-display text-3xl num text-[#1C1C1A] leading-none">{fmtEUR(totals.monatlichGesamt)}</p>
                         {totals.laufendeKostenMonat > 0 && (
                           <div className="mt-2 space-y-0.5">
                             <div className="flex justify-between font-body text-[11px] text-[#6B6961]">
-                              <span>Finanzierungsrate</span><span className="num">{fmtEUR(totals.finanzierungMonat)}</span>
+                              <span>{t('Finanzierungsrate', 'Financing rate')}</span><span className="num">{fmtEUR(totals.finanzierungMonat)}</span>
                             </div>
                             <div className="flex justify-between font-body text-[11px] text-[#6B6961]">
-                              <span>+ laufende Fix-Kosten</span><span className="num">{fmtEUR(totals.laufendeKostenMonat)}</span>
+                              <span>+ {t('laufende Fix-Kosten', 'ongoing fixed costs')}</span><span className="num">{fmtEUR(totals.laufendeKostenMonat)}</span>
                             </div>
                           </div>
                         )}
-                        <p className="font-body text-[10px] text-[#6B6961] mt-1.5">Vorschau mit Standard-Konditionen — anpassbar im nächsten Schritt</p>
+                        <p className="font-body text-[10px] text-[#6B6961] mt-1.5">{t('Vorschau mit Standard-Konditionen — anpassbar im nächsten Schritt', 'Preview with standard terms — adjustable in the next step')}</p>
                         {totals.eigennutzungGewerbCount > 0 && (
                           <div className="mt-3 pt-3 border-t border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)]">
                             <div className="flex justify-between items-baseline">
-                              <span className="font-body text-[10px] uppercase tracking-wider text-[var(--brand-accent,#D2563E)] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> {totals.belastungProMA <= 0 ? 'Überschuss je Mitarbeiter' : 'Effektive Belastung pro Mitarbeiter'}</span>
+                              <span className="font-body text-[10px] uppercase tracking-wider text-[var(--brand-accent,#D2563E)] flex items-center gap-1"><Users className="w-3 h-3" strokeWidth={2}/> {totals.belastungProMA <= 0 ? t('Überschuss je Mitarbeiter', 'Surplus per employee') : t('Effektive Belastung pro Mitarbeiter', 'Effective cost per employee')}</span>
                               <span className={`font-display text-lg num ${totals.belastungProMA <= 0 ? 'text-[#7FB069]' : 'text-[var(--brand-accent,#D2563E)]'}`}>{totals.belastungProMA <= 0 ? '+ ' : ''}{fmtEUR(Math.abs(totals.belastungProMA))}</span>
                             </div>
-                            <p className="font-body text-[10px] text-[#6B6961] mt-0.5">Monatsrate abzgl. {totals.hasIncome ? 'Mieteinnahmen und ' : ''}Steuervorteilen, je eigengenutzte Einheit</p>
+                            <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{t('Monatsrate abzgl.', 'Monthly rate less')} {totals.hasIncome ? t('Mieteinnahmen und ', 'rental income and ') : ''}{t('Steuervorteilen, je eigengenutzte Einheit', 'tax benefits, per owner-used unit')}</p>
                           </div>
                         )}
                       </div>
@@ -3299,12 +3299,12 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     {totals.hasIncome && (
                       <div className={totals.finanzierungMonat > 0 ? 'pt-3 border-t border-[#7B2D8E]/20' : ''}>
                         <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#7B2D8E] mb-1 flex items-center gap-1.5">
-                          <TrendingUp className="w-3 h-3" strokeWidth={2} /> Mieteinnahmen-Indikation / Monat
+                          <TrendingUp className="w-3 h-3" strokeWidth={2} /> {t('Mieteinnahmen-Indikation / Monat', 'Indicative rental income / month')}
                         </p>
                         <p className="font-display text-2xl num text-[#7B2D8E] leading-none">{fmtEUR(totals.monthlyIncomeBrutto)}</p>
                         {totals.cashflowPositive && (
                           <p className="font-body text-xs text-[#7FB069] mt-1.5 flex items-center gap-1">
-                            <Check className="w-3 h-3" strokeWidth={2.5} /> rechnerisch positiv
+                            <Check className="w-3 h-3" strokeWidth={2.5} /> {t('rechnerisch positiv', 'positive on paper')}
                           </p>
                         )}
                       </div>
@@ -3315,13 +3315,13 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 {/* PROJEKT-ECKDATEN (nur bei Projekt-Beitritt) */}
                 {project && (
                   <div className="mb-4 pb-4 border-b border-[#1C1C1A]/10">
-                    <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#7B2D8E] mb-2">Projekt-Beteiligung</p>
+                    <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#7B2D8E] mb-2">{t('Projekt-Beteiligung', 'Project participation')}</p>
                     <p className="font-display text-base text-[#1C1C1A] leading-tight mb-1">{project.name}</p>
                     <p className="font-body text-[11px] text-[#6B6961] mb-3">{project.location}</p>
                     <dl className="space-y-1 text-[11px] font-body text-[#6B6961]">
-                      <div className="flex justify-between"><dt>Projekt-Gesamtmodule</dt><dd className="num text-[#1C1C1A]">{project.zielModulAnzahl}</dd></div>
-                      {sumGemeinschaftsModule(project) > 0 && <div className="flex justify-between"><dt>davon Gemeinschaftsmodule</dt><dd className="num text-[#1C1C1A]">{sumGemeinschaftsModule(project)}</dd></div>}
-                      {project.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(project.grundstueckGroesse)} m²</dd></div>}
+                      <div className="flex justify-between"><dt>{t('Projekt-Gesamtmodule', 'Total project modules')}</dt><dd className="num text-[#1C1C1A]">{project.zielModulAnzahl}</dd></div>
+                      {sumGemeinschaftsModule(project) > 0 && <div className="flex justify-between"><dt>{t('davon Gemeinschaftsmodule', 'of which community modules')}</dt><dd className="num text-[#1C1C1A]">{sumGemeinschaftsModule(project)}</dd></div>}
+                      {project.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>{t('Grundstück', 'Plot')}</dt><dd className="num">{fmtNum(project.grundstueckGroesse)} m²</dd></div>}
                       {(() => {
                         // Tier 3: Kontingent in Modulen (physische Blöcke). verkaufbar = Ziel − Gemeinschaftsmodule;
                         // frei = verkaufbar − bereits vergebene Leads (soldModules) − eigene aktuelle Auswahl.
@@ -3329,13 +3329,13 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         if (sellableTarget <= 0) return null;
                         const frei = Math.max(0, sellableTarget - (soldModules || 0) - totals.modulAnzahlTotal);
                         const anteil = totals.modulAnzahlTotal > 0
-                          ? <span className="text-[#6B6961]"> · Dein Anteil {totals.modulAnzahlTotal} ({fmtPct(totals.modulAnzahlTotal / sellableTarget)})</span>
+                          ? <span className="text-[#6B6961]"> · {t('Dein Anteil', 'your share')} {totals.modulAnzahlTotal} ({fmtPct(totals.modulAnzahlTotal / sellableTarget)})</span>
                           : null;
                         return (
-                          <div className="flex justify-between"><dt className="text-[#7B2D8E] font-medium">Noch verfügbar</dt><dd className="num font-medium text-[#7B2D8E]">{frei} von {sellableTarget}{anteil}</dd></div>
+                          <div className="flex justify-between"><dt className="text-[#7B2D8E] font-medium">{t('Noch verfügbar', 'Still available')}</dt><dd className="num font-medium text-[#7B2D8E]">{frei} {t('von', 'of')} {sellableTarget}{anteil}</dd></div>
                         );
                       })()}
-                      {project.projektrabatt > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><dt>Projekt-Bonus</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
+                      {project.projektrabatt > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><dt>{t('Projekt-Bonus', 'Project bonus')}</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
                     </dl>
                   </div>
                 )}
@@ -3362,12 +3362,12 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     <div key={it.kuerzel} className="flex items-start justify-between gap-2 text-sm font-body group">
                       <span className="text-[#1C1C1A] flex-1 leading-tight min-w-0">
                         <span className="num">{it.count}×</span> <span className="text-[#6B6961]">{getDisplayName(it)}</span>
-                        {it.mode === 'einnahmen' && it.einnahmen > 0 && <span className="text-[10px] text-[#7B2D8E] ml-1 tracking-wider uppercase">verm.</span>}
+                        {it.mode === 'einnahmen' && it.einnahmen > 0 && <span className="text-[10px] text-[#7B2D8E] ml-1 tracking-wider uppercase">{t('verm.', 'rent')}</span>}
                       </span>
                       <button
                         onClick={() => setSelections(prev => { const n = {...prev}; delete n[it.kuerzel]; return n; })}
                         className="opacity-30 hover:opacity-100 hover:text-[#C5392E] transition-all p-0.5 shrink-0"
-                        title="Modul aus Auswahl entfernen">
+                        title={t('Modul aus Auswahl entfernen', 'Remove module from selection')}>
                         <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                       </button>
                     </div>
@@ -3375,23 +3375,23 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 </div>
 
                 <dl className="space-y-1.5 text-xs font-body mb-5 text-[#6B6961]">
-                  <div className="flex justify-between"><dt>Module gesamt</dt><dd className="num text-[#1C1C1A]">{totals.modulAnzahlTotal}</dd></div>
+                  <div className="flex justify-between"><dt>{t('Module gesamt', 'Total modules')}</dt><dd className="num text-[#1C1C1A]">{totals.modulAnzahlTotal}</dd></div>
                   {totals.modulAnzahlPrivat > 0 && totals.modulAnzahlGewerb > 0 && (
                     <>
-                      <div className="flex justify-between"><dt className="pl-2">davon privat</dt><dd className="num">{totals.modulAnzahlPrivat}</dd></div>
-                      <div className="flex justify-between"><dt className="pl-2">davon gewerblich</dt><dd className="num">{totals.modulAnzahlGewerb}</dd></div>
+                      <div className="flex justify-between"><dt className="pl-2">{t('davon privat', 'of which private')}</dt><dd className="num">{totals.modulAnzahlPrivat}</dd></div>
+                      <div className="flex justify-between"><dt className="pl-2">{t('davon gewerblich', 'of which commercial')}</dt><dd className="num">{totals.modulAnzahlGewerb}</dd></div>
                     </>
                   )}
                   {totals.countTotal !== totals.modulAnzahlTotal && (
-                    <div className="flex justify-between"><dt className="pl-2">Produkte / Konfigurationen</dt><dd className="num">{totals.countTotal}</dd></div>
+                    <div className="flex justify-between"><dt className="pl-2">{t('Produkte / Konfigurationen', 'Products / configurations')}</dt><dd className="num">{totals.countTotal}</dd></div>
                   )}
                   {totals.einheitenTotal !== totals.modulAnzahlTotal && (
-                    <div className="flex justify-between"><dt className="pl-2">Stellplatz-Einheiten (Footprint)</dt><dd className="num">{totals.einheitenTotal}</dd></div>
+                    <div className="flex justify-between"><dt className="pl-2">{t('Stellplatz-Einheiten (Footprint)', 'Footprint units')}</dt><dd className="num">{totals.einheitenTotal}</dd></div>
                   )}
-                  <div className="flex justify-between"><dt>NUF</dt><dd className="num">{fmtNum(totals.gesamtNUF)} m²</dd></div>
+                  <div className="flex justify-between"><dt>{t('NUF', 'Usable area')}</dt><dd className="num">{fmtNum(totals.gesamtNUF)} m²</dd></div>
                   {totals.rabattPct > 0 && (priceCtx
-                    ? <div className="flex justify-between text-[#6B6961]"><dt>Projektrabatt</dt><dd className="num">inkl. {fmtPct(totals.rabattPct)}</dd></div>
-                    : <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><dt>Rabatt gesamt</dt><dd className="num">−{fmtPct(totals.rabattPct)}</dd></div>)}
+                    ? <div className="flex justify-between text-[#6B6961]"><dt>{t('Projektrabatt', 'Project discount')}</dt><dd className="num">{t('inkl.', 'incl.')} {fmtPct(totals.rabattPct)}</dd></div>
+                    : <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><dt>{t('Rabatt gesamt', 'Total discount')}</dt><dd className="num">−{fmtPct(totals.rabattPct)}</dd></div>)}
                 </dl>
 
                 {/* Mismatch-Banner: 3 mögliche Zustände */}
@@ -3478,10 +3478,10 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
 
                 {showMindestflaeche && totals.mindestflaeche && (
                   <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 bg-[#FBF7EF] -mx-7 px-7 py-4">
-                    <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] mb-2 flex items-center gap-1.5"><MapPin className="w-3 h-3" strokeWidth={2}/> Mindestflächenbedarf</p>
+                    <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] mb-2 flex items-center gap-1.5"><MapPin className="w-3 h-3" strokeWidth={2}/> {t('Mindestflächenbedarf', 'Minimum plot needed')}</p>
                     <p className="font-display text-2xl num">{fmtNum(totals.mindestflaeche.mindestGrundstueck)} m²</p>
                     <p className="font-body text-xs text-[#6B6961] mt-1">
-                      Gebäude-Grundfläche {fmtNum(totals.mindestflaeche.gebaeudeflaeche)} m² ÷ {Math.round(BEBAUUNGSGRAD * 100)} % Bebauungsgrad
+                      {t('Gebäude-Grundfläche', 'Building footprint')} {fmtNum(totals.mindestflaeche.gebaeudeflaeche)} m² ÷ {Math.round(BEBAUUNGSGRAD * 100)} % {t('Bebauungsgrad', 'site coverage')}
                     </p>
                   </div>
                 )}
@@ -3490,7 +3490,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 <details className="pb-4 mb-4 border-b border-[#1C1C1A]/10 group">
                   <summary className="cursor-pointer list-none flex items-center justify-between">
                     <div className="flex-1">
-                      <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Layers className="w-3 h-3" strokeWidth={2}/> Modulkosten {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</p>
+                      <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Layers className="w-3 h-3" strokeWidth={2}/> {t('Modulkosten', 'Module costs')} {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">({t('netto', 'net')})</span>}</p>
                       <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(totals.modulKostenAnzeige)}</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
@@ -3502,9 +3502,9 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         <span className="num text-[#1C1C1A]">{fmtEUR(it.count * effectiveModulPreis(it, isPureGewerb, priceCtx))}</span>
                       </div>
                     ))}
-                    <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe Module</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.modulKostenAnzeige)}</dd></div>
+                    <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">{t('Summe Module', 'Module total')}</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.modulKostenAnzeige)}</dd></div>
                     {priceCtx && totals.rabattPct > 0 && (
-                      <p className="font-body text-[10px] text-[#6B6961] italic pt-1">inkl. {fmtPct(totals.rabattPct)} Projektrabatt</p>
+                      <p className="font-body text-[10px] text-[#6B6961] italic pt-1">{t('inkl.', 'incl.')} {fmtPct(totals.rabattPct)} {t('Projektrabatt', 'project discount')}</p>
                     )}
                   </div>
                 </details>
@@ -3513,7 +3513,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   <details className="pb-4 mb-4 border-b border-[#1C1C1A]/10 group">
                     <summary className="cursor-pointer list-none flex items-center justify-between">
                       <div className="flex-1">
-                        <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> Einmalkosten {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">(netto)</span>}</p>
+                        <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-1 flex items-center gap-1.5"><Receipt className="w-3 h-3" strokeWidth={2}/> {t('Einmalkosten', 'One-off costs')} {isPureGewerb && <span className="text-[10px] normal-case tracking-normal text-[#6B6961]">({t('netto', 'net')})</span>}</p>
                         <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(totals.einmalKostenAnzeige)}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-[#6B6961] transition-transform group-open:rotate-90" strokeWidth={2} />
@@ -3522,11 +3522,11 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     {project ? (
                       // Projekt-Beitritt: Umlage stabil pro Modul (fixer Projekt-Tarif)
                       <>
-                        <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">Für deine Module</dt><dd className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</dd></div>
+                        <div className="flex justify-between text-sm font-body"><dt className="text-[#6B6961]">{t('Für deine Module', 'For your modules')}</dt><dd className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</dd></div>
                         {totals.gmKostenGesamtBrutto > 0 && (
-                          <div className="flex justify-between text-sm font-body mt-1"><dt className="text-[#6B6961]">Für Gemeinschaftsmodule</dt><dd className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>
+                          <div className="flex justify-between text-sm font-body mt-1"><dt className="text-[#6B6961]">{t('Für Gemeinschaftsmodule', 'For community modules')}</dt><dd className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>
                         )}
-                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmalKostenAnzeige)}</dd></div>
+                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">{t('Summe einmalig', 'One-off total')}</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmalKostenAnzeige)}</dd></div>
                       </>
                     ) : gewerbConfig ? (
                       // Gewerblich: Detail-Posten analog Privat, aber mit zusätzlichem Block für Optionen/Schätzungen
@@ -3591,7 +3591,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         {totals.einmaligDetail?.posten?.some(p => p.typ === 'planung') && (
                           <div className="mt-3 pt-3 border-t border-dashed border-[#1C1C1A]/15">
                             <p className="font-body text-[11px] text-[#6B6961] italic mb-1.5 leading-snug">
-                              Diese Kosten kommen leider bei jedem Bauprojekt noch on top:
+                              {t('Diese Kosten kommen leider bei jedem Bauprojekt noch on top:', 'Unfortunately these costs come on top with every building project:')}
                             </p>
                             {totals.einmaligDetail.posten.filter(p => p.typ === 'planung').map(p => (
                               <div key={p.id} className="flex justify-between text-xs font-body text-[#6B6961] mt-0.5">
@@ -3602,13 +3602,13 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                           </div>
                         )}
 
-                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">Summe einmalig</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmalKostenAnzeige)}</dd></div>
+                        <div className="flex justify-between text-sm font-body pt-1.5 mt-1.5 border-t border-[#1C1C1A]/8"><dt className="text-[#1C1C1A]">{t('Summe einmalig', 'One-off total')}</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.einmalKostenAnzeige)}</dd></div>
                       </>
                     )}
                     <p className="font-body text-[10px] text-[#6B6961] mt-1.5 italic">
                       {hasProjectOrConfig
-                        ? 'Pflicht — fallen unabhängig von uns an (Planung, Erschließung, Außenanlagen, Behörde).'
-                        : 'Behördliche Gebühr — regional unterschiedlich. Weitere Kosten (Planung, Erschließung) hängen vom konkreten Bauprojekt ab.'}
+                        ? t('Pflicht — fallen unabhängig von uns an (Planung, Erschließung, Außenanlagen, Behörde).', 'Mandatory — incurred regardless of us (planning, site development, landscaping, authorities).')
+                        : t('Behördliche Gebühr — regional unterschiedlich. Weitere Kosten (Planung, Erschließung) hängen vom konkreten Bauprojekt ab.', 'Official fee — varies by region. Further costs (planning, site development) depend on the specific building project.')}
                     </p>
                     </div>
                   </details>
@@ -3617,11 +3617,11 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 {/* Anschaffung gesamt = Modulkosten + Einmalkosten */}
                 <div className="mb-4 pb-4 border-b border-[#1C1C1A]/10 space-y-1.5">
                   <div className="flex justify-between text-sm font-body">
-                    <span className="text-[#1C1C1A]">Anschaffung gesamt</span>
+                    <span className="text-[#1C1C1A]">{t('Anschaffung gesamt', 'Total acquisition')}</span>
                     <span className="num text-[#1C1C1A]">{fmtEUR(totals.anschaffungAnzeige)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-body text-[#6B6961]">
-                    <span>Anzahlung ca.</span>
+                    <span>{t('Anzahlung ca.', 'Down payment approx.')}</span>
                     <span className="num">{fmtEUR(isPureGewerb ? totals.anzahlung / (1 + UST) : totals.anzahlung)}</span>
                   </div>
                 </div>
@@ -3632,18 +3632,18 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     <summary className="flex items-baseline justify-between gap-2 cursor-pointer list-none text-[#6B6961]">
                       <span className="font-body text-xs uppercase tracking-wider flex items-center gap-1.5">
                         <ChevronRight className="w-3 h-3 shrink-0 transition-transform group-open:rotate-90" strokeWidth={2} />
-                        Verbrauchskostenschätzung
+                        {t('Verbrauchskostenschätzung', 'Estimated utility costs')}
                       </span>
-                      <span className="font-body text-sm num shrink-0">ca. {fmtEUR(totals.verbrauchskostenMonat)}/Mt.</span>
+                      <span className="font-body text-sm num shrink-0">{t('ca.', 'approx.')} {fmtEUR(totals.verbrauchskostenMonat)}{t('/Mt.', '/mo')}</span>
                     </summary>
                     <p className="font-body text-[11px] text-[#6B6961] mt-2 italic pl-5">
-                      Strom, Wasser, Heizung — individueller Richtwert, nicht in der Rate enthalten.
+                      {t('Strom, Wasser, Heizung — individueller Richtwert, nicht in der Rate enthalten.', 'Electricity, water, heating — individual estimate, not included in the rate.')}
                     </p>
                   </details>
                 )}
 
                 <Button onClick={onNext} className="w-full" disabled={totals.countTotal === 0}>
-                  Weiter zur Finanzierung <ChevronRight className="w-4 h-4" />
+                  {t('Weiter zur Finanzierung', 'Continue to financing')} <ChevronRight className="w-4 h-4" />
                 </Button>
               </>
             )}
