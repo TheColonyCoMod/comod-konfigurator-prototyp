@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.167';
+const APP_VERSION = '0.9.168';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -4105,18 +4105,18 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
       <summary className="cursor-pointer list-none p-4 sm:p-5 block">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="font-display text-lg sm:text-xl leading-tight flex items-start gap-2"><Repeat className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} /><span>{totals.isPureGewerb ? 'Laufende Betriebskostenschätzung' : 'Neben- und Verbrauchskostenschätzung'}</span></h3>
-            <p className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] mt-1">Richtwerte · Details anzeigen</p>
+            <h3 className="font-display text-lg sm:text-xl leading-tight flex items-start gap-2"><Repeat className="w-5 h-5 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} /><span>{totals.isPureGewerb ? t('Laufende Betriebskostenschätzung','Estimated ongoing operating costs') : t('Neben- und Verbrauchskostenschätzung','Estimated ancillary & utility costs')}</span></h3>
+            <p className="font-body text-[10px] tracking-wider uppercase text-[#6B6961] mt-1">{t('Richtwerte · Details anzeigen','Guide values · show details')}</p>
           </div>
           <ChevronRight className="w-5 h-5 text-[#6B6961] transition-transform group-open:rotate-90 shrink-0 mt-0.5" strokeWidth={2} />
         </div>
         <div className="flex items-baseline justify-end gap-1.5 mt-2">
-          <span className="font-display text-lg sm:text-xl num text-[#7B2D8E] leading-none">ca. {fmtEUR(gesamtMonat)}</span>
-          <span className="font-body text-[10px] text-[#6B6961]">/ Monat</span>
+          <span className="font-display text-lg sm:text-xl num text-[#7B2D8E] leading-none">{t('ca.','approx.')} {fmtEUR(gesamtMonat)}</span>
+          <span className="font-body text-[10px] text-[#6B6961]">/ {t('Monat','month')}</span>
         </div>
       </summary>
       <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-1 border-t border-[#1C1C1A]/8">
-      <p className="font-body text-sm text-[#6B6961] mt-4 mb-5">Geschätzte Richtwerte zur ersten Orientierung — die tatsächlichen Beträge können je nach Standort, Projektgröße, Verbrauchsverhalten und Versorgern abweichen. Konkrete Werte ermitteln wir gemeinsam mit Dir.</p>
+      <p className="font-body text-sm text-[#6B6961] mt-4 mb-5">{t('Geschätzte Richtwerte zur ersten Orientierung — die tatsächlichen Beträge können je nach Standort, Projektgröße, Verbrauchsverhalten und Versorgern abweichen. Konkrete Werte ermitteln wir gemeinsam mit Dir.','Estimated guide values for initial orientation — actual amounts may vary depending on location, project size, consumption behaviour and providers. We determine the concrete figures together with you.')}</p>
       <div className="space-y-2.5 text-sm font-body">
         {/* Pacht — bei Misch-Setup getrennte Zeilen für privat (brutto) und gewerblich (netto) */}
         {pachtSource.pachtJahr > 0 ? (
@@ -4124,7 +4124,7 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
             {(totals.nufPrivat > 0 || !pachtSource.isProject) && totals.nufPrivat > 0 && pachtSource.isProject && (
               <div className="flex justify-between py-2 border-b border-[#1C1C1A]/8">
                 <div>
-                  <p className="text-[#1C1C1A]">Pacht-Umlage (private Module{pachtSource.pachtGewerblich ? `, inkl. ${Math.round(UST*100)} % USt` : ''})</p>
+                  <p className="text-[#1C1C1A]">{t('Pacht-Umlage (private Module','Lease share (private modules')}{pachtSource.pachtGewerblich ? `, ${t('inkl.','incl.')} ${Math.round(UST*100)} % ${t('USt','VAT')}` : ''})</p>
                   <p className="text-xs text-[#6B6961]">{fmtNum(totals.nufPrivat)} m² × {fmtEUR2(p.pachtProM2_priv)}/m²</p>
                 </div>
                 <span className="num shrink-0">{fmtEUR2(p.pachtProM2_priv)}/m²</span>
@@ -4133,7 +4133,7 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
             {totals.nufGewerb > 0 && pachtSource.isProject && (
               <div className="flex justify-between py-2 border-b border-[#1C1C1A]/8">
                 <div>
-                  <p className="text-[#1C1C1A]">Pacht-Umlage (gewerbliche Module, netto)</p>
+                  <p className="text-[#1C1C1A]">{t('Pacht-Umlage (gewerbliche Module, netto)','Lease share (commercial modules, net)')}</p>
                   <p className="text-xs text-[#6B6961]">{fmtNum(totals.nufGewerb)} m² × {fmtEUR2(p.pachtProM2_gewerb)}/m²</p>
                 </div>
                 <span className="num shrink-0">{fmtEUR2(p.pachtProM2_gewerb)}/m²</span>
@@ -4142,21 +4142,21 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
             {!pachtSource.isProject && (
               <div className="flex justify-between py-2 border-b border-[#1C1C1A]/8">
                 <div>
-                  <p className="text-[#1C1C1A]">Pacht{pachtSource.pachtGewerblich ? ` (inkl. ${Math.round(UST*100)} % USt)` : ' (privat, ohne USt)'}</p>
-                  <p className="text-xs text-[#6B6961]">{fmtEUR(pachtSource.pachtJahr)}/Jahr ÷ 12 ÷ {fmtNum(totals.gesamtNUF)} m²</p>
+                  <p className="text-[#1C1C1A]">{t('Pacht','Lease')}{pachtSource.pachtGewerblich ? ` (${t('inkl.','incl.')} ${Math.round(UST*100)} % ${t('USt','VAT')})` : ` (${t('privat, ohne USt','private, no VAT')})`}</p>
+                  <p className="text-xs text-[#6B6961]">{fmtEUR(pachtSource.pachtJahr)}/{t('Jahr','yr')} ÷ 12 ÷ {fmtNum(totals.gesamtNUF)} m²</p>
                 </div>
                 <span className="num shrink-0">{fmtEUR2(p.pachtProM2)}/m²</span>
               </div>
             )}
             {pachtSource.isProject && (
               <p className="text-xs text-[#6B6961] italic pb-2">
-                Basis: {fmtEUR(pachtSource.pachtJahr)}/Jahr ÷ {pachtSource.zielModulAnzahl} Ziel-Module ÷ {ZIEL_MODUL_NUF} m² ÷ 12 = {fmtEUR2(p.pachtProM2_gewerb)}/m² netto
+                {t('Basis:','Basis:')} {fmtEUR(pachtSource.pachtJahr)}/{t('Jahr','yr')} ÷ {pachtSource.zielModulAnzahl} {t('Ziel-Module','target modules')} ÷ {ZIEL_MODUL_NUF} m² ÷ 12 = {fmtEUR2(p.pachtProM2_gewerb)}/m² {t('netto','net')}
               </p>
             )}
           </>
         ) : (
           <div className="flex justify-between py-2 border-b border-[#1C1C1A]/8">
-            <p className="text-[#1C1C1A]">Keine Pacht</p>
+            <p className="text-[#1C1C1A]">{t('Keine Pacht','No lease')}</p>
             <span className="num shrink-0 text-[#6B6961]">—</span>
           </div>
         )}
@@ -4165,10 +4165,10 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
           <div className="py-2 border-b border-[#1C1C1A]/8">
             <div className="flex justify-between">
               <div>
-                <span className="text-[#1C1C1A]">Service &amp; Sicherheit</span>
-                {serviceOptional && <span className="text-[#6B6961] text-xs"> (gewählt)</span>}
+                <span className="text-[#1C1C1A]">{t('Service & Sicherheit','Service & security')}</span>
+                {serviceOptional && <span className="text-[#6B6961] text-xs"> ({t('gewählt','selected')})</span>}
                 <p className="text-xs text-[#6B6961]">
-                  Service &amp; Nutzung, Sicherheit &amp; Sensorik, Versicherungen &amp; Schutz, Instandhaltung &amp; Rücklagen{serviceOptional ? '' : ' · im Service-Paket enthalten'}
+                  {t('Service & Nutzung, Sicherheit & Sensorik, Versicherungen & Schutz, Instandhaltung & Rücklagen','Service & use, security & sensors, insurance & protection, maintenance & reserves')}{serviceOptional ? '' : ` · ${t('im Service-Paket enthalten','included in the service package')}`}
                 </p>
               </div>
               <span className="num shrink-0">{fmtEUR2(serviceSummeProM2)}/m²</span>
@@ -4176,30 +4176,30 @@ function NebenkostenBreakdown({ totals, project, gewerbConfig }) {
           </div>
         )}
         <div className="flex justify-between pt-2 font-body text-sm">
-          <span className="text-[#1C1C1A]">Laufende Fix-Kosten {totals.laufendeKostenMonat > 0 ? '' : '(keine)'}</span>
-          <span className="num text-[#1C1C1A]">≈ {fmtEUR(totals.laufendeKostenMonat)} / Mt.</span>
+          <span className="text-[#1C1C1A]">{t('Laufende Fix-Kosten','Ongoing fixed costs')} {totals.laufendeKostenMonat > 0 ? '' : t('(keine)','(none)')}</span>
+          <span className="num text-[#1C1C1A]">≈ {fmtEUR(totals.laufendeKostenMonat)} / {t('Mt.','mo')}</span>
         </div>
 
         {/* Verbrauchskosten — nur Privat (bei Gewerbe ausgeblendet, Feedback); Block bereits eingeklappt */}
         {!totals.isPureGewerb && verbrauchPosten.length > 0 && (
           <div className="pt-3 mt-1 border-t border-[#1C1C1A]/10">
-            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-[#A87DAE]" strokeWidth={1.5} /> Verbrauchskosten <span className="normal-case tracking-normal">(variabel, trägt der Bewohner)</span></p>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-[#A87DAE]" strokeWidth={1.5} /> {t('Verbrauchskosten','Utility costs')} <span className="normal-case tracking-normal">({t('variabel, trägt der Bewohner','variable, paid by the occupant')})</span></p>
             {verbrauchPosten.map(post => (
               <div key={post.id} className="flex justify-between py-1.5 border-b border-[#1C1C1A]/8">
                 <span className="text-[#1C1C1A]">{post.label}</span><span className="num shrink-0">{fmtEUR2(post.proM2)}/m²</span>
               </div>
             ))}
             <div className="flex justify-between pt-2 font-body text-sm">
-              <span className="text-[#1C1C1A]">Verbrauch geschätzt</span>
-              <span className="num text-[#1C1C1A]">≈ {fmtEUR(totals.verbrauchskostenMonat)} / Mt.</span>
+              <span className="text-[#1C1C1A]">{t('Verbrauch geschätzt','Estimated consumption')}</span>
+              <span className="num text-[#1C1C1A]">≈ {fmtEUR(totals.verbrauchskostenMonat)} / {t('Mt.','mo')}</span>
             </div>
-            <p className="text-xs text-[#6B6961] pt-1 italic">Nicht in der Monatsrate enthalten — hängt vom tatsächlichen Verbrauch ab.</p>
+            <p className="text-xs text-[#6B6961] pt-1 italic">{t('Nicht in der Monatsrate enthalten — hängt vom tatsächlichen Verbrauch ab.','Not included in the monthly rate — depends on actual consumption.')}</p>
           </div>
         )}
 
         {!totals.isPureGewerb && verbrauchPosten.length > 0 && (
           <div className="flex justify-between pt-3 mt-1 border-t border-[#1C1C1A]/10 font-display text-base">
-            <span>Gesamt / Monat</span>
+            <span>{t('Gesamt / Monat','Total / month')}</span>
             <span className="num text-[#7B2D8E]">≈ {fmtEUR(gesamtMonat)}</span>
           </div>
         )}
@@ -4220,39 +4220,39 @@ function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod
           <div className="bg-white max-w-md w-full p-6 sm:p-7" onClick={e => e.stopPropagation()}>
             <div className="flex items-start gap-3 mb-3">
               <div className="w-9 h-9 rounded-full bg-[var(--brand-accent,#D2563E)]/10 flex items-center justify-center shrink-0"><Info className="w-5 h-5 text-[var(--brand-accent,#D2563E)]" strokeWidth={1.5} /></div>
-              <h3 className="font-display text-xl leading-tight pt-1">Eigenbewirtschaftung — Mehraufwand auf Deiner Seite</h3>
+              <h3 className="font-display text-xl leading-tight pt-1">{t('Eigenbewirtschaftung — Mehraufwand auf Deiner Seite','Self-management — extra effort on your side')}</h3>
             </div>
             <p className="font-body text-sm text-[#6B6961] leading-relaxed mb-2">
-              Wenn Du selbst vermietest, liegen <span className="text-[#1C1C1A]">Vermarktung, Buchungen, Check-in/-out, Reinigung, Wäsche, Instandhaltungs-Koordination und Mieterkommunikation</span> bei Dir — in der Praxis landet das oft am Empfang oder im Backoffice.
+              {t('Wenn Du selbst vermietest, liegen','If you rent it out yourself,')} <span className="text-[#1C1C1A]">{t('Vermarktung, Buchungen, Check-in/-out, Reinigung, Wäsche, Instandhaltungs-Koordination und Mieterkommunikation','marketing, bookings, check-in/-out, cleaning, laundry, maintenance coordination and tenant communication')}</span> {t('bei Dir — in der Praxis landet das oft am Empfang oder im Backoffice.','are on you — in practice this often ends up at reception or in the back office.')}
             </p>
             <p className="font-body text-sm text-[#6B6961] leading-relaxed mb-5">
-              Du sparst zwar die Betreiber-Fee ({fmtEUR(totals.feeAbzug)}/Mt.), trägst dafür aber den laufenden Aufwand und das Auslastungsrisiko selbst. Diese Eigenleistung ist in der Rechnung <span className="text-[#1C1C1A]">nicht</span> als Kosten berücksichtigt.
+              {t('Du sparst zwar die Betreiber-Fee','You save the operator fee')} ({fmtEUR(totals.feeAbzug)}/{t('Mt.','mo')}){t(', trägst dafür aber den laufenden Aufwand und das Auslastungsrisiko selbst. Diese Eigenleistung ist in der Rechnung','), but bear the ongoing effort and occupancy risk yourself. This own work is')} <span className="text-[#1C1C1A]">{t('nicht','not')}</span> {t('als Kosten berücksichtigt.','accounted for as a cost.')}
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
               <button onClick={() => { setVermietungDurchCoMod(false); setShowSelbstWarn(false); }}
-                className="flex-1 px-4 py-2.5 font-body text-sm border border-[#1C1C1A]/20 text-[#1C1C1A] hover:border-[var(--brand-accent,#D2563E)] transition-colors">Trotzdem selbst übernehmen</button>
+                className="flex-1 px-4 py-2.5 font-body text-sm border border-[#1C1C1A]/20 text-[#1C1C1A] hover:border-[var(--brand-accent,#D2563E)] transition-colors">{t('Trotzdem selbst übernehmen','Take it on anyway')}</button>
               <button onClick={() => setShowSelbstWarn(false)}
-                className="flex-1 px-4 py-2.5 font-body text-sm bg-[#7B2D8E] text-white hover:bg-[#6A2579] transition-colors">Doch durch CoMod</button>
+                className="flex-1 px-4 py-2.5 font-body text-sm bg-[#7B2D8E] text-white hover:bg-[#6A2579] transition-colors">{t('Doch durch CoMod','Let CoMod do it')}</button>
             </div>
           </div>
         </div>
       )}
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-        <h3 className="font-display text-2xl flex items-center gap-2"><TrendingUp className="w-5 h-5 text-[#7B2D8E]" strokeWidth={1.5} />Einnahmen-Prognose</h3>
-        <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/15 px-2 py-1">Vermietung</span>
+        <h3 className="font-display text-2xl flex items-center gap-2"><TrendingUp className="w-5 h-5 text-[#7B2D8E]" strokeWidth={1.5} />{t('Einnahmen-Prognose','Income forecast')}</h3>
+        <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/15 px-2 py-1">{t('Vermietung','Renting')}</span>
       </div>
-      <p className="font-body text-sm text-[#6B6961] mb-5">Unverbindliche Mietindikation auf Basis aktueller Marktbeobachtungen — die tatsächlich erzielbaren Mieten hängen von Standort, Lage, Nachfrage und Vermarktung ab und können erheblich abweichen.</p>
+      <p className="font-body text-sm text-[#6B6961] mb-5">{t('Unverbindliche Mietindikation auf Basis aktueller Marktbeobachtungen — die tatsächlich erzielbaren Mieten hängen von Standort, Lage, Nachfrage und Vermarktung ab und können erheblich abweichen.','Non-binding rent indication based on current market observations — the rents actually achievable depend on location, position, demand and marketing and may vary considerably.')}</p>
       <div className="mb-5 p-3 bg-white border border-[#1C1C1A]/10">
-        <FieldLabel required={false}>Wer übernimmt die Vermietung?</FieldLabel>
+        <FieldLabel required={false}>{t('Wer übernimmt die Vermietung?','Who handles the renting?')}</FieldLabel>
         <div className="flex gap-2">
           <button onClick={() => vermietungDurchCoMod ? setShowSelbstWarn(true) : setVermietungDurchCoMod(false)}
-            className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${!vermietungDurchCoMod ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Selbst</button>
+            className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${!vermietungDurchCoMod ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>{t('Selbst','Yourself')}</button>
           <button onClick={() => setVermietungDurchCoMod(true)}
-            className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${vermietungDurchCoMod ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] ring-1 ring-[#7B2D8E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Durch uns bewirtschaftet</button>
+            className={`flex-1 px-3 py-2 font-body text-xs border transition-colors ${vermietungDurchCoMod ? 'border-[#7B2D8E] bg-[#7B2D8E]/10 text-[#7B2D8E] ring-1 ring-[#7B2D8E]/30 ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>{t('Durch uns bewirtschaftet','Managed by us')}</button>
         </div>
         {vermietungDurchCoMod
-          ? <p className="font-body text-[11px] text-[#6B6961] mt-2">Wir übernehmen Vermarktung & Verwaltung — eine Betreiber-Fee wird von der Miete abgezogen.</p>
-          : <p className="font-body text-[11px] text-[var(--brand-accent,#D2563E)] mt-2">Eigenbewirtschaftung: Vermarktung, Buchung, Reinigung & Verwaltung liegen bei Dir — als Eigenleistung nicht in der Rechnung enthalten.</p>}
+          ? <p className="font-body text-[11px] text-[#6B6961] mt-2">{t('Wir übernehmen Vermarktung & Verwaltung — eine Betreiber-Fee wird von der Miete abgezogen.','We handle marketing & administration — an operator fee is deducted from the rent.')}</p>
+          : <p className="font-body text-[11px] text-[var(--brand-accent,#D2563E)] mt-2">{t('Eigenbewirtschaftung: Vermarktung, Buchung, Reinigung & Verwaltung liegen bei Dir — als Eigenleistung nicht in der Rechnung enthalten.','Self-management: marketing, booking, cleaning & administration are on you — as own work, not included in the calculation.')}</p>}
       </div>
       <div className="space-y-2.5 mb-5 max-h-48 overflow-auto scrollbar-none">
         {totals.incomeItems.map(it => (
@@ -4263,10 +4263,10 @@ function IncomeBreakdown({ totals, vermietungDurchCoMod, setVermietungDurchCoMod
         ))}
       </div>
       <div className="pt-4 border-t border-[#1C1C1A]/10 space-y-2 text-sm font-body">
-        <div className="flex justify-between"><dt className="text-[#6B6961]">Bruttomieten / Monat</dt><dd className="num">{fmtEUR(totals.monthlyIncomeBrutto)}</dd></div>
-        {vermietungDurchCoMod && <div className="flex justify-between text-[#6B6961]"><dt>Betreiber-Fee</dt><dd className="num">−{fmtEUR(totals.feeAbzug)}</dd></div>}
+        <div className="flex justify-between"><dt className="text-[#6B6961]">{t('Bruttomieten / Monat','Gross rents / month')}</dt><dd className="num">{fmtEUR(totals.monthlyIncomeBrutto)}</dd></div>
+        {vermietungDurchCoMod && <div className="flex justify-between text-[#6B6961]"><dt>{t('Betreiber-Fee','Operator fee')}</dt><dd className="num">−{fmtEUR(totals.feeAbzug)}</dd></div>}
         <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10">
-          <dt>Einnahmen netto / Mt.</dt><dd className="num text-[#7B2D8E]">{fmtEUR(totals.monthlyIncomeNetto)}</dd>
+          <dt>{t('Einnahmen netto / Mt.','Net income / mo')}</dt><dd className="num text-[#7B2D8E]">{fmtEUR(totals.monthlyIncomeNetto)}</dd>
         </div>
       </div>
     </div>
@@ -4571,41 +4571,41 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
   return (
     <div className="max-w-5xl mx-auto px-8 py-12">
       <button onClick={onBack} className="font-body text-sm text-[#6B6961] hover:text-[#1C1C1A] flex items-center gap-1.5 mb-8 transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Zurück
+        <ChevronLeft className="w-4 h-4" /> {t('Zurück','Back')}
       </button>
       <div className="grid md:grid-cols-[1fr_360px] gap-10">
         <div>
-          <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Letzter Schritt</p>
-          <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">Wir <em>melden uns</em><span className="opacity-40"> …</span></h1>
-          <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">Hinterlasse uns Deine Kontaktdaten — wir senden Dir Dein detailliertes, unverbindliches Angebot und melden uns persönlich.</p>
+          <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">{t('Letzter Schritt','Final step')}</p>
+          <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">{t('Wir','We\u2019ll')} <em>{t('melden uns','be in touch')}</em><span className="opacity-40"> …</span></h1>
+          <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">{t('Hinterlasse uns Deine Kontaktdaten — wir senden Dir Dein detailliertes, unverbindliches Angebot und melden uns persönlich.','Leave us your contact details — we\u2019ll send you your detailed, non-binding quote and get in touch personally.')}</p>
           <div className="bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] px-4 py-3 mb-6 flex items-center gap-2.5">
             <span className="text-[#C5392E] font-medium text-base">*</span>
-            <p className="font-body text-xs text-[#6B6961]">Pflichtangaben für die Kontaktaufnahme.</p>
+            <p className="font-body text-xs text-[#6B6961]">{t('Pflichtangaben für die Kontaktaufnahme.','Required fields for getting in touch.')}</p>
           </div>
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-5">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Vorname" required value={contact.vorname || ''} onChange={v => setContact(c => ({...c, vorname: v}))} />
-              <Field label="Nachname" required value={contact.nachname || ''} onChange={v => setContact(c => ({...c, nachname: v}))} />
+              <Field label={t('Vorname','First name')} required value={contact.vorname || ''} onChange={v => setContact(c => ({...c, vorname: v}))} />
+              <Field label={t('Nachname','Last name')} required value={contact.nachname || ''} onChange={v => setContact(c => ({...c, nachname: v}))} />
             </div>
-            <Field label="E-Mail" required type="email" value={contact.email || ''} onChange={v => setContact(c => ({...c, email: v}))} />
-            <Field label="Telefon" value={contact.telefon || ''} onChange={v => setContact(c => ({...c, telefon: v}))} />
+            <Field label={t('E-Mail','Email')} required type="email" value={contact.email || ''} onChange={v => setContact(c => ({...c, email: v}))} />
+            <Field label={t('Telefon','Phone')} value={contact.telefon || ''} onChange={v => setContact(c => ({...c, telefon: v}))} />
             <div className="pt-2 mt-2 border-t border-[#1C1C1A]/8">
-              <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-3">Anschrift</p>
+              <p className="font-body text-xs tracking-wider uppercase text-[#6B6961] mb-3">{t('Anschrift','Address')}</p>
               <div className="grid grid-cols-[1fr_auto] gap-3">
-                <Field label="Straße" value={contact.strasse || ''} onChange={v => setContact(c => ({...c, strasse: v}))} />
-                <div className="w-24"><Field label="Nr." value={contact.hausnr || ''} onChange={v => setContact(c => ({...c, hausnr: v}))} /></div>
+                <Field label={t('Straße','Street')} value={contact.strasse || ''} onChange={v => setContact(c => ({...c, strasse: v}))} />
+                <div className="w-24"><Field label={t('Nr.','No.')} value={contact.hausnr || ''} onChange={v => setContact(c => ({...c, hausnr: v}))} /></div>
               </div>
               <div className="grid grid-cols-[auto_1fr] gap-3 mt-3">
-                <div className="w-24"><Field label="PLZ" value={contact.plz || ''} onChange={v => setContact(c => ({...c, plz: v}))} /></div>
-                <Field label="Ort" value={contact.ort || ''} onChange={v => setContact(c => ({...c, ort: v}))} />
+                <div className="w-24"><Field label={t('PLZ','ZIP')} value={contact.plz || ''} onChange={v => setContact(c => ({...c, plz: v}))} /></div>
+                <Field label={t('Ort','City')} value={contact.ort || ''} onChange={v => setContact(c => ({...c, ort: v}))} />
               </div>
             </div>
-            <Field label="Anmerkung" textarea value={contact.notiz || ''} onChange={v => setContact(c => ({...c, notiz: v}))} placeholder="z. B. Wunschtermin, Standortdetails, Fragen …" />
-            <Button onClick={onSubmit} disabled={!isValid} className="w-full mt-4"><Mail className="w-4 h-4" /> Unverbindliches Angebot anfragen</Button>
-            <p className="font-body text-xs text-[#6B6961]">Mit dem Senden willigst Du ein, dass wir Dich kontaktieren dürfen. Keine Weitergabe an Dritte.</p>
+            <Field label={t('Anmerkung','Note')} textarea value={contact.notiz || ''} onChange={v => setContact(c => ({...c, notiz: v}))} placeholder={t('z. B. Wunschtermin, Standortdetails, Fragen …','e.g. preferred date, location details, questions …')} />
+            <Button onClick={onSubmit} disabled={!isValid} className="w-full mt-4"><Mail className="w-4 h-4" /> {t('Unverbindliches Angebot anfragen','Request a non-binding quote')}</Button>
+            <p className="font-body text-xs text-[#6B6961]">{t('Mit dem Senden willigst Du ein, dass wir Dich kontaktieren dürfen. Keine Weitergabe an Dritte.','By sending, you agree that we may contact you. No sharing with third parties.')}</p>
             <div className="mt-3 pt-3 border-t border-[#1C1C1A]/10">
               <p className="font-body text-[11px] text-[#6B6961] leading-relaxed">
-                <span className="font-medium">Hinweis:</span> Diese Konfiguration ist eine unverbindliche Modellrechnung zur ersten Orientierung. Alle Preise, Mieten, Nebenkosten, Förderbeträge, Zinssätze und Steuervorteile sind Indikationen auf Basis aktueller Marktdaten und allgemeiner Annahmen. Sie stellen keine Zusicherung dar. Die tatsächlichen Werte können je nach Standort, Bonität, Bauausführung, Verbrauchsverhalten und gesetzlichen Rahmenbedingungen abweichen. Verbindliche Aussagen erhältst Du erst im persönlichen Angebot. Finanzierungs- und Steueraussagen ersetzen nicht die individuelle Beratung durch Bank bzw. Steuerberater.
+                <span className="font-medium">{t('Hinweis:','Note:')}</span> {t('Diese Konfiguration ist eine unverbindliche Modellrechnung zur ersten Orientierung. Alle Preise, Mieten, Nebenkosten, Förderbeträge, Zinssätze und Steuervorteile sind Indikationen auf Basis aktueller Marktdaten und allgemeiner Annahmen. Sie stellen keine Zusicherung dar. Die tatsächlichen Werte können je nach Standort, Bonität, Bauausführung, Verbrauchsverhalten und gesetzlichen Rahmenbedingungen abweichen. Verbindliche Aussagen erhältst Du erst im persönlichen Angebot. Finanzierungs- und Steueraussagen ersetzen nicht die individuelle Beratung durch Bank bzw. Steuerberater.','This configuration is a non-binding model calculation for initial orientation. All prices, rents, ancillary costs, subsidies, interest rates and tax benefits are indications based on current market data and general assumptions. They do not constitute a guarantee. Actual values may vary depending on location, creditworthiness, construction, consumption behaviour and legal framework. You will receive binding statements only in the personal quote. Financing and tax statements do not replace individual advice from your bank or tax advisor.')}
               </p>
             </div>
           </div>
@@ -4619,17 +4619,17 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
               overflowY: 'auto',
               overflowX: 'hidden',
             }}>
-            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">Zusammenfassung</p>
-            <h3 className="font-display text-xl mb-5">Dein Setup</h3>
-            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Typ</p>
+            <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-2">{t('Zusammenfassung','Summary')}</p>
+            <h3 className="font-display text-xl mb-5">{t('Dein Setup','Your setup')}</h3>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">{t('Typ','Type')}</p>
             <p className="font-body text-sm mb-4">
-              {customerType === 'privat' ? (project ? `Privat — ${project.name}` : 'Privat — eig. Grundstück') : 'Gewerblich'}
-              {modulart && ` · ${modulart === 'privat' ? 'Wohnen' : modulart === 'business' ? 'Business' : 'Beides'}`}
+              {customerType === 'privat' ? (project ? `${t('Privat','Private')} — ${project.name}` : t('Privat — eig. Grundstück','Private — own plot')) : t('Gewerblich','Commercial')}
+              {modulart && ` · ${modulart === 'privat' ? t('Wohnen','Living') : modulart === 'business' ? t('Business','Business') : t('Beides','Both')}`}
             </p>
             {gewerbConfig && gewerbConfig.flaecheStatus !== 'ja' && totals.mindestflaeche && (
-              <p className="font-body text-xs text-[#7B2D8E] mb-4">Mindestflächenbedarf: {fmtNum(totals.mindestflaeche.mindestGrundstueck)} m²</p>
+              <p className="font-body text-xs text-[#7B2D8E] mb-4">{t('Mindestflächenbedarf:','Minimum plot needed:')} {fmtNum(totals.mindestflaeche.mindestGrundstueck)} m²</p>
             )}
-            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Module ({totals.countTotal})</p>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">{t('Module','Modules')} ({totals.countTotal})</p>
             <ul className="space-y-1 mb-5 text-sm font-body max-h-40 overflow-auto scrollbar-none">
               {totals.lineItems.map(it => (
                 <li key={it.kuerzel} className="flex justify-between gap-3">
@@ -4640,18 +4640,18 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
               ))}
             </ul>
             <dl className="space-y-2.5 text-sm font-body pt-4 border-t border-[#1C1C1A]/10">
-              <div className="flex justify-between"><dt className="text-[#6B6961]">Anschaffung brutto</dt><dd className="num">{fmtEUR(totals.bruttoGesamt)}</dd></div>
-              {(project || gewerbConfig) && <div className="flex justify-between"><dt className="text-[#6B6961]">Projektkosten einm.</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto + totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>}
-              <div className="flex justify-between"><dt className="text-[#6B6961]">Anzahlung</dt><dd className="num">{fmtEUR(totals.anzahlung)}</dd></div>
-              <div className="flex justify-between pt-2 border-t border-[#1C1C1A]/10"><dt className="text-[#6B6961]">Finanzierung/Mt.</dt><dd className="num">{fmtEUR(totals.finanzierungMonat)}</dd></div>
-              {(project || gewerbConfig) && <div className="flex justify-between text-[#7B2D8E]"><dt>Laufende Fix-Kosten/Mt.</dt><dd className="num">{fmtEUR(totals.laufendeKostenMonat)}</dd></div>}
-              <div className="flex justify-between font-body"><dt className="text-[#1C1C1A]">Belastung/Mt.</dt><dd className="num">{fmtEUR(totals.monatlichGesamt)}</dd></div>
+              <div className="flex justify-between"><dt className="text-[#6B6961]">{t('Anschaffung brutto','Acquisition gross')}</dt><dd className="num">{fmtEUR(totals.bruttoGesamt)}</dd></div>
+              {(project || gewerbConfig) && <div className="flex justify-between"><dt className="text-[#6B6961]">{t('Projektkosten einm.','Project costs once')}</dt><dd className="num">{fmtEUR(totals.einmaligGesamtBrutto + totals.countTotal * totals.gmKostenProModulBrutto)}</dd></div>}
+              <div className="flex justify-between"><dt className="text-[#6B6961]">{t('Anzahlung','Down payment')}</dt><dd className="num">{fmtEUR(totals.anzahlung)}</dd></div>
+              <div className="flex justify-between pt-2 border-t border-[#1C1C1A]/10"><dt className="text-[#6B6961]">{t('Finanzierung/Mt.','Financing/mo')}</dt><dd className="num">{fmtEUR(totals.finanzierungMonat)}</dd></div>
+              {(project || gewerbConfig) && <div className="flex justify-between text-[#7B2D8E]"><dt>{t('Laufende Fix-Kosten/Mt.','Ongoing fixed costs/mo')}</dt><dd className="num">{fmtEUR(totals.laufendeKostenMonat)}</dd></div>}
+              <div className="flex justify-between font-body"><dt className="text-[#1C1C1A]">{t('Belastung/Mt.','Cost/mo')}</dt><dd className="num">{fmtEUR(totals.monatlichGesamt)}</dd></div>
               {(totals.hasIncome || totals.gmCount > 0) && (
                 <>
-                  {totals.hasIncome && <div className="flex justify-between text-[#7B2D8E]"><dt>Einnahmen/Mt.</dt><dd className="num">+{fmtEUR(totals.monthlyIncomeNetto)}</dd></div>}
-                  {totals.gmCount > 0 && <div className={`flex justify-between ${totals.gmEinnahmenKunde >= 0 ? 'text-[#7B2D8E]' : 'text-[#C5392E]'}`}><dt>Gemeinschaftsmodule netto/Mt.</dt><dd className="num">{totals.gmEinnahmenKunde >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}</dd></div>}
+                  {totals.hasIncome && <div className="flex justify-between text-[#7B2D8E]"><dt>{t('Einnahmen/Mt.','Income/mo')}</dt><dd className="num">+{fmtEUR(totals.monthlyIncomeNetto)}</dd></div>}
+                  {totals.gmCount > 0 && <div className={`flex justify-between ${totals.gmEinnahmenKunde >= 0 ? 'text-[#7B2D8E]' : 'text-[#C5392E]'}`}><dt>{t('Gemeinschaftsmodule netto/Mt.','Community modules net/mo')}</dt><dd className="num">{totals.gmEinnahmenKunde >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}</dd></div>}
                   <div className={`flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10 ${totals.cashflowPositive ? 'text-[var(--brand-accent,#D2563E)]' : ''}`}>
-                    <dt>{totals.cashflowPositive ? 'Überschuss' : 'Eff. Belastung'}</dt>
+                    <dt>{totals.cashflowPositive ? t('Überschuss','Surplus') : t('Eff. Belastung','Eff. cost')}</dt>
                     <dd className="num">{totals.cashflowPositive ? '+' : ''}{fmtEUR(Math.abs(totals.cashflowNetto))}</dd>
                   </div>
                 </>
@@ -4671,22 +4671,22 @@ function SuccessStep({ lead, onRestart, offerStatus }) {
       <div className="w-16 h-16 rounded-full bg-[var(--brand-accent,#D2563E)] flex items-center justify-center mx-auto mb-8">
         <Check className="w-7 h-7 text-[#F8F5F0]" strokeWidth={1.5} />
       </div>
-      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-4">Unverbindliche Angebotsanfrage eingegangen</p>
-      <h1 className="font-display text-5xl md:text-6xl leading-tight tracking-tight mb-6">Danke, <em>{lead?.contact?.vorname}</em><span className="opacity-40"> …</span></h1>
-      <p className="font-body text-lg text-[#6B6961] mb-6 max-w-xl mx-auto leading-relaxed">Wir haben Deine Anfrage erhalten und melden uns innerhalb von 1–2 Werktagen persönlich bei Dir.</p>
+      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-4">{t('Unverbindliche Angebotsanfrage eingegangen','Non-binding quote request received')}</p>
+      <h1 className="font-display text-5xl md:text-6xl leading-tight tracking-tight mb-6">{t('Danke','Thank you')}, <em>{lead?.contact?.vorname}</em><span className="opacity-40"> …</span></h1>
+      <p className="font-body text-lg text-[#6B6961] mb-6 max-w-xl mx-auto leading-relaxed">{t('Wir haben Deine Anfrage erhalten und melden uns innerhalb von 1–2 Werktagen persönlich bei Dir.','We have received your request and will get in touch with you personally within 1–2 business days.')}</p>
 
       {offerStatus === 'sending' && (
-        <p className="font-body text-sm text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">Dein persönliches Angebot wird gerade erstellt und an <span className="text-[#1C1C1A]">{email}</span> gesendet …</p>
+        <p className="font-body text-sm text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">{t('Dein persönliches Angebot wird gerade erstellt und an','Your personal quote is being prepared and sent to')} <span className="text-[#1C1C1A]">{email}</span> {t('gesendet …','…')}</p>
       )}
       {offerStatus === 'sent' && (
-        <p className="font-body text-sm mb-10 max-w-xl mx-auto leading-relaxed text-[#6B6961]"><span className="text-[var(--brand-accent,#D2563E)] font-medium">Dein unverbindliches Angebot als PDF</span> ist unterwegs an <span className="text-[#1C1C1A]">{email}</span>. Bitte schau auch im Spam-Ordner nach.</p>
+        <p className="font-body text-sm mb-10 max-w-xl mx-auto leading-relaxed text-[#6B6961]"><span className="text-[var(--brand-accent,#D2563E)] font-medium">{t('Dein unverbindliches Angebot als PDF','Your non-binding quote as a PDF')}</span> {t('ist unterwegs an','is on its way to')} <span className="text-[#1C1C1A]">{email}</span>. {t('Bitte schau auch im Spam-Ordner nach.','Please also check your spam folder.')}</p>
       )}
       {(offerStatus === 'failed' || offerStatus === 'invalid') && (
-        <p className="font-body text-sm text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">Dein detailliertes Angebot stellen wir gerade zusammen und senden es Dir in Kürze persönlich zu.</p>
+        <p className="font-body text-sm text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">{t('Dein detailliertes Angebot stellen wir gerade zusammen und senden es Dir in Kürze persönlich zu.','We are putting together your detailed quote and will send it to you personally shortly.')}</p>
       )}
       {!offerStatus && <div className="mb-4" />}
 
-      <div><Button onClick={onRestart} variant="secondary">Neue Konfiguration starten</Button></div>
+      <div><Button onClick={onRestart} variant="secondary">{t('Neue Konfiguration starten','Start a new configuration')}</Button></div>
     </div>
   );
 }
@@ -8485,7 +8485,7 @@ function MobileSummaryBar({ totals, ziel, belegt = 0, step, onAdvance, onBack })
     : erreicht ? 'text-[#7FB069]'         // grün: Rest exakt gefüllt
     : 'text-[#7B2D8E]';                   // lila: noch Platz
   const advanceDisabled = step === 1 && totals.countTotal === 0;
-  const btnLabel = step === 3 ? 'Zum Abschluss' : 'Weiter';
+  const btnLabel = step === 3 ? t('Zum Abschluss','To checkout') : t('Weiter','Next');
   const hasRabatt = (totals.rabattPct || 0) > 0;
   const lbl = 'font-body text-[9px] tracking-wider uppercase text-[#6B6961] leading-none mb-1';
   const val = 'font-display text-sm num leading-none';
@@ -8493,40 +8493,40 @@ function MobileSummaryBar({ totals, ziel, belegt = 0, step, onAdvance, onBack })
     <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-white/95 backdrop-blur border-t border-[#1C1C1A]/10 shadow-[0_-4px_20px_-8px_rgba(28,28,26,0.3)]">
       <div className="px-5 pt-2.5 pb-2 flex items-end gap-2.5">
         <div className="shrink-0">
-          <p className={lbl}>Module</p>
+          <p className={lbl}>{t('Module','Modules')}</p>
           <p className={val}>
             <span className={zielColor}>{ist}</span>
             {hasZiel && <span className="text-[#6B6961]"> / {ziel}</span>}
           </p>
           {hasZiel && (
             <p className={`font-body text-[9px] leading-none mt-1 ${ueberschritten ? 'text-[#C0392B]' : 'text-[#6B6961]'}`}>
-              {ueberschritten ? `${ist - effZiel} über frei` : `${frei} noch frei`}
+              {ueberschritten ? `${ist - effZiel} ${t('über frei','over')}` : `${frei} ${t('noch frei','free')}`}
             </p>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className={lbl}>Module&nbsp;€</p>
+          <p className={lbl}>{t('Module','Modules')}&nbsp;€</p>
           <p className={`font-display text-[13px] num leading-none text-[#1C1C1A] truncate`}>{fmtEUR(totals.modulKostenAnzeige)}</p>
         </div>
         <div className="min-w-0 flex-1">
-          <p className={lbl}>Einmalig</p>
+          <p className={lbl}>{t('Einmalig','One-off')}</p>
           <p className={`font-display text-[13px] num leading-none text-[#1C1C1A] truncate`}>{fmtEUR(totals.einmalKostenAnzeige)}</p>
         </div>
         {hasRabatt && (
           <div className="shrink-0">
-            <p className={lbl}>Rabatt</p>
+            <p className={lbl}>{t('Rabatt','Discount')}</p>
             <p className={`${val} text-[#7FB069]`}>−{fmtPct(totals.rabattPct)}</p>
           </div>
         )}
         <div className="shrink-0 text-right">
-          <p className={lbl}>Rate/Mt.</p>
+          <p className={lbl}>{t('Rate/Mt.','Rate/mo')}</p>
           <p className={`font-display text-[13px] num leading-none text-[var(--brand-accent,#D2563E)] truncate`}>{fmtEUR(totals.finanzierungMonat)}</p>
         </div>
       </div>
       <div className="flex">
         <button onClick={onBack}
           className="shrink-0 flex items-center justify-center gap-1 px-5 py-2.5 font-body text-sm text-[#6B6961] border-t border-r border-[#1C1C1A]/10 active:bg-[#1C1C1A]/5">
-          <ChevronLeft className="w-4 h-4" /> Zurück
+          <ChevronLeft className="w-4 h-4" /> {t('Zurück','Back')}
         </button>
         <button onClick={onAdvance} disabled={advanceDisabled}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 font-body text-sm tracking-wide transition-colors ${advanceDisabled ? 'bg-[#1C1C1A]/10 text-[#6B6961]' : 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] active:bg-[#B04528]'}`}>
