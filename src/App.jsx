@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.169';
+const APP_VERSION = '0.9.170';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -145,6 +145,14 @@ const CATEGORIES = {
   arbeit:     { label: 'Arbeit & Gemeinschaft',  desc: 'Co-Working, Versammlung, Büro' },
   erlebnis:   { label: 'Freizeit & Gesundheit',  desc: 'Gym, Wellness, Musik, Pool' },
   ergaenzung: { label: 'Ergänzungen',            desc: 'Leer-Module zur individuellen Nutzung' },
+};
+
+// Englische Entsprechungen (Code-Konstante, daher nicht via t() — reaktiv über catLabel/catDesc abgerufen).
+const CATEGORIES_EN = {
+  wohnen:     { label: 'Employee housing, short- & midstay', desc: 'Living modules, family combinations, hospitality, tourism' },
+  arbeit:     { label: 'Work & community',  desc: 'Co-working, meetings, office' },
+  erlebnis:   { label: 'Leisure & health',  desc: 'Gym, wellness, music, pool' },
+  ergaenzung: { label: 'Add-ons',           desc: 'Empty modules for individual use' },
 };
 
 const PRODUCTS_PRIVAT_RAW = [
@@ -224,6 +232,29 @@ const FAMILY_LABELS = {
   pool:      { label: 'Container-Pool', desc: 'Pool mit Strömungsanlage' },
   stack:     { label: 'CoMod Stack',    desc: 'Gestapelte Modul-Kombination, 2 Geschosse + Dachterrasse' },
 };
+
+// Englische Family-Beschreibungen (Labels = Markennamen, bleiben). Reaktiv über familyDescEN() abgerufen.
+const FAMILY_DESC_EN = {
+  live:      'Living module, 32 m² NUF',
+  home:      'Living combo of 2-3 modules, 44 / 64 / 66 / 96 m² NUF',
+  add:       'Empty add-on module, 12 / 22 / 32 m²',
+  liveb:     'Commercial living module, 32 m²',
+  studio:    'Holiday flat, 32 m² NUF, furnished',
+  stay:      'Hotel/short-stay module, 22 m² NUF, furnished',
+  double:    'Double living module, 36 m² NUF, furnished',
+  gym:       'Fully digital gym with showers',
+  music:     'Sound-optimised rehearsal/music room',
+  wellness:  'Mini sauna, ice bath, loungers',
+  cowork:    'Co-working combo, 32 / 64 / 96 m²',
+  community: 'Meeting module, 32 / 64 / 96 m²',
+  addb:      'Commercial add-on module, empty',
+  pool:      'Pool with counter-current system',
+  stack:     'Stacked module combination, 2 floors + roof terrace',
+};
+function familyDescEN(familyId, fallbackDesc) {
+  if (LANG === 'en' && FAMILY_DESC_EN[familyId]) return FAMILY_DESC_EN[familyId];
+  return fallbackDesc;
+}
 
 // Add ist die einzige Familie, die je nach Auswahl privat oder gewerblich werden kann
 const ADD_FAMILY_PAIR = { privat: 'add', business: 'addb' };
@@ -586,6 +617,8 @@ function mapDbProjectToFrontend(db) {
     location: db.location || '',
     description: db.description_de || '',
     description2: db.description2_de || '',
+    description_en: db.description_en || '',
+    description2_en: db.description2_en || '',
     heroImageUrl: db.hero_image_url || null,
     projektrabatt: Number(db.projektrabatt || 0),
     projektMarge: (db.projekt_marge == null ? null : Number(db.projekt_marge)),
@@ -1975,8 +2008,8 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
                 <h3 className="font-display text-2xl mb-1">{p.name}</h3>
                 <p className="font-body text-sm text-[#6B6961]">{p.location}</p>
               </div>
-              <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-3">{p.description}</p>
-              {p.description2 && <p className="font-body text-xs text-[#7B2D8E] leading-relaxed mb-4 italic">{p.description2}</p>}
+              <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-3">{(LANG === 'en' && p.description_en) ? p.description_en : p.description}</p>
+              {((LANG === 'en' && p.description2_en) ? p.description2_en : p.description2) && <p className="font-body text-xs text-[#7B2D8E] leading-relaxed mb-4 italic">{(LANG === 'en' && p.description2_en) ? p.description2_en : p.description2}</p>}
               <div className="flex gap-4 mb-4 font-body text-xs text-[#6B6961]">
                 <span><span className="num text-[#1C1C1A]">{p.zielModulAnzahl}</span> {t('Module Zielgröße', 'modules target')}</span>
                 <span className="opacity-50">·</span>
@@ -2975,7 +3008,7 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
       {/* Textteil — Spalte; Preis+Button werden per mt-auto immer unten bündig gehalten */}
       <div className="p-5 bg-[#F8F5F0] border-t border-[#1C1C1A]/8 flex-1 flex flex-col">
         <h4 className="font-display text-xl leading-tight mb-1">{fam.label}</h4>
-        <p className="font-body text-xs text-[#6B6961] leading-snug mb-3 truncate">{fam.desc || product.beschr || fam.label}</p>
+        <p className="font-body text-xs text-[#6B6961] leading-snug mb-3 truncate">{familyDescEN(familyId, fam.desc) || product.beschr || fam.label}</p>
 
         {canToggle && (
           <div className="mb-3 pb-3 border-b border-[#1C1C1A]/8">
@@ -3092,7 +3125,12 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
   // Reiner Gewerbe-Pfad: alle Beträge netto anzeigen (Vorsteuer-Abzug möglich)
   const isPureGewerb = customerType === 'gewerblich';
   // Kategorie-Label: im privaten Pfad heißt "wohnen" → "Wohnmodule" (statt "Mitarbeiterwohnen …")
-  const catLabel = (cid) => (cid === 'wohnen' && customerType === 'privat') ? t('Wohnmodule', 'Living modules') : (CATEGORIES[cid]?.label || cid);
+  const catLabel = (cid) => {
+    if (cid === 'wohnen' && customerType === 'privat') return t('Wohnmodule', 'Living modules');
+    if (LANG === 'en' && CATEGORIES_EN[cid]?.label) return CATEGORIES_EN[cid].label;
+    return CATEGORIES[cid]?.label || cid;
+  };
+  const catDesc = (cid) => ((LANG === 'en' && CATEGORIES_EN[cid]?.desc) ? CATEGORIES_EN[cid].desc : (CATEGORIES[cid]?.desc || ''));
   const priceMode = isPureGewerb ? 'netto' : 'brutto';
   // Helper: nimmt einen Posten mit { brutto, netto } und gibt den anzuzeigenden Wert
   const showPrice = (item) => isPureGewerb && item?.netto != null ? item.netto : (item?.brutto ?? item);
@@ -3256,7 +3294,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
               <div key={catId}>
                 <div className="flex items-baseline justify-between mb-4 pb-3 border-b border-[#1C1C1A]/10">
                   <h2 className="font-display text-2xl">{catLabel(catId)}</h2>
-                  <p className="font-body text-xs text-[#6B6961] hidden md:block">{CATEGORIES[catId]?.desc || ''}</p>
+                  <p className="font-body text-xs text-[#6B6961] hidden md:block">{catDesc(catId)}</p>
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   {famIds.map(fid => (
