@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.168';
+const APP_VERSION = '0.9.169';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -1007,11 +1007,11 @@ function defaultGeschossVerteilung(zielwert, geschosse) {
 function validateGeschossVerteilung(verteilung, zielwert) {
   if (!verteilung || verteilung.length === 0) return { valid: true, error: null };
   const summe = verteilung.reduce((s, n) => s + n, 0);
-  if (summe > zielwert) return { valid: false, error: `Summe (${summe}) überschreitet Zielwert (${zielwert})` };
+  if (summe > zielwert) return { valid: false, error: `${t('Summe','Sum')} (${summe}) ${t('überschreitet Zielwert','exceeds target')} (${zielwert})` };
   for (let i = 1; i < verteilung.length; i++) {
     if (verteilung[i] > verteilung[i-1]) {
-      const namen = ['EG', 'OG', 'DG'];
-      return { valid: false, error: `${namen[i]} darf nicht mehr Module als ${namen[i-1]} haben` };
+      const namen = [t('EG','GF'), t('OG','UF'), t('DG','TF')];
+      return { valid: false, error: `${namen[i]} ${t('darf nicht mehr Module als','must not have more modules than')} ${namen[i-1]} ${t('haben','')}`.trim() };
     }
   }
   return { valid: true, error: null };
@@ -1748,7 +1748,7 @@ function Header({ step, onJump, view, setView, brandLogoUrl, lang, setLang }) {
     // Nur fragen, wenn der Nutzer schon irgendwo unterwegs ist (step > 1 oder im Admin)
     const inProgress = view === 'customer' && step > 1;
     if (inProgress) {
-      const ok = window.confirm('Konfigurator von vorne starten? Aktuelle Eingaben gehen verloren.');
+      const ok = window.confirm(t('Konfigurator von vorne starten? Aktuelle Eingaben gehen verloren.', 'Restart the configurator from the beginning? Your current entries will be lost.'));
       if (!ok) return;
     }
     // Sauberer Reset via Page-Reload (alle States, Auswahl, Mode zurück auf Initial)
@@ -1758,11 +1758,11 @@ function Header({ step, onJump, view, setView, brandLogoUrl, lang, setLang }) {
     <header className="border-b border-[#1C1C1A]/10 bg-white sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 py-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button onClick={handleRestart} title="Zum Start des Konfigurators"
+          <button onClick={handleRestart} title={t('Zum Start des Konfigurators', 'To the start of the configurator')}
             className="flex items-center hover:opacity-70 transition-opacity">
-            <img src={brandLogoUrl || "/brand/comod_logo_black.png"} alt="zum Start" className="h-10 w-auto" />
+            <img src={brandLogoUrl || "/brand/comod_logo_black.png"} alt={t('zum Start', 'to start')} className="h-10 w-auto" />
           </button>
-          <span className="font-body text-xs text-[#6B6961] tracking-[0.2em] uppercase border-l border-[#1C1C1A]/15 pl-3 hidden md:inline">Konfigurator</span>
+          <span className="font-body text-xs text-[#6B6961] tracking-[0.2em] uppercase border-l border-[#1C1C1A]/15 pl-3 hidden md:inline">{t('Konfigurator', 'Configurator')}</span>
         </div>
         {view === 'customer' && step < 4 && <div className="hidden lg:block"><StepIndicator currentStep={step} onJump={onJump} /></div>}
         <div className="flex items-center gap-3">
@@ -1827,7 +1827,7 @@ function WelcomeStep({ onSelect, land, setLand }) {
           <div className="mt-8 flex items-center gap-3 flex-wrap">
             <span className="font-body text-xs uppercase tracking-wider text-[#6B6961]">{t('Standort', 'Location')}</span>
             <div className="inline-flex border border-[#1C1C1A]/15 overflow-hidden">
-              {[['DE', 'Deutschland'], ['AT', 'Österreich']].map(([code, name]) => (
+              {[['DE', t('Deutschland', 'Germany')], ['AT', t('Österreich', 'Austria')]].map(([code, name]) => (
                 <button key={code} onClick={() => setLand(code)}
                   className={`px-4 py-2 font-body text-sm transition-colors ${land === code ? 'bg-[#1C1C1A] text-[#F8F5F0]' : 'bg-white text-[#1C1C1A] hover:bg-[#1C1C1A]/5'}`}>
                   {name}
@@ -1835,7 +1835,7 @@ function WelcomeStep({ onSelect, land, setLand }) {
               ))}
             </div>
             <span className="font-body text-[11px] text-[#6B6961] italic">
-              {land === 'AT' ? '20 % USt, Hausbankfinanzierung (Ballonrate) statt KfW/GLS.' : '19 % USt, KfW + GLS.'}
+              {land === 'AT' ? t('20 % USt, Hausbankfinanzierung (Ballonrate) statt KfW/GLS.', '20 % VAT, bank financing (balloon payment) instead of KfW/GLS.') : t('19 % USt, KfW + GLS.', '19 % VAT, KfW + GLS.')}
             </span>
           </div>
         )}
@@ -2096,6 +2096,51 @@ function ModulartStep({ onSelect, onBack }) {
   );
 }
 
+// Übersetzt die datengenerierten Einmalkosten-Posten-Labels zur Render-Zeit (reaktiv).
+function einmalLabel(p) {
+  if (LANG !== 'en') return p.label;
+  const M = {
+    arch: 'Architecture & design planning',
+    eing: 'Submission planning (architect)',
+    pm: 'Project management & site supervision',
+    treppen: 'Stairs & access balconies',
+    fundament: 'Foundations (GF modules)',
+    terrasse: 'Terraces (GF modules)',
+    abriss: 'Demolition of existing structures',
+    erschl: 'Site development (power/water/sewage)',
+    wege: 'Paths, gravel, paving',
+    gruen: 'Greening, trees, hedges',
+  };
+  if (M[p.id]) return M[p.id];
+  const l = p.label || '';
+  if (p.id === 'baugenehmigung') return l.replace('Baugenehmigung (anteilig)', 'Building permit (pro rata)').replace('Baugenehmigung (NRW-Richtwert)', 'Building permit (NRW guideline)');
+  if (p.id === 'pv') return l.replace('PV-Anlage', 'PV system').replace('Dachfläche', 'roof area');
+  return l;
+}
+
+// Übersetzt PRIVAT_UPGRADES Label/Hint zur Render-Zeit (reaktiv); sonst Datenwert.
+function privUpgLabel(opt) {
+  if (LANG !== 'en') return opt.label;
+  return { terrasse: 'Terrace', pv: 'PV system incl. storage', gruen: 'Green roof' }[opt.id] || opt.label;
+}
+function privUpgHint(opt) {
+  if (LANG !== 'en') return opt.hint;
+  return { terrasse: 'Per ground-floor module', pv: 'Per module, incl. inverter & storage', gruen: 'Extensive greening per module' }[opt.id] || opt.hint;
+}
+
+// Übersetzt die GRDST_OPTIONEN-Labels zur Render-Zeit (reaktiv bei Sprachwechsel).
+// Greift nur bei EN und bekannter id; sonst bleibt das (ggf. im Backend gepflegte) opt.label.
+function grdstOptLabel(opt) {
+  if (LANG !== 'en') return opt.label;
+  const M = {
+    abriss: 'Demolition of existing structures',
+    erschl: 'Site development (power/water/sewage)',
+    wege:   'Paths, gravel, paving',
+    gruen:  'Greening, trees, hedges',
+  };
+  return M[opt.id] || opt.label;
+}
+
 function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
   // Pflichtfeld-Check je nach Pfad
   const hasFlaecheData = config.flaecheStatus === 'ja'
@@ -2185,74 +2230,74 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
   const verteilung = config.geschossVerteilung || [];
   const validierung = validateGeschossVerteilung(verteilung, config.zielModulAnzahl);
   const verteilungSumme = verteilung.reduce((s, n) => s + n, 0);
-  const geschossNamen = ['EG', 'OG', 'DG'];
+  const geschossNamen = [t('EG','GF'), t('OG','UF'), t('DG','TF')];
   // Dachfläche = oberstes Geschoss × 36 m²
   const dachflaeche = verteilung.length > 0 ? verteilung[verteilung.length - 1] * ZIEL_MODUL_BGF : 0;
 
   return (
     <div className="max-w-5xl mx-auto px-8 py-12">
       <button onClick={onBack} className="font-body text-sm text-[#6B6961] hover:text-[#1C1C1A] flex items-center gap-1.5 mb-8 transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Zurück
+        <ChevronLeft className="w-4 h-4" /> {t('Zurück','Back')}
       </button>
-      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">Gewerblich — Rahmenbedingungen</p>
+      <p className="font-body text-xs tracking-[0.3em] uppercase text-[#6B6961] mb-3">{t('Gewerblich — Rahmenbedingungen','Commercial — framework')}</p>
       <h1 className="font-display text-4xl md:text-5xl leading-tight tracking-tight mb-3">
-        Erzähl uns vom <em>Standort</em><span className="opacity-40"> …</span>
+        {t('Erzähl uns vom','Tell us about the')} <em>{t('Standort','location')}</em><span className="opacity-40"> …</span>
       </h1>
       <p className="font-body text-base text-[#6B6961] mb-8 max-w-2xl">
-        Damit wir Dir realistische Zahlen zeigen können. Wir starten mit Deiner Flächensituation und ermitteln daraus die mögliche Modulanzahl und Geschoss-Verteilung.
+        {t('Damit wir Dir realistische Zahlen zeigen können. Wir starten mit Deiner Flächensituation und ermitteln daraus die mögliche Modulanzahl und Geschoss-Verteilung.','So we can show you realistic figures. We start with your site situation and derive the possible number of modules and the floor distribution from it.')}
       </p>
       <div className="bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_20%,transparent)] px-4 py-3 mb-8 flex items-center gap-2.5 max-w-2xl">
         <span className="text-[#C5392E] font-medium text-base">*</span>
-        <p className="font-body text-xs text-[#6B6961]">Pflichtangaben mit Stern. Diese erste Kostenindikation verfeinern wir gemeinsam im Beratungsgespräch.</p>
+        <p className="font-body text-xs text-[#6B6961]">{t('Pflichtangaben mit Stern. Diese erste Kostenindikation verfeinern wir gemeinsam im Beratungsgespräch.','Mandatory fields marked with a star. We refine this first cost indication together in the consultation.')}</p>
       </div>
 
       <div className="space-y-6">
 
         {/* SCHRITT 1: Fläche-Status */}
         <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-4">
-          <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">1</span> Fläche</h3>
-          <FieldLabel required>Wie sieht's mit der Fläche aus?</FieldLabel>
+          <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">1</span> {t('Fläche','Area')}</h3>
+          <FieldLabel required>{t("Wie sieht's mit der Fläche aus?",'What\u2019s the situation with the plot?')}</FieldLabel>
           <div className="grid md:grid-cols-3 gap-3">
             <button onClick={() => setFlaecheStatus('ja')}
               className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'ja' ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
               <MapPin className="w-5 h-5 text-[var(--brand-accent,#D2563E)] mb-2" strokeWidth={1.5} />
-              <p className="font-body text-sm text-[#1C1C1A] font-medium">Ja, ich habe</p>
-              <p className="font-body text-xs text-[#6B6961] mt-1">Konkretes Grundstück vorhanden</p>
+              <p className="font-body text-sm text-[#1C1C1A] font-medium">{t('Ja, ich habe','Yes, I have one')}</p>
+              <p className="font-body text-xs text-[#6B6961] mt-1">{t('Konkretes Grundstück vorhanden','A specific plot is available')}</p>
             </button>
             <button onClick={() => setFlaecheStatus('suche_selbst')}
               className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'suche_selbst' ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
               <MapPin className="w-5 h-5 text-[var(--brand-accent,#D2563E)] mb-2" strokeWidth={1.5} />
-              <p className="font-body text-sm text-[#1C1C1A] font-medium">Noch nicht — ich suche</p>
-              <p className="font-body text-xs text-[#6B6961] mt-1">Ich kümmere mich selbst um die Fläche</p>
+              <p className="font-body text-sm text-[#1C1C1A] font-medium">{t('Noch nicht — ich suche','Not yet — I\u2019m searching')}</p>
+              <p className="font-body text-xs text-[#6B6961] mt-1">{t('Ich kümmere mich selbst um die Fläche','I take care of the plot myself')}</p>
             </button>
             <button onClick={() => setFlaecheStatus('sucht_fuer_mich')}
               className={`p-4 border text-left transition-colors ${config.flaecheStatus === 'sucht_fuer_mich' ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
               <MapPin className="w-5 h-5 text-[#7B2D8E] mb-2" strokeWidth={1.5} />
-              <p className="font-body text-sm text-[#1C1C1A] font-medium">Bitte sucht eine Fläche für mich</p>
-              <p className="font-body text-xs text-[#6B6961] mt-1">Ihr unterstützt mich bei der Suche</p>
+              <p className="font-body text-sm text-[#1C1C1A] font-medium">{t('Bitte sucht eine Fläche für mich','Please find a plot for me')}</p>
+              <p className="font-body text-xs text-[#6B6961] mt-1">{t('Ihr unterstützt mich bei der Suche','You help me with the search')}</p>
             </button>
           </div>
 
           {/* Eingabefeld je nach Auswahl */}
           {config.flaecheStatus === 'ja' && (
             <div className="pt-4 border-t border-[#1C1C1A]/8">
-              <FieldLabel required>Grundstücksgröße in m²</FieldLabel>
+              <FieldLabel required>{t('Grundstücksgröße in m²','Plot size in m²')}</FieldLabel>
               <NumberInput value={config.grundstueckGroesse} onChange={v => setConfig(c => ({...c, grundstueckGroesse: v, geschosse: 0, zielModulAnzahl: 0, geschossVerteilung: []}))}
-                placeholder="z. B. 2000"
+                placeholder={t('z. B. 2000','e.g. 2000')}
                 className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[var(--brand-accent,#D2563E)]" />
             </div>
           )}
           {(config.flaecheStatus === 'suche_selbst' || config.flaecheStatus === 'sucht_fuer_mich') && (
             <div className="pt-4 border-t border-[#1C1C1A]/8 space-y-3">
-              <FieldLabel required hint="Daraus berechnen wir den Mindestflächenbedarf">Wie viele Module wünschst Du Dir?</FieldLabel>
+              <FieldLabel required hint={t('Daraus berechnen wir den Mindestflächenbedarf','From this we calculate the minimum plot needed')}>{t('Wie viele Module wünschst Du Dir?','How many modules would you like?')}</FieldLabel>
               <NumberInput value={config.gewuenschteModulAnzahl} onChange={v => setConfig(c => ({...c, gewuenschteModulAnzahl: v, geschosse: 0, zielModulAnzahl: 0, geschossVerteilung: []}))}
-                placeholder="z. B. 50"
+                placeholder={t('z. B. 50','e.g. 50')}
                 className="w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[var(--brand-accent,#D2563E)]" />
               {config.flaecheStatus === 'sucht_fuer_mich' && (
                 <div className="bg-[#FBF7EF] border border-[#7B2D8E]/30 p-3 flex gap-2 items-start">
                   <Info className="w-4 h-4 text-[#7B2D8E] shrink-0 mt-0.5" strokeWidth={1.5} />
                   <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
-                    Wir suchen passende Flächen in Deiner Wunschregion. Details besprechen wir gerne persönlich.
+                    {t('Wir suchen passende Flächen in Deiner Wunschregion. Details besprechen wir gerne persönlich.','We look for suitable plots in your preferred region. We are happy to discuss the details personally.')}
                   </p>
                 </div>
               )}
@@ -2263,13 +2308,13 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
         {/* SCHRITT 2: Geschossigkeit */}
         {hasFlaecheData && (
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-4">
-            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">2</span> Geschossigkeit</h3>
-            <FieldLabel required hint="Beeinflusst die maximale Modulanzahl">Wie viele Geschosse sind geplant?</FieldLabel>
+            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">2</span> {t('Geschossigkeit','Number of floors')}</h3>
+            <FieldLabel required hint={t('Beeinflusst die maximale Modulanzahl','Affects the maximum number of modules')}>{t('Wie viele Geschosse sind geplant?','How many floors are planned?')}</FieldLabel>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
-                { n: 1, label: '1 Geschoss', sub: 'eingeschossig' },
-                { n: 2, label: '2 Geschosse', sub: 'EG + OG' },
-                { n: 3, label: '3 Geschosse', sub: 'EG + OG + DG' },
+                { n: 1, label: t('1 Geschoss','1 floor'), sub: t('eingeschossig','single-storey') },
+                { n: 2, label: t('2 Geschosse','2 floors'), sub: 'GF + UF' },
+                { n: 3, label: t('3 Geschosse','3 floors'), sub: 'GF + UF + TF' },
               ].map(g => (
                 <button key={g.n} onClick={() => setGeschosse(g.n)}
                   className={`p-4 border text-left transition-colors flex items-center gap-3 ${config.geschosse === g.n ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0]' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
@@ -2282,35 +2327,35 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
             {/* Berechnete Kapazität anzeigen */}
             {maxModuleData && config.geschosse > 0 && (
               <div className="mt-3 bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] border border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_15%,transparent)] p-4">
-                <p className="font-body text-xs uppercase tracking-wider text-[var(--brand-accent,#D2563E)] mb-2">Berechnete Kapazität</p>
+                <p className="font-body text-xs uppercase tracking-wider text-[var(--brand-accent,#D2563E)] mb-2">{t('Berechnete Kapazität','Calculated capacity')}</p>
                 <div className="font-body text-sm text-[#1C1C1A] space-y-1">
-                  <p><span className="num">{config.grundstueckGroesse} m²</span> × {Math.round(BEBAUUNGSGRAD * 100)} % bebaubar ÷ {ZIEL_MODUL_BGF} m² BGF = <span className="num font-medium">{maxModuleData.maxProGeschoss}</span> Module / Geschoss</p>
-                  <p><span className="num font-medium">{maxModuleData.maxGesamt}</span> Module insgesamt möglich (bei {config.geschosse} {config.geschosse === 1 ? 'Geschoss' : 'Geschossen'})</p>
+                  <p><span className="num">{config.grundstueckGroesse} m²</span> × {Math.round(BEBAUUNGSGRAD * 100)} % {t('bebaubar','buildable')} ÷ {ZIEL_MODUL_BGF} m² {t('BGF','GFA')} = <span className="num font-medium">{maxModuleData.maxProGeschoss}</span> {t('Module / Geschoss','modules / floor')}</p>
+                  <p><span className="num font-medium">{maxModuleData.maxGesamt}</span> {t('Module insgesamt möglich (bei','modules possible in total (with')} {config.geschosse} {config.geschosse === 1 ? t('Geschoss','floor') : t('Geschossen','floors')})</p>
                 </div>
               </div>
             )}
             {mindestflaecheData && config.geschosse > 0 && (
               <div className="mt-3 bg-[#FBF7EF] border border-[#7B2D8E]/30 p-5">
-                <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] mb-3">Mindestflächenbedarf</p>
+                <p className="font-body text-xs uppercase tracking-wider text-[#7B2D8E] mb-3">{t('Mindestflächenbedarf','Minimum plot needed')}</p>
                 <div className="space-y-3 mb-4">
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-body text-sm text-[#6B6961]">Gebäude-Grundfläche (EG)</span>
+                    <span className="font-body text-sm text-[#6B6961]">{t('Gebäude-Grundfläche (EG)','Building footprint (GF)')}</span>
                     <span className="font-display text-xl num text-[#1C1C1A]">{fmtNum(mindestflaecheData.gebaeudeflaeche)} m²</span>
                   </div>
                   <div className="flex items-baseline justify-between gap-3 pt-3 border-t border-[#7B2D8E]/20">
                     <span className="font-body text-sm text-[#1C1C1A]">
-                      Empfohlene Mindestgröße<br/>
-                      <span className="text-[11px] text-[#6B6961]">inkl. Wege, Parkplätze, Grünflächen</span>
+                      {t('Empfohlene Mindestgröße','Recommended minimum size')}<br/>
+                      <span className="text-[11px] text-[#6B6961]">{t('inkl. Wege, Parkplätze, Grünflächen','incl. paths, parking, green areas')}</span>
                     </span>
                     <span className="font-display text-2xl num text-[#7B2D8E]">≥ {fmtNum(Math.ceil(mindestflaecheData.mindestGrundstueck / 100) * 100)} m²</span>
                   </div>
                 </div>
                 <p className="font-body text-[11px] text-[#6B6961] italic leading-relaxed">
-                  Berechnungsgrundlage: {config.gewuenschteModulAnzahl} Module auf {config.geschosse} {config.geschosse === 1 ? 'Geschoss' : 'Geschossen'} bei {Math.round(BEBAUUNGSGRAD * 100)} % Bebauungsgrad.
+                  {t('Berechnungsgrundlage:','Basis:')} {config.gewuenschteModulAnzahl} {t('Module auf','modules on')} {config.geschosse} {config.geschosse === 1 ? t('Geschoss','floor') : t('Geschossen','floors')} {t('bei','at')} {Math.round(BEBAUUNGSGRAD * 100)} % {t('Bebauungsgrad','site coverage')}.
                 </p>
                 {config.flaecheStatus === 'sucht_fuer_mich' && (
                   <p className="font-body text-[11px] text-[#1C1C1A] mt-3 pt-3 border-t border-[#7B2D8E]/20 leading-relaxed">
-                    <span className="font-medium">Wir suchen Flächen ≥ {fmtNum(Math.ceil(mindestflaecheData.mindestGrundstueck / 100) * 100)} m² in Deiner Region.</span> Diese Information wird an uns übermittelt.
+                    <span className="font-medium">{t('Wir suchen Flächen','We look for plots')} ≥ {fmtNum(Math.ceil(mindestflaecheData.mindestGrundstueck / 100) * 100)} m² {t('in Deiner Region.','in your region.')}</span> {t('Diese Information wird an uns übermittelt.','This information is sent to us.')}
                   </p>
                 )}
               </div>
@@ -2321,32 +2366,32 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
         {/* SCHRITT 3: Zielwert + Geschoss-Verteilung */}
         {config.geschosse > 0 && maxZielwert > 0 && (
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-5">
-            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">3</span> Zielwert & Verteilung</h3>
+            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">3</span> {t('Zielwert & Verteilung','Target & distribution')}</h3>
 
             <div>
               {(config.flaecheStatus === 'suche_selbst' || config.flaecheStatus === 'sucht_fuer_mich') ? (
                 // Such-Modus: Modulanzahl ist fix (= gewünschte Modulanzahl), kein Slider
                 <div>
-                  <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">Modulanzahl</p>
+                  <p className="font-body text-xs uppercase tracking-wider text-[#6B6961] mb-2">{t('Modulanzahl','Number of modules')}</p>
                   <div className="flex items-baseline justify-between">
                     <span className="font-display text-2xl num text-[var(--brand-accent,#D2563E)]">{config.zielModulAnzahl}</span>
-                    <span className="font-body text-xs text-[#6B6961]">aus Deiner Wunsch-Vorgabe</span>
+                    <span className="font-body text-xs text-[#6B6961]">{t('aus Deiner Wunsch-Vorgabe','from your specified wish')}</span>
                   </div>
-                  <p className="font-body text-xs text-[#6B6961] mt-2">Die Modulanzahl ist durch Deine Wunsch-Vorgabe oben festgelegt. Du kannst nur die Verteilung auf die Geschosse anpassen.</p>
+                  <p className="font-body text-xs text-[#6B6961] mt-2">{t('Die Modulanzahl ist durch Deine Wunsch-Vorgabe oben festgelegt. Du kannst nur die Verteilung auf die Geschosse anpassen.','The number of modules is fixed by your wish above. You can only adjust the distribution across floors.')}</p>
                 </div>
               ) : (
                 // Fläche bekannt: voller Slider
                 <>
-                  <FieldLabel required hint={`Default = Maximum von ${maxZielwert}`}>Ziel-Modulanzahl</FieldLabel>
+                  <FieldLabel required hint={t(`Default = Maximum von ${maxZielwert}`, `Default = maximum of ${maxZielwert}`)}>{t('Ziel-Modulanzahl','Target number of modules')}</FieldLabel>
                   <div className="flex items-baseline justify-between mb-2">
                     <span className="font-display text-2xl num text-[var(--brand-accent,#D2563E)]">{config.zielModulAnzahl}</span>
-                    <span className="font-body text-xs text-[#6B6961]">max. {maxZielwert}</span>
+                    <span className="font-body text-xs text-[#6B6961]">{t('max.','max.')} {maxZielwert}</span>
                   </div>
                   <input type="range" min={1} max={maxZielwert} step={1}
                     value={config.zielModulAnzahl}
                     onChange={e => setZielwert(parseInt(e.target.value, 10))}
                     className="w-full" />
-                  <p className="font-body text-xs text-[#6B6961] mt-2">Du kannst weniger Module einplanen, wenn das Projekt kleiner werden soll.</p>
+                  <p className="font-body text-xs text-[#6B6961] mt-2">{t('Du kannst weniger Module einplanen, wenn das Projekt kleiner werden soll.','You can plan fewer modules if the project should be smaller.')}</p>
                 </>
               )}
             </div>
@@ -2354,8 +2399,8 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
             {/* Verteilung auf Geschosse */}
             {config.geschosse > 1 && verteilung.length > 0 && (
               <div className="pt-4 border-t border-[#1C1C1A]/8">
-                <FieldLabel required={false} hint="Default: gleichmäßig, von unten nach oben">Verteilung auf Geschosse</FieldLabel>
-                <p className="font-body text-xs text-[#6B6961] mb-3">Regel: EG ≥ OG ≥ DG. Die Summe darf den Zielwert nicht überschreiten.</p>
+                <FieldLabel required={false} hint={t('Default: gleichmäßig, von unten nach oben','Default: evenly, from bottom to top')}>{t('Verteilung auf Geschosse','Distribution across floors')}</FieldLabel>
+                <p className="font-body text-xs text-[#6B6961] mb-3">{t('Regel: EG ≥ OG ≥ DG. Die Summe darf den Zielwert nicht überschreiten.','Rule: GF ≥ UF ≥ TF. The sum must not exceed the target.')}</p>
                 <div className={`grid gap-3 ${config.geschosse === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                   {verteilung.map((wert, idx) => (
                     <div key={idx} className="bg-[#F8F5F0] border border-[#1C1C1A]/10 p-3">
@@ -2363,14 +2408,14 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                       <NumberInput value={wert} onChange={v => setVerteilungWert(idx, v)}
                         placeholder="0"
                         className="w-full px-2 py-1.5 bg-white border border-[#1C1C1A]/15 text-lg font-display focus:border-[var(--brand-accent,#D2563E)]" />
-                      <p className="font-body text-[10px] text-[#6B6961] mt-1">Module</p>
+                      <p className="font-body text-[10px] text-[#6B6961] mt-1">{t('Module','Modules')}</p>
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-between items-center mt-3 font-body text-sm">
-                  <span className="text-[#6B6961]">Summe Verteilung: <span className="num text-[#1C1C1A]">{verteilungSumme}</span> / {config.zielModulAnzahl}</span>
+                  <span className="text-[#6B6961]">{t('Summe Verteilung:','Distribution sum:')} <span className="num text-[#1C1C1A]">{verteilungSumme}</span> / {config.zielModulAnzahl}</span>
                   {validierung.valid
-                    ? <span className="text-[var(--brand-accent,#D2563E)] flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={2.5}/> gültig</span>
+                    ? <span className="text-[var(--brand-accent,#D2563E)] flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={2.5}/> {t('gültig','valid')}</span>
                     : <span className="text-[#C5392E] text-xs">{validierung.error}</span>}
                 </div>
               </div>
@@ -2379,12 +2424,12 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
             {/* Abgeleitete Pauschalkosten + Dachfläche */}
             {validierung.valid && verteilungSumme > 0 && (
               <div className="pt-4 border-t border-[#1C1C1A]/8 space-y-3">
-                <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Abgeleitete Pauschalpositionen</p>
+                <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">{t('Abgeleitete Pauschalpositionen','Derived flat-rate items')}</p>
                 <div className="space-y-2 font-body text-sm">
                   {(verteilung[0] || 0) > 0 && (
                     <div className="flex justify-between py-2 border-b border-[#1C1C1A]/8">
                       <div>
-                        <p className="text-[#1C1C1A]">Terrassen (EG-Module)</p>
+                        <p className="text-[#1C1C1A]">{t('Terrassen (EG-Module)','Terraces (GF modules)')}</p>
                         <p className="text-xs text-[#6B6961]">{verteilung[0]} × {fmtEUR(KOSTEN_TERRASSE_PRO_MODUL)}</p>
                       </div>
                       <span className="num shrink-0">{fmtEUR(verteilung[0] * KOSTEN_TERRASSE_PRO_MODUL)}</span>
@@ -2393,7 +2438,7 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                   {verteilung.slice(1).reduce((s, n) => s + n, 0) > 0 && (
                     <div className="flex justify-between py-2 border-b border-[#1C1C1A]/8">
                       <div>
-                        <p className="text-[#1C1C1A]">Treppen & Laubengänge (OG/DG-Module)</p>
+                        <p className="text-[#1C1C1A]">{t('Treppen & Laubengänge (OG/DG-Module)','Stairs & access balconies (UF/TF modules)')}</p>
                         <p className="text-xs text-[#6B6961]">{verteilung.slice(1).reduce((s, n) => s + n, 0)} × {fmtEUR(KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL)}</p>
                       </div>
                       <span className="num shrink-0">{fmtEUR(verteilung.slice(1).reduce((s, n) => s + n, 0) * KOSTEN_TREPPEN_LAUBENGANG_PRO_MODUL)}</span>
@@ -2402,8 +2447,8 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                   {dachflaeche > 0 && (
                     <div className="flex justify-between py-2 bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] px-3 -mx-3">
                       <div>
-                        <p className="text-[#1C1C1A]">Dachfläche (oberstes Geschoss)</p>
-                        <p className="text-xs text-[#6B6961]">{verteilung[verteilung.length-1]} Module × {ZIEL_MODUL_BGF} m² — verfügbar für PV & Begrünung</p>
+                        <p className="text-[#1C1C1A]">{t('Dachfläche (oberstes Geschoss)','Roof area (top floor)')}</p>
+                        <p className="text-xs text-[#6B6961]">{verteilung[verteilung.length-1]} {t('Module','modules')} × {ZIEL_MODUL_BGF} m² — {t('verfügbar für PV & Begrünung','available for PV & greening')}</p>
                       </div>
                       <span className="num shrink-0 text-[var(--brand-accent,#D2563E)]">{fmtNum(dachflaeche)} m²</span>
                     </div>
@@ -2417,25 +2462,25 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
                   const pv100 = oberstesGeschoss;
                   return (
                     <div className="mt-4 pt-4 border-t border-[#1C1C1A]/8">
-                      <FieldLabel required={false} hint="Inkl. Speicher & Wechselrichter">PV-Anlage auf Dachfläche</FieldLabel>
+                      <FieldLabel required={false} hint={t('Inkl. Speicher & Wechselrichter','Incl. storage & inverter')}>{t('PV-Anlage auf Dachfläche','PV system on roof area')}</FieldLabel>
                       <div className="grid grid-cols-3 gap-2 mt-2">
                         <button onClick={() => setConfig(c => ({...c, pvAnteil: 0}))}
                           className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0 ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-                          <p className="font-body text-sm text-[#1C1C1A]">Keine PV</p>
+                          <p className="font-body text-sm text-[#1C1C1A]">{t('Keine PV','No PV')}</p>
                           <p className="font-body text-[10px] text-[#6B6961] mt-0.5">—</p>
                         </button>
                         <button onClick={() => setConfig(c => ({...c, pvAnteil: 0.5}))}
                           className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 0.5 ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-                          <p className="font-body text-sm text-[#1C1C1A]">50 % Dach</p>
-                          <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pv50} Module · {fmtEUR(pv50 * KOSTEN_PV_PRO_MODUL)}</p>
+                          <p className="font-body text-sm text-[#1C1C1A]">{t('50 % Dach','50 % roof')}</p>
+                          <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pv50} {t('Module','modules')} · {fmtEUR(pv50 * KOSTEN_PV_PRO_MODUL)}</p>
                         </button>
                         <button onClick={() => setConfig(c => ({...c, pvAnteil: 1}))}
                           className={`p-3 border text-left transition-colors ${(config.pvAnteil || 0) === 1 ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-white font-medium' : 'border-[#1C1C1A]/15 hover:border-[#1C1C1A]/30'}`}>
-                          <p className="font-body text-sm text-[#1C1C1A]">100 % Dach</p>
-                          <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pv100} Module · {fmtEUR(pv100 * KOSTEN_PV_PRO_MODUL)}</p>
+                          <p className="font-body text-sm text-[#1C1C1A]">{t('100 % Dach','100 % roof')}</p>
+                          <p className="font-body text-[10px] text-[#6B6961] mt-0.5">{pv100} {t('Module','modules')} · {fmtEUR(pv100 * KOSTEN_PV_PRO_MODUL)}</p>
                         </button>
                       </div>
-                      <p className="font-body text-[11px] text-[#6B6961] mt-2">PV-Anlage inkl. Speicher und Wechselrichter, je Modul {fmtEUR(KOSTEN_PV_PRO_MODUL)} netto. Berechnung auf Anzahl der Module im obersten Geschoss.</p>
+                      <p className="font-body text-[11px] text-[#6B6961] mt-2">{t('PV-Anlage inkl. Speicher und Wechselrichter, je Modul','PV system incl. storage and inverter, per module')} {fmtEUR(KOSTEN_PV_PRO_MODUL)} {t('netto. Berechnung auf Anzahl der Module im obersten Geschoss.','net. Calculated on the number of modules on the top floor.')}</p>
                     </div>
                   );
                 })()}
@@ -2447,41 +2492,41 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
         {/* SCHRITT 4: Pacht (nur bei eigener Fläche) */}
         {config.flaecheStatus === 'ja' && config.zielModulAnzahl > 0 && (
           <div className="bg-white border border-[#1C1C1A]/10 p-7 space-y-6">
-            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">4</span> Vorarbeiten & Pacht</h3>
+            <h3 className="font-display text-xl flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0] flex items-center justify-center text-xs font-body">4</span> {t('Vorarbeiten & Pacht','Preliminary works & lease')}</h3>
 
             <div>
-              <FieldLabel required>Möchtest Du Erschließung, Wege & Begrünung im Detail angeben?</FieldLabel>
+              <FieldLabel required>{t('Möchtest Du Erschließung, Wege & Begrünung im Detail angeben?','Would you like to specify site development, paths & greening in detail?')}</FieldLabel>
               <div className="flex gap-2 mb-3">
                 <button onClick={() => setConfig(c => ({...c, detailKosten: true}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ja, ich weiß, was anfällt</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>{t('Ja, ich weiß, was anfällt','Yes, I know what is involved')}</button>
                 <button onClick={() => setConfig(c => ({...c, detailKosten: false}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Nein — bitte schätzen</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.detailKosten === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>{t('Nein — bitte schätzen','No — please estimate')}</button>
               </div>
-              <p className="font-body text-xs text-[#6B6961]">Bei Schätzung nehmen wir Erschließung, Wege und Begrünung pauschal an — Abriss/Entsorgung musst Du dennoch explizit ankreuzen.</p>
+              <p className="font-body text-xs text-[#6B6961]">{t('Bei Schätzung nehmen wir Erschließung, Wege und Begrünung pauschal an — Abriss/Entsorgung musst Du dennoch explizit ankreuzen.','If estimated, we assume site development, paths and greening at a flat rate — you must still tick demolition/disposal explicitly.')}</p>
               {config.detailKosten && (
                 <div className="space-y-2.5 mt-4">
-                  <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Welche Vorarbeiten kommen dazu?</p>
+                  <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">{t('Welche Vorarbeiten kommen dazu?','Which preliminary works apply?')}</p>
                   {GRDST_OPTIONEN.map(opt => (
                     <label key={opt.id} className="flex items-start gap-3 cursor-pointer group">
                       <button onClick={() => toggleOption(opt.id)}
                         className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${config.activeOptionen[opt.id] ? 'bg-[var(--brand-accent,#D2563E)] border-[var(--brand-accent,#D2563E)]' : 'border-[#1C1C1A]/20 group-hover:border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_50%,transparent)]'}`}>
                         {config.activeOptionen[opt.id] && <Check className="w-3.5 h-3.5 text-[#F8F5F0]" strokeWidth={2.5} />}
                       </button>
-                      <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
+                      <span className="font-body text-sm text-[#1C1C1A]">{grdstOptLabel(opt)}</span>
                     </label>
                   ))}
                 </div>
               )}
               {config.detailKosten === false && (
                 <div className="space-y-2.5 mt-4">
-                  <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Optional — nur falls dies dazukommt:</p>
+                  <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">{t('Optional — nur falls dies dazukommt:','Optional — only if this applies:')}</p>
                   {GRDST_OPTIONEN.filter(o => !o.schaetzungsfaehig).map(opt => (
                     <label key={opt.id} className="flex items-start gap-3 cursor-pointer group">
                       <button onClick={() => toggleOption(opt.id)}
                         className={`mt-0.5 w-5 h-5 rounded-sm border flex items-center justify-center shrink-0 transition-colors ${config.activeOptionen[opt.id] ? 'bg-[var(--brand-accent,#D2563E)] border-[var(--brand-accent,#D2563E)]' : 'border-[#1C1C1A]/20 group-hover:border-[color-mix(in_srgb,var(--brand-accent,#D2563E)_50%,transparent)]'}`}>
                         {config.activeOptionen[opt.id] && <Check className="w-3.5 h-3.5 text-[#F8F5F0]" strokeWidth={2.5} />}
                       </button>
-                      <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
+                      <span className="font-body text-sm text-[#1C1C1A]">{grdstOptLabel(opt)}</span>
                     </label>
                   ))}
                 </div>
@@ -2489,31 +2534,31 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
             </div>
 
             <div className="pt-4 border-t border-[#1C1C1A]/8 space-y-4">
-              <FieldLabel required>Fällt für die Fläche eine Pacht an?</FieldLabel>
+              <FieldLabel required>{t('Fällt für die Fläche eine Pacht an?','Is there a lease for the plot?')}</FieldLabel>
               <div className="flex gap-2">
                 <button onClick={() => setConfig(c => ({...c, hasPacht: true}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Ja, Pacht</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>{t('Ja, Pacht','Yes, lease')}</button>
                 <button onClick={() => setConfig(c => ({...c, hasPacht: false}))}
-                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Nein / Eigentum</button>
+                  className={`px-4 py-2 font-body text-sm border transition-colors ${config.hasPacht === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>{t('Nein / Eigentum','No / owned')}</button>
               </div>
               {config.hasPacht && (
                 <>
                   <div>
-                    <FieldLabel required hint="€ gesamt pro Jahr">Jahrespacht gesamt</FieldLabel>
+                    <FieldLabel required hint={t('€ gesamt pro Jahr','€ total per year')}>{t('Jahrespacht gesamt','Total annual lease')}</FieldLabel>
                     <div className="flex items-center gap-2">
                       <NumberInput value={config.pachtJahr} onChange={v => setConfig(c => ({...c, pachtJahr: v}))}
-                        placeholder="z. B. 96000"
+                        placeholder={t('z. B. 96000','e.g. 96000')}
                         className="flex-1 w-full px-4 py-2.5 bg-[#F8F5F0] border border-[#1C1C1A]/15 text-sm focus:border-[var(--brand-accent,#D2563E)]" />
-                      <span className="font-body text-sm text-[#6B6961]">€ / Jahr</span>
+                      <span className="font-body text-sm text-[#6B6961]">€ / {t('Jahr','yr')}</span>
                     </div>
                   </div>
                   <div>
-                    <FieldLabel required>Wird die Pacht gewerblich oder privat berechnet?</FieldLabel>
+                    <FieldLabel required>{t('Wird die Pacht gewerblich oder privat berechnet?','Is the lease charged commercially or privately?')}</FieldLabel>
                     <div className="flex gap-2">
                       <button onClick={() => setConfig(c => ({...c, pachtGewerblich: true}))}
-                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Gewerblich (+{Math.round(UST*100)} % USt)</button>
+                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>{t('Gewerblich','Commercial')} (+{Math.round(UST*100)} % {t('USt','VAT')})</button>
                       <button onClick={() => setConfig(c => ({...c, pachtGewerblich: false}))}
-                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>Privat (keine USt)</button>
+                        className={`px-4 py-2 font-body text-sm border transition-colors ${config.pachtGewerblich === false ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#6B6961]'}`}>{t('Privat (keine USt)','Private (no VAT)')}</button>
                     </div>
                   </div>
                 </>
@@ -2524,10 +2569,10 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
 
         <div className="flex justify-end gap-3">
           <Button onClick={onContinue} disabled={!pflichtfelderOk || !validierung.valid}>
-            Module wählen <ChevronRight className="w-4 h-4" />
+            {t('Module wählen','Choose modules')} <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
-        {!pflichtfelderOk && <p className="font-body text-xs text-[#6B6961] text-right">Bitte alle Pflichtfelder ausfüllen</p>}
+        {!pflichtfelderOk && <p className="font-body text-xs text-[#6B6961] text-right">{t('Bitte alle Pflichtfelder ausfüllen','Please fill in all mandatory fields')}</p>}
         {pflichtfelderOk && !validierung.valid && <p className="font-body text-xs text-[#C5392E] text-right">{validierung.error}</p>}
       </div>
     </div>
@@ -3343,15 +3388,15 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                 {/* GEWERBE-KONFIG-ECKDATEN (nur bei Gewerbe mit Konfig) */}
                 {gewerbConfig && (gewerbConfig.geschosse > 0 || gewerbConfig.zielModulAnzahl > 0) && (
                   <div className="mb-4 pb-4 border-b border-[#1C1C1A]/10">
-                    <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#6B6961] mb-2">Deine Konfiguration</p>
+                    <p className="font-body text-[10px] uppercase tracking-[0.2em] text-[#6B6961] mb-2">{t('Deine Konfiguration','Your configuration')}</p>
                     <dl className="space-y-1 text-[11px] font-body text-[#6B6961]">
-                      {gewerbConfig.zielModulAnzahl > 0 && <div className="flex justify-between"><dt>Zielwert Module</dt><dd className="num text-[#1C1C1A]">{gewerbConfig.zielModulAnzahl}</dd></div>}
-                      {gewerbConfig.geschosse > 0 && <div className="flex justify-between"><dt>Geschosse</dt><dd className="num text-[#1C1C1A]">{gewerbConfig.geschosse}</dd></div>}
+                      {gewerbConfig.zielModulAnzahl > 0 && <div className="flex justify-between"><dt>{t('Zielwert Module','Target modules')}</dt><dd className="num text-[#1C1C1A]">{gewerbConfig.zielModulAnzahl}</dd></div>}
+                      {gewerbConfig.geschosse > 0 && <div className="flex justify-between"><dt>{t('Geschosse','Floors')}</dt><dd className="num text-[#1C1C1A]">{gewerbConfig.geschosse}</dd></div>}
                       {gewerbConfig.geschossVerteilung && gewerbConfig.geschossVerteilung.length > 1 && (
-                        <div className="flex justify-between"><dt>Verteilung</dt><dd className="num">{gewerbConfig.geschossVerteilung.join(' / ')}</dd></div>
+                        <div className="flex justify-between"><dt>{t('Verteilung','Distribution')}</dt><dd className="num">{gewerbConfig.geschossVerteilung.join(' / ')}</dd></div>
                       )}
-                      {gewerbConfig.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>Grundstück</dt><dd className="num">{fmtNum(gewerbConfig.grundstueckGroesse)} m²</dd></div>}
-                      {(gewerbConfig.pvAnteil || 0) > 0 && <div className="flex justify-between text-[#7B2D8E]"><dt>PV-Anlage</dt><dd className="num">{Math.round(gewerbConfig.pvAnteil * 100)} % Dach</dd></div>}
+                      {gewerbConfig.grundstueckGroesse > 0 && <div className="flex justify-between"><dt>{t('Grundstück','Plot')}</dt><dd className="num">{fmtNum(gewerbConfig.grundstueckGroesse)} m²</dd></div>}
+                      {(gewerbConfig.pvAnteil || 0) > 0 && <div className="flex justify-between text-[#7B2D8E]"><dt>{t('PV-Anlage','PV system')}</dt><dd className="num">{Math.round(gewerbConfig.pvAnteil * 100)} % {t('Dach','roof')}</dd></div>}
                     </dl>
                   </div>
                 )}
@@ -3402,10 +3447,10 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                   if (gewerbConfig.flaecheStatus === 'ja' && gewerbConfig.grundstueckGroesse > 0 && gewerbConfig.geschosse > 0) {
                     const max = calcMaxModule({ grundstueckGroesse: gewerbConfig.grundstueckGroesse, geschosse: gewerbConfig.geschosse });
                     kapazitaetMax = max.maxGesamt;
-                    kapazitaetLabel = `${fmtNum(gewerbConfig.grundstueckGroesse)} m² × ${Math.round(BEBAUUNGSGRAD * 100)} % bei ${gewerbConfig.geschosse} Geschossen`;
+                    kapazitaetLabel = `${fmtNum(gewerbConfig.grundstueckGroesse)} m² × ${Math.round(BEBAUUNGSGRAD * 100)} % ${t('bei','at')} ${gewerbConfig.geschosse} ${t('Geschossen','floors')}`;
                   } else if (gewerbConfig.gewuenschteModulAnzahl > 0) {
                     kapazitaetMax = gewerbConfig.gewuenschteModulAnzahl;
-                    kapazitaetLabel = 'gewünschte Modulanzahl';
+                    kapazitaetLabel = t('gewünschte Modulanzahl','desired number of modules');
                   }
                   const zielwert = gewerbConfig.zielModulAnzahl;
                   const ist = totals.modulAnzahlTotal; // Module (zählt Stack-Ebenen) — konsistent zu zielwert & kapazitaetMax
@@ -3416,16 +3461,16 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     return (
                       <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 -mx-7 px-7 py-4 bg-[#C5392E]/10 border-l-4 border-l-[#C5392E]">
                         <p className="font-body text-xs uppercase tracking-wider text-[#C5392E] mb-1.5 font-medium flex items-center gap-1.5">
-                          <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> Kapazität überschritten
+                          <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> {t('Kapazität überschritten','Capacity exceeded')}
                         </p>
                         <p className="font-display text-xl num text-[#C5392E]">
-                          +{ueber} Modul{ueber === 1 ? '' : 'e'} zu viel
+                          +{ueber} {ueber === 1 ? t('Modul','module') : t('Module','modules')} {t('zu viel','too many')}
                         </p>
                         <p className="font-body text-xs text-[#1C1C1A]/80 mt-2 leading-relaxed">
-                          Auf der Fläche passen <span className="num font-medium">{kapazitaetMax}</span> Module ({kapazitaetLabel}). Deine Auswahl: <span className="num font-medium">{ist}</span> Module.
+                          {t('Auf der Fläche passen','The plot fits')} <span className="num font-medium">{kapazitaetMax}</span> {t('Module','modules')} ({kapazitaetLabel}). {t('Deine Auswahl:','Your selection:')} <span className="num font-medium">{ist}</span> {t('Module.','modules.')}
                         </p>
                         <p className="font-body text-xs text-[#6B6961] mt-1.5 leading-relaxed">
-                          Bitte entferne Module oder lass uns über eine größere Fläche bzw. zusätzliche Geschosse sprechen.
+                          {t('Bitte entferne Module oder lass uns über eine größere Fläche bzw. zusätzliche Geschosse sprechen.','Please remove modules or let us talk about a larger plot or additional floors.')}
                         </p>
                       </div>
                     );
@@ -3437,16 +3482,16 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     return (
                       <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 -mx-7 px-7 py-4 bg-[#FCE4E0] border-l-4 border-l-[#C5392E]">
                         <p className="font-body text-xs uppercase tracking-wider text-[#C5392E] mb-1.5 font-medium flex items-center gap-1.5">
-                          <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> Über Zielwert
+                          <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> {t('Über Zielwert','Above target')}
                         </p>
                         <p className="font-display text-xl num text-[#C5392E]">
-                          +{ueber} Modul{ueber === 1 ? '' : 'e'} über Ziel
+                          +{ueber} {ueber === 1 ? t('Modul','module') : t('Module','modules')} {t('über Ziel','above target')}
                         </p>
                         <p className="font-body text-xs text-[#1C1C1A]/80 mt-2 leading-relaxed">
-                          Dein Zielwert: <span className="num font-medium">{zielwert}</span> Module · Aktuelle Auswahl: <span className="num font-medium">{ist}</span> Module.
+                          {t('Dein Zielwert:','Your target:')} <span className="num font-medium">{zielwert}</span> {t('Module','modules')} · {t('Aktuelle Auswahl:','Current selection:')} <span className="num font-medium">{ist}</span> {t('Module.','modules.')}
                         </p>
                         <p className="font-body text-xs text-[#6B6961] mt-1.5 leading-relaxed">
-                          Wir besprechen gerne, ob der Zielwert auf {ist} Module angepasst werden soll. Auf Deine Fläche passen noch bis zu {kapazitaetMax} Module.
+                          {t('Wir besprechen gerne, ob der Zielwert auf','We are happy to discuss whether the target should be adjusted to')} {ist} {t('Module angepasst werden soll. Auf Deine Fläche passen noch bis zu','modules. Your plot still fits up to')} {kapazitaetMax} {t('Module.','modules.')}
                         </p>
                       </div>
                     );
@@ -3458,16 +3503,16 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                     return (
                       <div className="pb-4 mb-4 border-b border-[#1C1C1A]/10 -mx-7 px-7 py-4 bg-[#FCE4E0] border-l-4 border-l-[#C5392E]">
                         <p className="font-body text-xs uppercase tracking-wider text-[#C5392E] mb-1.5 font-medium flex items-center gap-1.5">
-                          <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> Unter Zielwert
+                          <Info className="w-3.5 h-3.5" strokeWidth={2.5}/> {t('Unter Zielwert','Below target')}
                         </p>
                         <p className="font-display text-xl num text-[#C5392E]">
-                          Noch {frei} Modul{frei === 1 ? '' : 'e'} frei
+                          {t('Noch','Still')} {frei} {frei === 1 ? t('Modul','module') : t('Module','modules')} {t('frei','free')}
                         </p>
                         <p className="font-body text-xs text-[#1C1C1A]/80 mt-2 leading-relaxed">
-                          Dein Zielwert: <span className="num font-medium">{zielwert}</span> Module · Aktuelle Auswahl: <span className="num font-medium">{ist}</span> Module.
+                          {t('Dein Zielwert:','Your target:')} <span className="num font-medium">{zielwert}</span> {t('Module','modules')} · {t('Aktuelle Auswahl:','Current selection:')} <span className="num font-medium">{ist}</span> {t('Module.','modules.')}
                         </p>
                         <p className="font-body text-xs text-[#6B6961] mt-1.5 leading-relaxed">
-                          Du kannst noch Module hinzufügen — oder wir kalkulieren das unverbindliche Angebot mit Deiner aktuellen Auswahl.
+                          {t('Du kannst noch Module hinzufügen — oder wir kalkulieren das unverbindliche Angebot mit Deiner aktuellen Auswahl.','You can add more modules — or we calculate the non-binding quote with your current selection.')}
                         </p>
                       </div>
                     );
@@ -3534,7 +3579,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       <>
                         {totals.einmaligDetail?.posten?.filter(p => p.typ === 'pflicht' && !['arch', 'eing', 'pm'].includes(p.id)).map(p => (
                           <div key={p.id} className="flex justify-between text-sm font-body mt-1">
-                            <dt className="text-[#6B6961]">{p.label}</dt>
+                            <dt className="text-[#6B6961]">{einmalLabel(p)}</dt>
                             <dd className="num">{fmtEUR(isPureGewerb ? p.netto : p.brutto)}</dd>
                           </div>
                         ))}
@@ -3542,12 +3587,12 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                         {/* Grundstücks-Optionen + PV/Dachbegrünung */}
                         {totals.einmaligDetail?.posten?.some(p => p.typ === 'option' || p.typ === 'schaetzung') && (
                           <div className="mt-3 pt-3 border-t border-dashed border-[#1C1C1A]/15">
-                            <p className="font-body text-[11px] text-[#6B6961] mb-1.5">Optionen / Grundstück</p>
+                            <p className="font-body text-[11px] text-[#6B6961] mb-1.5">{t('Optionen / Grundstück','Options / plot')}</p>
                             {totals.einmaligDetail.posten.filter(p => p.typ === 'option' || p.typ === 'schaetzung').map(p => (
                               <div key={p.id} className="flex justify-between text-xs font-body text-[#6B6961] mt-0.5">
                                 <dt>
-                                  {p.label}
-                                  {p.typ === 'schaetzung' && <span className="text-[10px] italic ml-1">(Schätzung)</span>}
+                                  {einmalLabel(p)}
+                                  {p.typ === 'schaetzung' && <span className="text-[10px] italic ml-1">({t('Schätzung','estimate')})</span>}
                                 </dt>
                                 <dd className="num">{fmtEUR(isPureGewerb ? p.netto : p.brutto)}</dd>
                               </div>
@@ -3563,7 +3608,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                             </p>
                             {totals.einmaligDetail.posten.filter(p => ['arch', 'eing', 'pm'].includes(p.id)).map(p => (
                               <div key={p.id} className="flex justify-between text-xs font-body text-[#6B6961] mt-0.5">
-                                <dt>{p.label}</dt>
+                                <dt>{einmalLabel(p)}</dt>
                                 <dd className="num">{fmtEUR(isPureGewerb ? p.netto : p.brutto)}</dd>
                               </div>
                             ))}
@@ -3582,7 +3627,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       <>
                         {totals.einmaligDetail?.posten?.filter(p => p.typ === 'pflicht').map(p => (
                           <div key={p.id} className="flex justify-between text-sm font-body mt-1">
-                            <dt className="text-[#6B6961]">{p.label}</dt>
+                            <dt className="text-[#6B6961]">{einmalLabel(p)}</dt>
                             <dd className="num">{fmtEUR(p.brutto)}</dd>
                           </div>
                         ))}
@@ -3595,7 +3640,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                             </p>
                             {totals.einmaligDetail.posten.filter(p => p.typ === 'planung').map(p => (
                               <div key={p.id} className="flex justify-between text-xs font-body text-[#6B6961] mt-0.5">
-                                <dt>{p.label}</dt>
+                                <dt>{einmalLabel(p)}</dt>
                                 <dd className="num">{fmtEUR(p.brutto)}</dd>
                               </div>
                             ))}
@@ -3704,10 +3749,10 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between gap-2">
-                      <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
+                      <span className="font-body text-sm text-[#1C1C1A]">{privUpgLabel(opt)}</span>
                       <span className="font-body text-sm num text-[#6B6961]">{countPrivat > 0 ? fmtEUR(kosten) : `${fmtEUR(opt.proModul)}${t('/Modul', '/module')}`}</span>
                     </div>
-                    <p className="font-body text-[11px] text-[#6B6961] mt-0.5">{opt.hint}</p>
+                    <p className="font-body text-[11px] text-[#6B6961] mt-0.5">{privUpgHint(opt)}</p>
                   </div>
                 </button>
               );
@@ -3818,10 +3863,10 @@ function PrivatFinanzPanel({ totals, financing, setFinancing, ekPrivat, setEkPri
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between gap-2">
-                      <span className="font-body text-sm text-[#1C1C1A]">{opt.label}</span>
+                      <span className="font-body text-sm text-[#1C1C1A]">{privUpgLabel(opt)}</span>
                       <span className="font-body text-sm num text-[#6B6961]">{countPrivat > 0 ? fmtEUR(kosten) : `${fmtEUR(opt.proModul)}${t('/Modul','/module')}`}</span>
                     </div>
-                    <p className="font-body text-[11px] text-[#6B6961] mt-0.5">{opt.hint}</p>
+                    <p className="font-body text-[11px] text-[#6B6961] mt-0.5">{privUpgHint(opt)}</p>
                   </div>
                 </button>
               );
@@ -3911,21 +3956,21 @@ function GewerblichFinanzPanel({ totals, financing, setFinancing }) {
   return (
     <div className="bg-white border border-[#1C1C1A]/10 p-7">
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-        <h3 className="font-display text-2xl">Gewerbe-Finanzierung</h3>
-        <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">{totals.countGewerb} Modul{totals.countGewerb > 1 ? 'e' : ''}</span>
+        <h3 className="font-display text-2xl">{t('Gewerbe-Finanzierung','Commercial financing')}</h3>
+        <span className="font-body text-xs tracking-wider uppercase text-[#7B2D8E] bg-[#7B2D8E]/10 px-2 py-1">{totals.countGewerb} {totals.countGewerb > 1 ? t('Module','modules') : t('Modul','module')}</span>
       </div>
-      <p className="font-body text-sm text-[#6B6961] mb-7 num">Effektive Kosten netto {fmtEUR(totals.effGewerbNetto)}</p>
+      <p className="font-body text-sm text-[#6B6961] mb-7 num">{t('Effektive Kosten netto','Effective costs net')} {fmtEUR(totals.effGewerbNetto)}</p>
       <div className="space-y-6">
-        <Slider label="Zinssatz" value={financing.plattform.zins} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, zins: v}}))} min={0.03} max={0.10} step={0.0025} format={fmtPct} hint="Bonitätsabhängig, 3–10 % möglich (Default 5,5 %)" />
-        <Slider label="Laufzeit" value={financing.plattform.laufzeit} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, laufzeit: v}}))} min={5} max={10} step={1} format={v => `${v} ${t('Jahre','years')}`} hint="Max. 10 Jahre — nur Verkürzung möglich" />
-        <Slider label="Restwert am Laufzeitende" value={financing.plattform.restwertPct} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, restwertPct: v}}))} min={0} max={0.5} step={0.05} format={fmtPct} />
+        <Slider label={t('Zinssatz','Interest rate')} value={financing.plattform.zins} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, zins: v}}))} min={0.03} max={0.10} step={0.0025} format={fmtPct} hint={t('Bonitätsabhängig, 3–10 % möglich (Default 5,5 %)','Depends on creditworthiness, 3–10 % possible (default 5.5 %)')} />
+        <Slider label={t('Laufzeit','Term')} value={financing.plattform.laufzeit} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, laufzeit: v}}))} min={5} max={10} step={1} format={v => `${v} ${t('Jahre','years')}`} hint={t('Max. 10 Jahre — nur Verkürzung möglich','Max. 10 years — only shortening possible')} />
+        <Slider label={t('Restwert am Laufzeitende','Residual at end of term')} value={financing.plattform.restwertPct} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, restwertPct: v}}))} min={0} max={0.5} step={0.05} format={fmtPct} />
       </div>
       <div className="mt-6 pt-5 border-t border-[#1C1C1A]/10 space-y-1.5 font-body text-sm">
-        <div className="flex justify-between"><span className="text-[#6B6961]">Finanzierungs-Basis</span><span className="num">{fmtEUR(totals.plattformBasis)}</span></div>
-        <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Gewerbe-Monatsrate</span><span className="num text-[#7B2D8E]">{fmtEUR(totals.plattformRate)}</span></div>
+        <div className="flex justify-between"><span className="text-[#6B6961]">{t('Finanzierungs-Basis','Financing base')}</span><span className="num">{fmtEUR(totals.plattformBasis)}</span></div>
+        <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>{t('Gewerbe-Monatsrate','Commercial monthly rate')}</span><span className="num text-[#7B2D8E]">{fmtEUR(totals.plattformRate)}</span></div>
       </div>
       <p className="font-body text-[11px] text-[#6B6961] mt-4 italic leading-relaxed">
-        Hinweis: Bei gewerblicher Nutzung wird die Finanzierung üblicherweise ohne Eigenkapital-Beteiligung abgeschlossen. Steuerliche Vorteile (z. B. Investitionsabzugsbetrag IAB) wirken sich über die Steuererklärung aus, nicht über die Raten — siehe Steuerblock unten.
+        {t('Hinweis: Bei gewerblicher Nutzung wird die Finanzierung üblicherweise ohne Eigenkapital-Beteiligung abgeschlossen. Steuerliche Vorteile (z. B. Investitionsabzugsbetrag IAB) wirken sich über die Steuererklärung aus, nicht über die Raten — siehe Steuerblock unten.','Note: for commercial use, financing is usually arranged without an equity contribution. Tax benefits (e.g. the investment deduction IAB) take effect via the tax return, not via the instalments — see the tax block below.')}
       </p>
     </div>
   );
@@ -3943,62 +3988,62 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
     return (
       <div className="bg-[#F8F5F0] border border-dashed border-[#1C1C1A]/20 p-7">
         <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-          <h3 className="font-display text-2xl flex items-center gap-2"><Receipt className="w-5 h-5 text-[#6B6961]" strokeWidth={1.5} />Mögliche Steuervorteile (AT)</h3>
+          <h3 className="font-display text-2xl flex items-center gap-2"><Receipt className="w-5 h-5 text-[#6B6961]" strokeWidth={1.5} />{t('Mögliche Steuervorteile (AT)','Possible tax benefits (AT)')}</h3>
           <span className="font-body text-xs tracking-wider uppercase text-[#6B6961] bg-white px-2 py-1 border border-[#1C1C1A]/15">Optional</span>
         </div>
         <p className="font-body text-sm text-[#6B6961] mb-5 leading-relaxed">
-          Als gewerblicher Käufer in Österreich kannst Du u. U. die <span className="font-medium">degressive AfA</span> (bis 30 % vom Restbuchwert) und den <span className="font-medium">Investitionsfreibetrag (IFB)</span> nutzen. Der IFB ist ein <span className="font-medium">zusätzlicher</span> Betriebsausgaben-Abzug — er mindert die AfA-Basis nicht.
+          {t('Als gewerblicher Käufer in Österreich kannst Du u. U. die degressive AfA (bis 30 % vom Restbuchwert) und den Investitionsfreibetrag (IFB) nutzen. Der IFB ist ein zusätzlicher Betriebsausgaben-Abzug — er mindert die AfA-Basis nicht.','As a commercial buyer in Austria you may be able to use declining-balance depreciation (up to 30 % of the residual book value) and the investment allowance (IFB). The IFB is an additional business-expense deduction — it does not reduce the depreciation base.')}
         </p>
         <div className="bg-white border border-[#C5392E]/30 p-3 mb-3 flex gap-2 items-start">
           <Info className="w-4 h-4 text-[#C5392E] shrink-0 mt-0.5" strokeWidth={1.5} />
           <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
-            <span className="font-medium">Keine Steuerberatung.</span> Modellrechnung auf Basis der <span className="font-medium">Annahme, dass die Module als bewegliches Wirtschaftsgut gelten</span> (Voraussetzung für degressive AfA und IFB; für Gebäude wäre der IFB ausgeschlossen). Das hängt von Einstufung, Region und Finanzamt ab — bitte unbedingt mit dem Steuerberater klären. Wir können es nicht garantieren.
+            <span className="font-medium">{t('Keine Steuerberatung.','Not tax advice.')}</span> {t('Modellrechnung auf Basis der Annahme, dass die Module als bewegliches Wirtschaftsgut gelten (Voraussetzung für degressive AfA und IFB; für Gebäude wäre der IFB ausgeschlossen). Das hängt von Einstufung, Region und Finanzamt ab — bitte unbedingt mit dem Steuerberater klären. Wir können es nicht garantieren.','Model calculation based on the assumption that the modules qualify as movable assets (a prerequisite for declining-balance depreciation and the IFB; for buildings the IFB would be excluded). This depends on classification, region and tax office — please clarify with your tax advisor. We cannot guarantee it.')}
           </p>
         </div>
 
         <button onClick={() => setAktiv(!aktiv)}
           className={`w-full px-4 py-3 font-body text-sm border transition-colors ${aktiv ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#1C1C1A] hover:border-[var(--brand-accent,#D2563E)]'}`}>
-          {aktiv ? 'Steuervorteile-Modellrechnung aktiv' : 'Modellrechnung mit Steuervorteilen anzeigen'}
+          {aktiv ? t('Steuervorteile-Modellrechnung aktiv','Tax-benefit model calculation active') : t('Modellrechnung mit Steuervorteilen anzeigen','Show model calculation with tax benefits')}
         </button>
 
         {aktiv && (
           <div className="mt-5 space-y-5">
-            <Slider label="Unternehmenssteuer (KöSt-Annahme)" value={at.steuer} onChange={v => setAt({ steuer: v })} min={0.15} max={0.40} step={0.01} format={fmtPct} hint="GmbH: KöSt 23 % (flach). Einzelunternehmer/EPU: progressiver Tarif, abweichend." />
-            <Slider label="Degressive AfA (vom Restbuchwert)" value={at.afaDegressivPct} onChange={v => setAt({ afaDegressivPct: v })} min={0} max={0.30} step={0.05} format={fmtPct} hint="Bewegliches Wirtschaftsgut: bis 30 % p. a. vom Restbuchwert (Front-loading; Ø über die Laufzeit gerechnet)." />
+            <Slider label={t('Unternehmenssteuer (KöSt-Annahme)','Corporate tax (KoeSt assumption)')} value={at.steuer} onChange={v => setAt({ steuer: v })} min={0.15} max={0.40} step={0.01} format={fmtPct} hint={t('GmbH: KöSt 23 % (flach). Einzelunternehmer/EPU: progressiver Tarif, abweichend.','GmbH: KoeSt 23 % (flat). Sole traders/EPU: progressive tariff, differs.')} />
+            <Slider label={t('Degressive AfA (vom Restbuchwert)','Declining-balance depreciation (of residual value)')} value={at.afaDegressivPct} onChange={v => setAt({ afaDegressivPct: v })} min={0} max={0.30} step={0.05} format={fmtPct} hint={t('Bewegliches Wirtschaftsgut: bis 30 % p. a. vom Restbuchwert (Front-loading; Ø über die Laufzeit gerechnet).','Movable asset: up to 30 % p.a. of the residual book value (front-loading; averaged over the term).')} />
             <div>
-              <Slider label="Investitionsfreibetrag (IFB)" value={at.ifbPct} onChange={v => setAt({ ifbPct: v })} min={0.10} max={0.20} step={0.01} format={fmtPct} hint="Zusätzlicher Abzug auf die Investition (mindert die AfA-Basis nicht)." />
+              <Slider label={t('Investitionsfreibetrag (IFB)','Investment allowance (IFB)')} value={at.ifbPct} onChange={v => setAt({ ifbPct: v })} min={0.10} max={0.20} step={0.01} format={fmtPct} hint={t('Zusätzlicher Abzug auf die Investition (mindert die AfA-Basis nicht).','Additional deduction on the investment (does not reduce the depreciation base).')} />
               {istBefristet ? (
                 <p className="font-body text-[11px] text-[var(--brand-accent,#D2563E)] mt-2 leading-relaxed">
-                  Hinweis: Der IFB ist aktuell <span className="font-medium">befristet auf 20 % erhöht</span> (für Anschaffungen bis 31.12.2026). Voraussichtlich erfolgt zum <span className="font-medium">1.1.2027 die Senkung auf den Normalsatz von 10 %</span> (15 % bei Öko-Investitionen). Bitte beim Steuerberater bestätigen.
+                  {t('Hinweis: Der IFB ist aktuell befristet auf 20 % erhöht (für Anschaffungen bis 31.12.2026). Voraussichtlich erfolgt zum 1.1.2027 die Senkung auf den Normalsatz von 10 % (15 % bei Öko-Investitionen). Bitte beim Steuerberater bestätigen.','Note: the IFB is currently temporarily raised to 20 % (for acquisitions until 31 Dec 2026). It is expected to drop to the standard rate of 10 % on 1 Jan 2027 (15 % for eco-investments). Please confirm with your tax advisor.')}
                 </p>
               ) : (
                 <p className="font-body text-[11px] text-[#6B6961] mt-2 leading-relaxed">
-                  Hinweis: Seit 1.1.2027 gilt voraussichtlich wieder der Normalsatz von 10 % (15 % bei Öko-Investitionen). Bitte beim Steuerberater bestätigen.
+                  {t('Hinweis: Seit 1.1.2027 gilt voraussichtlich wieder der Normalsatz von 10 % (15 % bei Öko-Investitionen). Bitte beim Steuerberater bestätigen.','Note: since 1 Jan 2027 the standard rate of 10 % presumably applies again (15 % for eco-investments). Please confirm with your tax advisor.')}
                 </p>
               )}
             </div>
 
             <div className="pt-4 border-t border-[#1C1C1A]/10 space-y-2 font-body text-sm">
-              <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Modellhafte Belastung mit Steuervorteilen</p>
-              <div className="flex justify-between"><span className="text-[#6B6961]">Gewerbe-Rate (vor Steuer)</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
-              <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− Laufende Steuerentlastung (degr. AfA + Ø-Zins × {fmtPct(at.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
-              <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Mögliche Rate nach Steuer</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.plattformRateEff)}</span></div>
+              <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">{t('Modellhafte Belastung mit Steuervorteilen','Model cost with tax benefits')}</p>
+              <div className="flex justify-between"><span className="text-[#6B6961]">{t('Gewerbe-Rate (vor Steuer)','Commercial rate (before tax)')}</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
+              <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− {t('Laufende Steuerentlastung (degr. AfA +','Ongoing tax relief (declining-balance depreciation +')} Ø-{t('Zins','interest')} × {fmtPct(at.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
+              <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>{t('Mögliche Rate nach Steuer','Possible rate after tax')}</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.plattformRateEff)}</span></div>
               {totals.eigennutzungGewerbCount > 0 && totals.plattformRateEff > 0 && (
-                <div className="flex justify-between text-[#6B6961] text-xs"><span>pro Mitarbeiter-Modul ({totals.eigennutzungGewerbCount})</span><span className="num">{fmtEUR(totals.plattformRateEff / totals.eigennutzungGewerbCount)}</span></div>
+                <div className="flex justify-between text-[#6B6961] text-xs"><span>{t('pro Mitarbeiter-Modul','per employee module')} ({totals.eigennutzungGewerbCount})</span><span className="num">{fmtEUR(totals.plattformRateEff / totals.eigennutzungGewerbCount)}</span></div>
               )}
               {totals.iabSteuerersparnis > 0 && (
                 <div className="mt-3 pt-3 border-t border-[#1C1C1A]/10">
                   <div className="flex justify-between text-[var(--brand-accent,#D2563E)]">
-                    <span className="font-medium">Einmaliger IFB-Liquiditätsvorteil (Anschaffungsjahr)</span>
+                    <span className="font-medium">{t('Einmaliger IFB-Liquiditätsvorteil (Anschaffungsjahr)','One-off IFB liquidity benefit (year of acquisition)')}</span>
                     <span className="num font-medium">+{fmtEUR(totals.iabSteuerersparnis)}</span>
                   </div>
                   <p className="font-body text-[11px] text-[#6B6961] mt-1.5 italic">
-                    {fmtPct(at.ifbPct)} von {fmtEUR(totals.effGewerbNetto)} = {fmtEUR(totals.iabClamped)} IFB × {fmtPct(at.steuer)} = {fmtEUR(totals.iabSteuerersparnis)} Steuerersparnis. Der IFB kommt zusätzlich zur AfA — er senkt nicht die Monatsrate, sondern bringt Liquidität im Anschaffungsjahr.
+                    {fmtPct(at.ifbPct)} {t('von','of')} {fmtEUR(totals.effGewerbNetto)} = {fmtEUR(totals.iabClamped)} IFB × {fmtPct(at.steuer)} = {fmtEUR(totals.iabSteuerersparnis)} {t('Steuerersparnis. Der IFB kommt zusätzlich zur AfA — er senkt nicht die Monatsrate, sondern bringt Liquidität im Anschaffungsjahr.','tax saving. The IFB comes on top of depreciation — it does not lower the monthly rate but provides liquidity in the year of acquisition.')}
                   </p>
                 </div>
               )}
             </div>
-            <p className="font-body text-xs text-[#6B6961] italic">Diese Werte sind Modellwerte. Bitte unbedingt mit dem (österreichischen) Steuerberater abstimmen.</p>
+            <p className="font-body text-xs text-[#6B6961] italic">{t('Diese Werte sind Modellwerte. Bitte unbedingt mit dem (österreichischen) Steuerberater abstimmen.','These are model values. Please be sure to coordinate with your (Austrian) tax advisor.')}</p>
           </div>
         )}
       </div>
@@ -4011,31 +4056,31 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
   return (
     <div className="bg-[#F8F5F0] border border-dashed border-[#1C1C1A]/20 p-7">
       <div className="flex items-baseline justify-between mb-1 gap-4 flex-wrap">
-        <h3 className="font-display text-2xl flex items-center gap-2"><Receipt className="w-5 h-5 text-[#6B6961]" strokeWidth={1.5} />Mögliche Steuervorteile</h3>
+        <h3 className="font-display text-2xl flex items-center gap-2"><Receipt className="w-5 h-5 text-[#6B6961]" strokeWidth={1.5} />{t('Mögliche Steuervorteile','Possible tax benefits')}</h3>
         <span className="font-body text-xs tracking-wider uppercase text-[#6B6961] bg-white px-2 py-1 border border-[#1C1C1A]/15">Optional</span>
       </div>
       <p className="font-body text-sm text-[#6B6961] mb-5 leading-relaxed">
-        Als gewerblicher Käufer kannst Du u. U. Sonder-AfA, Investitionsabzugsbetrag (IAB) oder andere steuerliche Gestaltungen nutzen, um Deine effektive Belastung zu senken. Ob und in welcher Höhe das gilt, hängt von Deinem Unternehmen, Deiner Bilanzsituation und Deinen Investitionsabsichten ab.
+        {t('Als gewerblicher Käufer kannst Du u. U. Sonder-AfA, Investitionsabzugsbetrag (IAB) oder andere steuerliche Gestaltungen nutzen, um Deine effektive Belastung zu senken. Ob und in welcher Höhe das gilt, hängt von Deinem Unternehmen, Deiner Bilanzsituation und Deinen Investitionsabsichten ab.','As a commercial buyer you may be able to use special depreciation, the investment deduction (IAB) or other tax arrangements to reduce your effective cost. Whether and to what extent this applies depends on your company, your balance-sheet situation and your investment intentions.')}
       </p>
       <div className="bg-white border border-[#C5392E]/30 p-3 mb-5 flex gap-2 items-start">
         <Info className="w-4 h-4 text-[#C5392E] shrink-0 mt-0.5" strokeWidth={1.5} />
         <p className="font-body text-xs text-[#1C1C1A]/80 leading-relaxed">
-          <span className="font-medium">Keine Steuerberatung.</span> Die folgende Modellrechnung zeigt eine Indikation auf Basis allgemeiner Annahmen. Bitte sprich vor einer Entscheidung unbedingt mit Deinem Steuerberater.
+          <span className="font-medium">{t('Keine Steuerberatung.','Not tax advice.')}</span> {t('Die folgende Modellrechnung zeigt eine Indikation auf Basis allgemeiner Annahmen. Bitte sprich vor einer Entscheidung unbedingt mit Deinem Steuerberater.','The following model calculation shows an indication based on general assumptions. Before deciding, please be sure to talk to your tax advisor.')}
         </p>
       </div>
 
       <button onClick={() => setAktiv(!aktiv)}
         className={`w-full px-4 py-3 font-body text-sm border transition-colors ${aktiv ? 'border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] ring-1 ring-[color-mix(in_srgb,var(--brand-accent,#D2563E)_30%,transparent)] ring-offset-1 ring-offset-[#F8F5F0] font-medium' : 'border-[#1C1C1A]/15 text-[#1C1C1A] hover:border-[var(--brand-accent,#D2563E)]'}`}>
-        {aktiv ? 'Steuervorteile-Modellrechnung aktiv' : 'Modellrechnung mit Steuervorteilen anzeigen'}
+        {aktiv ? t('Steuervorteile-Modellrechnung aktiv','Tax-benefit model calculation active') : t('Modellrechnung mit Steuervorteilen anzeigen','Show model calculation with tax benefits')}
       </button>
 
       {aktiv && (
         <div className="mt-5 space-y-5">
-          <Slider label="Unternehmenssteuer (Annahme)" value={financing.plattform.steuer} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, steuer: v}}))} min={0.15} max={0.40} step={0.01} format={fmtPct} hint="GewSt + KSt + Soli für GmbH meist 28–32 %" />
+          <Slider label={t('Unternehmenssteuer (Annahme)','Corporate tax (assumption)')} value={financing.plattform.steuer} onChange={v => setFinancing(f => ({...f, plattform: {...f.plattform, steuer: v}}))} min={0.15} max={0.40} step={0.01} format={fmtPct} hint={t('GewSt + KSt + Soli für GmbH meist 28–32 %','Trade tax + corp. tax + soli for a GmbH usually 28–32 %')} />
           {/* IAB-Slider + Eingabefeld — beeinflusst nur die steuerliche Wirkung, NICHT die Finanzierungs-Rate */}
           <div>
             <div className="flex justify-between items-baseline mb-2 gap-2">
-              <FieldLabel required={false} hint="Bis zu 50 % der geplanten Investition können vorab steuerlich abgezogen werden (§ 7g EStG)">Investitionsabzugsbetrag (IAB)</FieldLabel>
+              <FieldLabel required={false} hint={t('Bis zu 50 % der geplanten Investition können vorab steuerlich abgezogen werden (§ 7g EStG)','Up to 50 % of the planned investment can be deducted for tax in advance (§ 7g EStG)')}>{t('Investitionsabzugsbetrag (IAB)','Investment deduction (IAB)')}</FieldLabel>
             </div>
             <div className="flex items-center gap-3 mb-2">
               <input type="number" min={0} max={iabMax} step={1000}
@@ -4046,35 +4091,35 @@ function SteuerOptionenPanel({ totals, financing, setFinancing, iabBetrag, setIa
                 }}
                 className="w-32 bg-[#F8F5F0] border border-[#1C1C1A]/10 px-2 py-1.5 font-display text-base text-[#7B2D8E] focus:outline-none focus:border-[var(--brand-accent,#D2563E)] num [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               <span className="font-body text-sm text-[#6B6961]">€</span>
-              <span className="font-body text-xs text-[#6B6961] ml-auto">max. 50 % · {fmtEUR(iabMax)}</span>
+              <span className="font-body text-xs text-[#6B6961] ml-auto">{t('max.','max.')} 50 % · {fmtEUR(iabMax)}</span>
             </div>
             <input type="range" min={0} max={iabMax} step={1000} value={iabClamped}
               onChange={e => setIabBetrag(parseInt(e.target.value, 10))} className="w-full" />
             <p className="font-body text-[11px] text-[#6B6961] mt-2 leading-relaxed">
-              Der IAB reduziert die zu versteuernde Gewinngrundlage im Anschaffungsjahr, ohne dass das Geld tatsächlich fließen muss. Effekt: einmalige Steuerersparnis im Anschaffungsjahr.
+              {t('Der IAB reduziert die zu versteuernde Gewinngrundlage im Anschaffungsjahr, ohne dass das Geld tatsächlich fließen muss. Effekt: einmalige Steuerersparnis im Anschaffungsjahr.','The IAB reduces the taxable profit base in the year of acquisition without money actually having to flow. Effect: a one-off tax saving in the year of acquisition.')}
             </p>
           </div>
           <div className="pt-4 border-t border-[#1C1C1A]/10 space-y-2 font-body text-sm">
-            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">Modellhafte Belastung mit Steuervorteilen</p>
-            <div className="flex justify-between"><span className="text-[#6B6961]">Gewerbe-Rate (vor Steuer)</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
-            <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− Laufende Steuerentlastung (AfA{iabClamped > 0 ? ' auf IAB-geminderter Basis' : ''} + Ø-Zins × {fmtPct(financing.plattform.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
-            <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>Mögliche Rate nach Steuer</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.plattformRateEff)}</span></div>
+            <p className="font-body text-xs uppercase tracking-wider text-[#6B6961]">{t('Modellhafte Belastung mit Steuervorteilen','Model cost with tax benefits')}</p>
+            <div className="flex justify-between"><span className="text-[#6B6961]">{t('Gewerbe-Rate (vor Steuer)','Commercial rate (before tax)')}</span><span className="num">{fmtEUR(totals.plattformRate)}</span></div>
+            <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><span>− {t('Laufende Steuerentlastung (AfA','Ongoing tax relief (depreciation')}{iabClamped > 0 ? t(' auf IAB-geminderter Basis',' on IAB-reduced base') : ''} + Ø-{t('Zins','interest')} × {fmtPct(financing.plattform.steuer)})</span><span className="num">−{fmtEUR(totals.steuerentlastung)}</span></div>
+            <div className="flex justify-between font-display text-base pt-2 border-t border-[#1C1C1A]/10"><span>{t('Mögliche Rate nach Steuer','Possible rate after tax')}</span><span className="num text-[var(--brand-accent,#D2563E)]">{fmtEUR(totals.plattformRateEff)}</span></div>
             {totals.eigennutzungGewerbCount > 0 && totals.plattformRateEff > 0 && (
-              <div className="flex justify-between text-[#6B6961] text-xs"><span>pro Mitarbeiter-Modul ({totals.eigennutzungGewerbCount})</span><span className="num">{fmtEUR(totals.plattformRateEff / totals.eigennutzungGewerbCount)}</span></div>
+              <div className="flex justify-between text-[#6B6961] text-xs"><span>{t('pro Mitarbeiter-Modul','per employee module')} ({totals.eigennutzungGewerbCount})</span><span className="num">{fmtEUR(totals.plattformRateEff / totals.eigennutzungGewerbCount)}</span></div>
             )}
             {iabClamped > 0 && (
               <div className="mt-3 pt-3 border-t border-[#1C1C1A]/10">
                 <div className="flex justify-between text-[var(--brand-accent,#D2563E)]">
-                  <span className="font-medium">Einmaliger IAB-Liquiditätsvorteil (Anschaffungsjahr)</span>
+                  <span className="font-medium">{t('Einmaliger IAB-Liquiditätsvorteil (Anschaffungsjahr)','One-off IAB liquidity benefit (year of acquisition)')}</span>
                   <span className="num font-medium">+{fmtEUR(totals.iabSteuerersparnis)}</span>
                 </div>
                 <p className="font-body text-[11px] text-[#6B6961] mt-1.5 italic">
-                  {fmtEUR(iabClamped)} IAB × {fmtPct(financing.plattform.steuer)} = {fmtEUR(totals.iabSteuerersparnis)} Steuerersparnis sofort im Anschaffungsjahr. Der IAB mindert die spätere AfA-Basis und wirkt daher bewusst nicht zusätzlich auf die Monatsrate — er ist ein einmaliger Liquiditätsvorteil, kein Raten-Rabatt.
+                  {fmtEUR(iabClamped)} IAB × {fmtPct(financing.plattform.steuer)} = {fmtEUR(totals.iabSteuerersparnis)} {t('Steuerersparnis sofort im Anschaffungsjahr. Der IAB mindert die spätere AfA-Basis und wirkt daher bewusst nicht zusätzlich auf die Monatsrate — er ist ein einmaliger Liquiditätsvorteil, kein Raten-Rabatt.','tax saving immediately in the year of acquisition. The IAB reduces the later depreciation base and therefore deliberately does not act on the monthly rate as well — it is a one-off liquidity benefit, not an instalment discount.')}
                 </p>
               </div>
             )}
           </div>
-          <p className="font-body text-xs text-[#6B6961] italic">Diese Werte sind Modellwerte. Bitte unbedingt mit Steuerberater abstimmen.</p>
+          <p className="font-body text-xs text-[#6B6961] italic">{t('Diese Werte sind Modellwerte. Bitte unbedingt mit Steuerberater abstimmen.','These are model values. Please be sure to coordinate with your tax advisor.')}</p>
         </div>
       )}
     </div>
@@ -9073,10 +9118,10 @@ export default function App() {
                 </span>
               )}
             </div>
-            <p>Wohngesund, wertig & wunderschön<span className="opacity-50"> …</span></p>
+            <p>{t('Wohngesund, wertig & wunderschön', 'Healthy living, high quality & beautiful')}<span className="opacity-50"> …</span></p>
           </div>
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
-            {getContentText('footer_disclaimer', 'Alle dargestellten Preise, Mieten, Förderbeträge, Zinssätze, Steuervorteile, Nebenkosten und behördliche Gebühren sind unverbindliche Modellrechnungen auf Basis aktueller Marktdaten und allgemeiner Annahmen (Baugenehmigung: Richtwert NRW — kann regional abweichen). Verbindliche Aussagen erhältst Du erst im persönlichen Angebot.')}
+            {getContentText('footer_disclaimer', t('Alle dargestellten Preise, Mieten, Förderbeträge, Zinssätze, Steuervorteile, Nebenkosten und behördliche Gebühren sind unverbindliche Modellrechnungen auf Basis aktueller Marktdaten und allgemeiner Annahmen (Baugenehmigung: Richtwert NRW — kann regional abweichen). Verbindliche Aussagen erhältst Du erst im persönlichen Angebot.', 'All prices, rents, subsidy amounts, interest rates, tax benefits, ancillary costs and official fees shown are non-binding model calculations based on current market data and general assumptions (building permit: NRW guideline value — may vary regionally). You will only receive binding statements in your personal offer.'), LANG)}
           </p>
         </div>
       </footer>
