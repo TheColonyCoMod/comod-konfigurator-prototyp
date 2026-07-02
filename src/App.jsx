@@ -134,7 +134,7 @@ async function sendNotify(subject, text) {
   }
 }
 
-const APP_VERSION = '0.9.170';
+const APP_VERSION = '0.9.171';
 
 /* ============================================================================
    PRODUCT CATALOG mit Familien und Varianten
@@ -8728,7 +8728,17 @@ export default function App() {
   const [customerType, setCustomerType] = useState(null);
   const [land, setLand] = useState('DE'); // Länderschalter für den Direkt-Pfad (ohne Projekt); Projekt erbt project.land
   const [lang, setLang] = useState(() => {
-    try { return localStorage.getItem('comod_lang') === 'en' ? 'en' : 'de'; } catch { return 'de'; }
+    // 1) Explizite Nutzerwahl (pro Domain eigener localStorage) gewinnt.
+    // 2) Sonst entscheidet der Hostname: configurator.* → Englisch (eigene EN-Subdomain),
+    //    konfigurator.* / alles andere → Deutsch. (kein 'c' in "konfigurator" → kollisionsfrei)
+    try {
+      const stored = localStorage.getItem('comod_lang');
+      if (stored === 'en' || stored === 'de') return stored;
+    } catch { /* ignore */ }
+    try {
+      if (window.location.hostname.toLowerCase().split('.').includes('configurator')) return 'en';
+    } catch { /* ignore */ }
+    return 'de';
   });
   const [privatMode, setPrivatMode] = useState(null);
   const [project, setProject] = useState(null);
@@ -8783,7 +8793,10 @@ export default function App() {
   const activeLand = (project && project.land) || land;
   UST = getCountry(activeLand).ust;
   LANG = lang; // aktive Sprache global setzen, damit t() überall den aktuellen Wert liest
-  useEffect(() => { try { localStorage.setItem('comod_lang', lang); } catch { /* ignore */ } }, [lang]);
+  useEffect(() => {
+    try { localStorage.setItem('comod_lang', lang); } catch { /* ignore */ }
+    try { document.documentElement.lang = (lang === 'en') ? 'en' : 'de'; } catch { /* ignore */ }
+  }, [lang]);
 
   const totals = useMemo(() => calculateTotals({
     selections, modes, project, gewerbConfig: effectiveGewerbConfig,
