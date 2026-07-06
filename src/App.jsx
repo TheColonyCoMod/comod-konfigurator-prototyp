@@ -4649,7 +4649,7 @@ function Field({ label, value, onChange, type = 'text', textarea = false, placeh
   );
 }
 
-function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, contact, setContact, onSubmit, onBack }) {
+function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, contact, setContact, onSubmit, onBack, submitting }) {
   const isValid = contact.vorname?.trim() && contact.nachname?.trim() && contact.email?.includes('@');
   return (
     <div className="max-w-5xl mx-auto px-8 py-12">
@@ -4684,7 +4684,7 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
               </div>
             </div>
             <Field label={t('Anmerkung','Note')} textarea value={contact.notiz || ''} onChange={v => setContact(c => ({...c, notiz: v}))} placeholder={t('z. B. Wunschtermin, Standortdetails, Fragen …','e.g. preferred date, location details, questions …')} />
-            <Button onClick={onSubmit} disabled={!isValid} className="w-full mt-4"><Mail className="w-4 h-4" /> {t('Unverbindliches Angebot anfragen','Request a non-binding quote')}</Button>
+            <Button onClick={onSubmit} disabled={!isValid || submitting} className="w-full mt-4"><Mail className="w-4 h-4" /> {submitting ? t('Wird gesendet \u2026','Sending \u2026') : t('Unverbindliches Angebot anfragen','Request a non-binding quote')}</Button>
             <p className="font-body text-xs text-[#6B6961]">{t('Mit dem Senden willigst Du ein, dass wir Dich kontaktieren dürfen. Keine Weitergabe an Dritte.','By sending, you agree that we may contact you. No sharing with third parties.')}</p>
             <div className="mt-3 pt-3 border-t border-[#1C1C1A]/10">
               <p className="font-body text-[11px] text-[#6B6961] leading-relaxed">
@@ -8759,6 +8759,7 @@ export default function App() {
   const [leads, setLeads] = useState([]);
   const [lastLead, setLastLead] = useState(null);
   const [offerStatus, setOfferStatus] = useState(null); // null | 'sending' | 'sent' | 'failed' | 'invalid'
+  const [submitting, setSubmitting] = useState(false);  // Lead wird gerade gespeichert/gesendet
   const [soldModules, setSoldModules] = useState(0); // Tier 3: dauerhaft verkaufte physische Module im aktiven Projekt (aus DB)
 
   useEffect(() => { refreshLeads(); }, []);
@@ -8941,17 +8942,17 @@ export default function App() {
 
     // === Lead + Benachrichtigung + Angebot: EIN gesicherter Server-Aufruf (Turnstile) ===
     // Insert läuft serverseitig (Service-Role) hinter Turnstile — kein offener anon-Insert mehr.
-    // UI läuft sofort weiter (Danke-Seite); Versand passiert fail-soft im Hintergrund.
+    // Wir AWAITEN den Aufruf: Danke-Seite kommt erst, wenn gespeichert ist (kein Lead-Verlust).
     // localStorage (oben) bleibt als lokaler Fallback aktiv.
-    setLastLead(lead);
-    setStep(4);
-
     const offerEmail = (contact.email || '').trim();
     const hasValidOfferEmail = isValidEmail(offerEmail);
+    if (submitting) return;
+    setSubmitting(true);
     setOfferStatus(hasValidOfferEmail ? 'sending' : 'invalid');
 
-    (async () => {
-      try {
+    // Lead SYNCHRON speichern (awaiten) — erst NACH bestätigtem Speichern auf die
+    // Danke-Seite. So geht kein Lead verloren, wenn der Kunde direkt wegnavigiert.
+    try {
         // Projekt-ID via Slug-Lookup auflösen (anon SELECT auf projects bleibt erlaubt)
         let dbProjectId = null;
         if (lead.pfad?.project?.id) {
@@ -9117,8 +9118,11 @@ export default function App() {
       } catch (e) {
         console.warn('[submit_lead] Verbindungsfehler:', e?.message || e);
         if (hasValidOfferEmail) setOfferStatus('failed');
+      } finally {
+        setSubmitting(false);
+        setLastLead(lead);
+        setStep(4);
       }
-    })();
   }
 
   function restart() {
@@ -9148,7 +9152,7 @@ export default function App() {
         : step === 0.5 ? <GewerbeConfigStep config={gewerbConfig} setConfig={setGewerbConfig} onContinue={handleGewerbContinue} onBack={goToWelcome} />
         : step === 1 ? <ModulesStep customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} soldModules={soldModules} />
         : step === 2 ? <FinancingStep totals={totals} project={project} land={land} setLand={setLand} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} serviceSelected={serviceSelected} setServiceSelected={setServiceSelected} onNext={() => setStep(3)} onBack={() => setStep(1)} />
-        : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} />
+        : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} submitting={submitting} />
         : step === 4 ? <SuccessStep lead={lastLead} onRestart={restart} offerStatus={offerStatus} />
         : null}
 
