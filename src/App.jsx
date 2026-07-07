@@ -27,6 +27,7 @@ let _tsVisibleWidgetId = null;
 let _tsScriptLoading = null;
 let _tsResolver = null;
 let _tsFail = null;
+let _tsLastError = ''; // letzter Turnstile-Fehlercode (für Diagnose im Fehler-Banner)
 function loadTurnstileScript() {
   if (typeof window === 'undefined') return Promise.resolve(false);
   if (window.turnstile) return Promise.resolve(true);
@@ -80,8 +81,8 @@ function showTurnstileFallback(resolve) {
       sitekey: TURNSTILE_SITE_KEY,
       size: 'flexible',
       callback: (tok) => finish(tok),
-      'error-callback': () => finish(''),
-      'timeout-callback': () => finish(''),
+      'error-callback': (c) => { _tsLastError = 'vis:' + String(c || ''); finish(''); },
+      'timeout-callback': () => { _tsLastError = _tsLastError || 'vis:timeout'; finish(''); },
     });
   } catch { finish(''); }
 }
@@ -90,6 +91,7 @@ async function getTurnstileToken() {
   if (!TURNSTILE_SITE_KEY) { console.warn('[Turnstile] kein Site-Key konfiguriert (VITE_TURNSTILE_SITE_KEY)'); return ''; }
   const ok = await loadTurnstileScript();
   if (!ok || !window.turnstile) return '';
+  _tsLastError = '';
   let container = document.getElementById('cf-turnstile-host');
   if (!container) {
     container = document.createElement('div');
@@ -112,8 +114,8 @@ async function getTurnstileToken() {
           execution: 'execute',
           size: 'flexible',
           callback: (tok) => { const r = _tsResolver; _tsResolver = null; if (tok && r) r(tok); else if (_tsFail) _tsFail(); },
-          'error-callback': () => { _tsResolver = null; if (_tsFail) _tsFail(); },
-          'timeout-callback': () => { _tsResolver = null; if (_tsFail) _tsFail(); },
+          'error-callback': (c) => { _tsLastError = 'inv:' + String(c || ''); _tsResolver = null; if (_tsFail) _tsFail(); },
+          'timeout-callback': () => { _tsLastError = _tsLastError || 'inv:timeout'; _tsResolver = null; if (_tsFail) _tsFail(); },
         });
       } else {
         window.turnstile.reset(_tsWidgetId);
@@ -4686,7 +4688,8 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
             <Field label={t('Anmerkung','Note')} textarea value={contact.notiz || ''} onChange={v => setContact(c => ({...c, notiz: v}))} placeholder={t('z. B. Wunschtermin, Standortdetails, Fragen …','e.g. preferred date, location details, questions …')} />
             {submitError && (
               <div className="mt-4 p-4 border border-[var(--brand-accent,#D2563E)] bg-[#FBEDE7]">
-                <p className="font-body text-sm text-[#B04528] leading-relaxed">{submitError}</p>
+                <p className="font-body text-sm text-[#B04528] leading-relaxed">{submitError.msg}</p>
+                {submitError.detail && <p className="font-body text-[11px] text-[#6B6961] mt-2" style={{ fontFamily: 'monospace' }}>{submitError.detail}</p>}
               </div>
             )}
             <Button onClick={onSubmit} disabled={!isValid || submitting} className="w-full mt-4"><Mail className="w-4 h-4" /> {submitting ? t('Wird gesendet \u2026','Sending \u2026') : (submitError ? t('Erneut senden','Try again') : t('Unverbindliches Angebot anfragen','Request a non-binding quote'))}</Button>
@@ -9138,14 +9141,23 @@ export default function App() {
           body: { action: 'submit_lead', token, lead: dbLead, notify, offer, to: offerEmail, lang: LANG },
         });
         if (error || (data && data.ok === false) || !data?.leadSaved) {
-          console.warn('[submit_lead] Fehler:', error?.message || data?.error || data?.leadError);
-          // Häufigste Ursache: Turnstile (Bot-Check) wurde vom Browser blockiert -> Server lehnt fail-closed ab.
-          const secBlocked = String(data?.error || '').includes('Sicherheitsprüfung');
-          setSubmitError(secBlocked
-            ? t('Die Sicherheitsprüfung (Bot-Schutz) wurde von Deinem Browser blockiert, daher konnten wir Deine Anfrage nicht absenden. Bitte lockere den Tracking-Schutz für diese Seite (Schild-Symbol in der Adressleiste) oder nutze einen anderen Browser und sende erneut. Deine Angaben bleiben erhalten.',
-                'The security check (bot protection) was blocked by your browser, so we could not submit your request. Please relax tracking protection for this site (shield icon in the address bar) or use a different browser and submit again. Your entries are preserved.')
-            : t('Beim Absenden ist etwas schiefgelaufen und Deine Anfrage wurde nicht gespeichert. Bitte versuche es erneut — Deine Angaben bleiben erhalten.',
-                'Something went wrong and your request was not saved. Please try again — your entries are preserved.'));
+          // Grund möglichst genau bestimmen (für Anzeige + Klassifikation).
+          let httpStatus = null, serverMsg = '';
+          try { httpStatus = error?.context?.status ?? error?.status ?? null; } catch { /* ignore */ }
+          try { if (error?.context?.clone) { const b = await error.context.clone().json(); serverMsg = b?.error || ''; } } catch { /* ignore */ }
+          const rawMsg = serverMsg || data?.error || data?.leadError || error?.message || '';
+          const tokenEmpty = !token;
+          const secBlocked = httpStatus === 403 || tokenEmpty || !!_tsLastError || /Sicherheitsprüfung|security check|turnstile/i.test(rawMsg);
+          const detail = [httpStatus ? `HTTP ${httpStatus}` : null, tokenEmpty ? 'Turnstile-Token leer' : null, _tsLastError ? ('Turnstile ' + _tsLastError) : null, rawMsg || null].filter(Boolean).join(' · ');
+          console.warn('[submit_lead] Fehler:', detail || '(unbekannt)');
+          setSubmitError({
+            msg: secBlocked
+              ? t('Die Sicherheitsprüfung (Bot-Schutz) konnte nicht abgeschlossen werden, daher wurde Deine Anfrage nicht gesendet. Bitte lockere den Tracking-Schutz für diese Seite (Schild-Symbol in der Adressleiste), erlaube „challenges.cloudflare.com" und sende erneut — oder nutze einen anderen Browser. Deine Angaben bleiben erhalten.',
+                  'The security check (bot protection) could not be completed, so your request was not sent. Please relax tracking protection for this site (shield icon in the address bar), allow "challenges.cloudflare.com", and submit again — or use a different browser. Your entries are preserved.')
+              : t('Beim Absenden ist etwas schiefgelaufen und Deine Anfrage wurde nicht gespeichert. Bitte versuche es erneut — Deine Angaben bleiben erhalten.',
+                  'Something went wrong and your request was not saved. Please try again — your entries are preserved.'),
+            detail,
+          });
         } else {
           if (hasValidOfferEmail) setOfferStatus(data?.offerSent ? 'sent' : 'failed');
           // Ausstatter-Übergabe (ein-Klick-Token bzw. Angebotsnummer für den Login).
@@ -9154,8 +9166,11 @@ export default function App() {
         }
       } catch (e) {
         console.warn('[submit_lead] Verbindungsfehler:', e?.message || e);
-        setSubmitError(t('Verbindungsfehler beim Absenden. Bitte prüfe Deine Internetverbindung und sende erneut — Deine Angaben bleiben erhalten.',
-          'Connection error while submitting. Please check your internet connection and submit again — your entries are preserved.'));
+        setSubmitError({
+          msg: t('Verbindungsfehler beim Absenden. Bitte prüfe Deine Internetverbindung und sende erneut — Deine Angaben bleiben erhalten.',
+            'Connection error while submitting. Please check your internet connection and submit again — your entries are preserved.'),
+          detail: String(e?.message || e || ''),
+        });
       } finally {
         setSubmitting(false);
         setLastLead(lead);
