@@ -4747,8 +4747,14 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
   );
 }
 
-function SuccessStep({ lead, onRestart, offerStatus }) {
+function SuccessStep({ lead, onRestart, offerStatus, handoff, lang }) {
   const email = lead?.contact?.email || '';
+  const nachname = lead?.contact?.nachname || '';
+  const ang = handoff?.angebotsnummer || '';
+  const base = lang === 'en' ? 'https://finishes.comod.haus' : 'https://ausstattung.comod.haus';
+  const baseLabel = lang === 'en' ? 'finishes.comod.haus' : 'ausstattung.comod.haus';
+  const equipHref = handoff?.equipUrl
+    || (ang && nachname ? `${base}/?angebotsnummer=${encodeURIComponent(ang)}&name=${encodeURIComponent(nachname)}` : base);
   return (
     <div className="max-w-3xl mx-auto px-8 py-24 text-center">
       <div className="w-16 h-16 rounded-full bg-[var(--brand-accent,#D2563E)] flex items-center justify-center mx-auto mb-8">
@@ -4768,6 +4774,19 @@ function SuccessStep({ lead, onRestart, offerStatus }) {
         <p className="font-body text-sm text-[#6B6961] mb-10 max-w-xl mx-auto leading-relaxed">{t('Dein detailliertes Angebot stellen wir gerade zusammen und senden es Dir in Kürze persönlich zu.','We are putting together your detailed quote and will send it to you personally shortly.')}</p>
       )}
       {!offerStatus && <div className="mb-4" />}
+
+      <div className="mb-10 max-w-xl mx-auto">
+        <a href={equipHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 px-8 py-4 font-body font-medium text-[#F8F5F0] bg-[var(--brand-accent,#D2563E)] hover:opacity-90 transition" style={{ borderRadius: 0 }}>
+          {t('Wähle direkt Deine Ausstattung','Choose your finishes now')} <span aria-hidden="true">→</span>
+        </a>
+        <p className="font-body text-sm text-[#6B6961] mt-5 leading-relaxed">
+          {ang ? (
+            <>{t('Oder jederzeit später unter ','Or anytime later at ')}<a href={base} className="text-[var(--brand-accent,#D2563E)] font-medium">{baseLabel}</a>{t(' — Login mit Angebotsnummer ',' — sign in with quote number ')}<span className="text-[#1C1C1A] font-medium">{ang}</span>{t(' und Nachname ',' and surname ')}<span className="text-[#1C1C1A] font-medium">{nachname || '—'}</span>.</>
+          ) : (
+            <>{t('Deine Ausstattung findest Du unter ','Find your finishes at ')}<a href={base} className="text-[var(--brand-accent,#D2563E)] font-medium">{baseLabel}</a>.</>
+          )}
+        </p>
+      </div>
 
       <div><Button onClick={onRestart} variant="secondary">{t('Neue Konfiguration starten','Start a new configuration')}</Button></div>
     </div>
@@ -8758,6 +8777,7 @@ export default function App() {
   const [contact, setContact] = useState({});
   const [leads, setLeads] = useState([]);
   const [lastLead, setLastLead] = useState(null);
+  const [handoff, setHandoff] = useState(null); // Übergabe an den Ausstatter: { equipUrl, angebotsnummer }
   const [offerStatus, setOfferStatus] = useState(null); // null | 'sending' | 'sent' | 'failed' | 'invalid'
   const [submitting, setSubmitting] = useState(false);  // Lead wird gerade gespeichert/gesendet
   const [soldModules, setSoldModules] = useState(0); // Tier 3: dauerhaft verkaufte physische Module im aktiven Projekt (aus DB)
@@ -9114,6 +9134,8 @@ export default function App() {
           if (!data?.leadSaved) console.warn('[submit_lead] Lead nicht gespeichert:', data?.leadError);
           else console.log('[submit_lead] Lead gespeichert');
           if (hasValidOfferEmail) setOfferStatus(data?.offerSent ? 'sent' : 'failed');
+          // Ausstatter-Übergabe (ein-Klick-Token bzw. Angebotsnummer für den Login).
+          setHandoff({ equipUrl: data?.equipUrl || null, angebotsnummer: data?.angebotsnummer || data?.offerNo || null });
         }
       } catch (e) {
         console.warn('[submit_lead] Verbindungsfehler:', e?.message || e);
@@ -9129,7 +9151,7 @@ export default function App() {
     setStep(0); setCustomerType(null); setLand('DE'); setPrivatMode(null); setProject(null);
     setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setSelections({}); setModes({}); setFinancing(FIN_DEFAULTS);
-    setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null); setOfferStatus(null);
+    setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null); setOfferStatus(null); setHandoff(null);
     setVermietungDurchCoMod(true); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setAddUsageState('g'); setServiceSelected(false);
   }
   function jumpToStep(s) { if (s < Math.floor(step)) setStep(s); }
@@ -9153,7 +9175,7 @@ export default function App() {
         : step === 1 ? <ModulesStep customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} soldModules={soldModules} />
         : step === 2 ? <FinancingStep totals={totals} project={project} land={land} setLand={setLand} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} serviceSelected={serviceSelected} setServiceSelected={setServiceSelected} onNext={() => setStep(3)} onBack={() => setStep(1)} />
         : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} submitting={submitting} />
-        : step === 4 ? <SuccessStep lead={lastLead} onRestart={restart} offerStatus={offerStatus} />
+        : step === 4 ? <SuccessStep lead={lastLead} onRestart={restart} offerStatus={offerStatus} handoff={handoff} lang={lang} />
         : null}
 
       <footer className="border-t border-[#1C1C1A]/10 mt-20">
