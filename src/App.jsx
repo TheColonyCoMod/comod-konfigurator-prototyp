@@ -4649,7 +4649,7 @@ function Field({ label, value, onChange, type = 'text', textarea = false, placeh
   );
 }
 
-function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, contact, setContact, onSubmit, onBack, submitting }) {
+function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, contact, setContact, onSubmit, onBack, submitting, submitError }) {
   const isValid = contact.vorname?.trim() && contact.nachname?.trim() && contact.email?.includes('@');
   return (
     <div className="max-w-5xl mx-auto px-8 py-12">
@@ -4684,7 +4684,12 @@ function SummaryStep({ totals, customerType, modulart, project, gewerbConfig, co
               </div>
             </div>
             <Field label={t('Anmerkung','Note')} textarea value={contact.notiz || ''} onChange={v => setContact(c => ({...c, notiz: v}))} placeholder={t('z. B. Wunschtermin, Standortdetails, Fragen …','e.g. preferred date, location details, questions …')} />
-            <Button onClick={onSubmit} disabled={!isValid || submitting} className="w-full mt-4"><Mail className="w-4 h-4" /> {submitting ? t('Wird gesendet \u2026','Sending \u2026') : t('Unverbindliches Angebot anfragen','Request a non-binding quote')}</Button>
+            {submitError && (
+              <div className="mt-4 p-4 border border-[var(--brand-accent,#D2563E)] bg-[#FBEDE7]">
+                <p className="font-body text-sm text-[#B04528] leading-relaxed">{submitError}</p>
+              </div>
+            )}
+            <Button onClick={onSubmit} disabled={!isValid || submitting} className="w-full mt-4"><Mail className="w-4 h-4" /> {submitting ? t('Wird gesendet \u2026','Sending \u2026') : (submitError ? t('Erneut senden','Try again') : t('Unverbindliches Angebot anfragen','Request a non-binding quote'))}</Button>
             <p className="font-body text-xs text-[#6B6961]">{t('Mit dem Senden willigst Du ein, dass wir Dich kontaktieren dürfen. Keine Weitergabe an Dritte.','By sending, you agree that we may contact you. No sharing with third parties.')}</p>
             <div className="mt-3 pt-3 border-t border-[#1C1C1A]/10">
               <p className="font-body text-[11px] text-[#6B6961] leading-relaxed">
@@ -4753,8 +4758,10 @@ function SuccessStep({ lead, onRestart, offerStatus, handoff, lang }) {
   const ang = handoff?.angebotsnummer || '';
   const base = lang === 'en' ? 'https://finishes.comod.haus' : 'https://ausstattung.comod.haus';
   const baseLabel = lang === 'en' ? 'finishes.comod.haus' : 'ausstattung.comod.haus';
-  const equipHref = handoff?.equipUrl
+  let equipHref = handoff?.equipUrl
     || (ang && nachname ? `${base}/?angebotsnummer=${encodeURIComponent(ang)}&name=${encodeURIComponent(nachname)}` : base);
+  // EN-Kunden auf den englischen Ausstatter (finishes.*) leiten — Token/Daten gelten host-übergreifend.
+  if (lang === 'en' && equipHref) equipHref = equipHref.replace('ausstattung.comod.haus', 'finishes.comod.haus');
   return (
     <div className="max-w-3xl mx-auto px-8 py-24 text-center">
       <div className="w-16 h-16 rounded-full bg-[var(--brand-accent,#D2563E)] flex items-center justify-center mx-auto mb-8">
@@ -8780,6 +8787,7 @@ export default function App() {
   const [handoff, setHandoff] = useState(null); // Übergabe an den Ausstatter: { equipUrl, angebotsnummer }
   const [offerStatus, setOfferStatus] = useState(null); // null | 'sending' | 'sent' | 'failed' | 'invalid'
   const [submitting, setSubmitting] = useState(false);  // Lead wird gerade gespeichert/gesendet
+  const [submitError, setSubmitError] = useState(null);  // Fehlermeldung, wenn der Lead NICHT gespeichert wurde (z. B. Turnstile blockiert)
   const [soldModules, setSoldModules] = useState(0); // Tier 3: dauerhaft verkaufte physische Module im aktiven Projekt (aus DB)
 
   useEffect(() => { refreshLeads(); }, []);
@@ -8968,10 +8976,12 @@ export default function App() {
     const hasValidOfferEmail = isValidEmail(offerEmail);
     if (submitting) return;
     setSubmitting(true);
+    setSubmitError(null);
     setOfferStatus(hasValidOfferEmail ? 'sending' : 'invalid');
 
     // Lead SYNCHRON speichern (awaiten) — erst NACH bestätigtem Speichern auf die
     // Danke-Seite. So geht kein Lead verloren, wenn der Kunde direkt wegnavigiert.
+    let leadOk = false;   // nur bei bestätigtem Insert auf die Danke-Seite (sonst Fehler zeigen)
     try {
         // Projekt-ID via Slug-Lookup auflösen (anon SELECT auf projects bleibt erlaubt)
         let dbProjectId = null;
@@ -9125,25 +9135,31 @@ export default function App() {
         // Turnstile-Token holen und alles konsolidiert absenden (Insert + Notify + Angebot)
         const token = await getTurnstileToken();
         const { data, error } = await supabase.functions.invoke(NOTIFY_FN, {
-          body: { action: 'submit_lead', token, lead: dbLead, notify, offer, to: offerEmail },
+          body: { action: 'submit_lead', token, lead: dbLead, notify, offer, to: offerEmail, lang: LANG },
         });
-        if (error || (data && data.ok === false)) {
-          console.warn('[submit_lead] Fehler:', error?.message || data?.error);
-          if (hasValidOfferEmail) setOfferStatus('failed');
+        if (error || (data && data.ok === false) || !data?.leadSaved) {
+          console.warn('[submit_lead] Fehler:', error?.message || data?.error || data?.leadError);
+          // Häufigste Ursache: Turnstile (Bot-Check) wurde vom Browser blockiert -> Server lehnt fail-closed ab.
+          const secBlocked = String(data?.error || '').includes('Sicherheitsprüfung');
+          setSubmitError(secBlocked
+            ? t('Die Sicherheitsprüfung (Bot-Schutz) wurde von Deinem Browser blockiert, daher konnten wir Deine Anfrage nicht absenden. Bitte lockere den Tracking-Schutz für diese Seite (Schild-Symbol in der Adressleiste) oder nutze einen anderen Browser und sende erneut. Deine Angaben bleiben erhalten.',
+                'The security check (bot protection) was blocked by your browser, so we could not submit your request. Please relax tracking protection for this site (shield icon in the address bar) or use a different browser and submit again. Your entries are preserved.')
+            : t('Beim Absenden ist etwas schiefgelaufen und Deine Anfrage wurde nicht gespeichert. Bitte versuche es erneut — Deine Angaben bleiben erhalten.',
+                'Something went wrong and your request was not saved. Please try again — your entries are preserved.'));
         } else {
-          if (!data?.leadSaved) console.warn('[submit_lead] Lead nicht gespeichert:', data?.leadError);
-          else console.log('[submit_lead] Lead gespeichert');
           if (hasValidOfferEmail) setOfferStatus(data?.offerSent ? 'sent' : 'failed');
           // Ausstatter-Übergabe (ein-Klick-Token bzw. Angebotsnummer für den Login).
           setHandoff({ equipUrl: data?.equipUrl || null, angebotsnummer: data?.angebotsnummer || data?.offerNo || null });
+          leadOk = true;
         }
       } catch (e) {
         console.warn('[submit_lead] Verbindungsfehler:', e?.message || e);
-        if (hasValidOfferEmail) setOfferStatus('failed');
+        setSubmitError(t('Verbindungsfehler beim Absenden. Bitte prüfe Deine Internetverbindung und sende erneut — Deine Angaben bleiben erhalten.',
+          'Connection error while submitting. Please check your internet connection and submit again — your entries are preserved.'));
       } finally {
         setSubmitting(false);
         setLastLead(lead);
-        setStep(4);
+        if (leadOk) setStep(4);   // Danke-Seite NUR bei bestätigtem Speichern
       }
   }
 
@@ -9151,7 +9167,7 @@ export default function App() {
     setStep(0); setCustomerType(null); setLand('DE'); setPrivatMode(null); setProject(null);
     setGewerbConfig(EMPTY_GEWERB_CONFIG); setModulart(null);
     setSelections({}); setModes({}); setFinancing(FIN_DEFAULTS);
-    setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null); setOfferStatus(null); setHandoff(null);
+    setEkPrivat(0); setEkGewerb(0); setContact({}); setLastLead(null); setOfferStatus(null); setHandoff(null); setSubmitError(null);
     setVermietungDurchCoMod(true); setMitarbeiterAnzahl(0); setIabBetrag(0); setPrivatOptionen({ terrasse: false, pv: false, gruen: false }); setAddUsageState('g'); setServiceSelected(false);
   }
   function jumpToStep(s) { if (s < Math.floor(step)) setStep(s); }
@@ -9174,7 +9190,7 @@ export default function App() {
         : step === 0.5 ? <GewerbeConfigStep config={gewerbConfig} setConfig={setGewerbConfig} onContinue={handleGewerbContinue} onBack={goToWelcome} />
         : step === 1 ? <ModulesStep customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} selections={selections} setSelections={setSelections} modes={modes} setModes={setModes} totals={totals} onNext={() => setStep(2)} onBack={backFromModules} addUsageState={addUsageState} setAddUsageState={setAddUsageState} soldModules={soldModules} />
         : step === 2 ? <FinancingStep totals={totals} project={project} land={land} setLand={setLand} gewerbConfig={effectiveGewerbConfig} financing={financing} setFinancing={setFinancing} ekPrivat={ekPrivat} setEkPrivat={setEkPrivat} ekGewerb={ekGewerb} setEkGewerb={setEkGewerb} vermietungDurchCoMod={vermietungDurchCoMod} setVermietungDurchCoMod={setVermietungDurchCoMod} mitarbeiterAnzahl={mitarbeiterAnzahl} setMitarbeiterAnzahl={setMitarbeiterAnzahl} iabBetrag={iabBetrag} setIabBetrag={setIabBetrag} privatOptionen={privatOptionen} setPrivatOptionen={setPrivatOptionen} serviceSelected={serviceSelected} setServiceSelected={setServiceSelected} onNext={() => setStep(3)} onBack={() => setStep(1)} />
-        : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} submitting={submitting} />
+        : step === 3 ? <SummaryStep totals={totals} customerType={customerType} modulart={modulart} project={project} gewerbConfig={effectiveGewerbConfig} contact={contact} setContact={setContact} onSubmit={handleSubmit} onBack={() => setStep(2)} submitting={submitting} submitError={submitError} />
         : step === 4 ? <SuccessStep lead={lastLead} onRestart={restart} offerStatus={offerStatus} handoff={handoff} lang={lang} />
         : null}
 
