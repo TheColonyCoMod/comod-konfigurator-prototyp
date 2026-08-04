@@ -9231,6 +9231,11 @@ export default function App() {
           <p className="mt-3 text-[10px] leading-relaxed max-w-3xl">
             {getContentText('footer_disclaimer', t('Alle dargestellten Preise, Mieten, Förderbeträge, Zinssätze, Steuervorteile, Nebenkosten und behördliche Gebühren sind unverbindliche Modellrechnungen auf Basis aktueller Marktdaten und allgemeiner Annahmen (Baugenehmigung: Richtwert NRW — kann regional abweichen). Verbindliche Aussagen erhältst Du erst im persönlichen Angebot.', 'All prices, rents, subsidy amounts, interest rates, tax benefits, ancillary costs and official fees shown are non-binding model calculations based on current market data and general assumptions (building permit: NRW guideline value — may vary regionally). You will only receive binding statements in your personal offer.'), LANG)}
           </p>
+          <p className="mt-3 text-[10px]">
+            <a href="/impressum.html" className="underline hover:text-[#1C1C1A]">Impressum</a>
+            {' · '}
+            <a href="/datenschutz.html" className="underline hover:text-[#1C1C1A]">Datenschutz</a>
+          </p>
         </div>
       </footer>
 
