@@ -3422,6 +3422,25 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       })()}
                       {project.projektrabatt > 0 && <div className="flex justify-between text-[var(--brand-accent,#D2563E)]"><dt>{t('Projekt-Bonus', 'Project bonus')}</dt><dd className="num">−{fmtPct(project.projektrabatt)}</dd></div>}
                     </dl>
+                    {/* Komplette Projekt-Wirtschaftlichkeit (Gemeinschaftsmodule, Kosten, Umlagen) — gehört auf die Projektkarte, nicht in die Kunden-Finanzierung */}
+                    {totals.gmCount > 0 && (
+                      <details className="mt-3 group border-t border-[#1C1C1A]/10 pt-3">
+                        <summary className="flex items-center justify-between cursor-pointer list-none font-body text-[10px] uppercase tracking-[0.2em] text-[#7B2D8E]">
+                          <span className="flex items-center gap-1.5"><TrendingUp className="w-3 h-3" strokeWidth={2}/> {t('Projekt-Wirtschaftlichkeit', 'Project economics')}</span>
+                          <ChevronRight className="w-3.5 h-3.5 opacity-60 transition-transform group-open:rotate-90" strokeWidth={2}/>
+                        </summary>
+                        <div className="mt-2 space-y-1 text-[11px] font-body text-[#6B6961]">
+                          <p className="text-[10px] uppercase tracking-wider text-[#6B6961]">{t('Vom Projekt bereitgestellt', 'Provided by the project')}</p>
+                          {totals.gmItems.map((it, i) => (
+                            <div key={i} className="flex justify-between"><span><span className="num">{it.anzahl}×</span> {it.displayName}</span></div>
+                          ))}
+                          <div className="flex justify-between pt-1.5 mt-1 border-t border-[#1C1C1A]/10"><dt>{t('Gesamtkosten (brutto)', 'Total cost (gross)')}</dt><dd className="num text-[#1C1C1A]">{fmtEUR(totals.gmKostenGesamtBrutto)}</dd></div>
+                          <div className="flex justify-between"><dt>{t('Umlage Projektkosten / Modul', 'Project cost share / module')}</dt><dd className="num">{fmtEUR(totals.umlageProModul)}</dd></div>
+                          <div className="flex justify-between"><dt>{t('Umlage Gemeinschaftsmodule / Modul', 'Community share / module')}</dt><dd className="num">{fmtEUR(totals.gmKostenProModulBrutto)}</dd></div>
+                          <div className="flex justify-between pt-1.5 mt-1 border-t border-[#1C1C1A]/10"><dt>{t('Laufende Projekt-Einnahmen (netto)', 'Ongoing project income (net)')}</dt><dd className={`num ${totals.gmNettoCashflowMonat >= 0 ? 'text-[#7FB069]' : 'text-[#C5392E]'}`}>{totals.gmNettoCashflowMonat >= 0 ? '+' : '−'}{fmtEUR(Math.abs(totals.gmNettoCashflowMonat))} / {t('Mt.', 'mo')}</dd></div>
+                        </div>
+                      </details>
+                    )}
                   </div>
                 )}
 
@@ -4533,8 +4552,41 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
               </div>
             )}
 
-            {/* Projekt-Gemeinschaft (P4) — ehrliche Gegenüberstellung statt Roh-Einnahmen */}
-            {totals.gmCount > 0 && (
+            {/* Projekt-Gemeinschaft (P4) — Privat verschlankt (Projekt-Gesamtwerte auf der Projektkarte); B2B unverändert */}
+            {totals.gmCount > 0 && (totals.hatPrivatAnteil && !totals.hatGewerbModule ? (
+              <details className="pb-4 mb-4 border-b border-[#F8F5F0]/15 group" open>
+                <summary className="flex items-center justify-between cursor-pointer list-none mb-2">
+                  <p className="font-body text-sm uppercase tracking-wider opacity-90 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" strokeWidth={2} /> {t('Deine Projekt-Umlagen & Einsparungen','Your project charges & savings')}</p>
+                  <ChevronRight className="w-4 h-4 opacity-65 transition-transform group-open:rotate-90" strokeWidth={2} />
+                </summary>
+
+                {/* Einmalig: deine Umlagen vs. Ersparnis */}
+                <div className="bg-[#F8F5F0]/5 p-3 mb-3">
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1.5">{t('Einmalig — deine Bilanz','One-off — your balance')} ({totals.countTotal} {totals.countTotal === 1 ? t('Modul','module') : t('Module','modules')})</p>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">+ {t('Umlage Projektkosten','project cost share')}</span><span className="num">{fmtEUR(totals.countTotal * totals.umlageProModul)}</span></div>
+                  <div className="flex justify-between font-body text-sm"><span className="opacity-75">+ {t('Umlage Gemeinschaftsmodule','community module share')}</span><span className="num">{fmtEUR(totals.countTotal * totals.gmKostenProModulBrutto)}</span></div>
+                  <div className="flex justify-between font-body text-sm text-[#7FB069]"><span>− {t('Ersparnis Mengenrabatt','volume discount saving')}</span><span className="num">−{fmtEUR(totals.mengenrabattErsparnis)}</span></div>
+                  {(() => {
+                    const netMehr = totals.countTotal * totals.umlageProModul + totals.countTotal * totals.gmKostenProModulBrutto - totals.mengenrabattErsparnis;
+                    const istErsparnis = netMehr < 0;
+                    return (
+                      <div className="flex justify-between font-display text-sm pt-1.5 mt-1 border-t border-[#F8F5F0]/10">
+                        <span>{istErsparnis ? t('Deine Ersparnis','Your saving') : t('Netto-Mehrkosten','Net extra cost')}</span>
+                        <span className={`num ${istErsparnis ? 'text-[#7FB069]' : ''}`}>{fmtEUR(Math.abs(netMehr))}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Laufend: nur DEIN Anteil an den Gemeinschaftsmodul-Einnahmen */}
+                <div className="bg-[#F8F5F0]/5 p-3">
+                  <p className="font-body text-[10px] uppercase tracking-wider opacity-65 mb-1.5">{t('Dein Anteil an den Gemeinschaftsmodul-Einnahmen / Monat','Your share of community-module income / month')}</p>
+                  <p className={`font-display text-2xl num ${totals.gmEinnahmenKunde >= 0 ? 'text-[#7FB069]' : 'text-[#E89B8B]'}`}>{totals.gmEinnahmenKunde >= 0 ? '+ ' : '− '}{fmtEUR(Math.abs(totals.gmEinnahmenKunde))}<span className="font-body text-xs opacity-70"> / {t('Monat','month')}</span></p>
+                </div>
+
+                <p className="font-body text-[10px] opacity-55 mt-2 italic">{t('Projekt-Gesamtkosten und -Einnahmen findest Du unter „Projekt-Beteiligung".','Total project costs and income are shown under “Project participation”.')}</p>
+              </details>
+            ) : (
               <details className="pb-4 mb-4 border-b border-[#F8F5F0]/15 group" open>
                 <summary className="flex items-center justify-between cursor-pointer list-none mb-2">
                   <p className="font-body text-sm uppercase tracking-wider opacity-90 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" strokeWidth={2} /> {t('Gemeinschaftsmodule im Projekt','Community modules in the project')}</p>
@@ -4580,7 +4632,7 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
                   </div>
                 </div>
               </details>
-            )}
+            ))}
 
             {/* Rate pro Mitarbeiter NUR bei reinem MA-Wohnen-Setup (Feedback V6) — inkl. Mieteinnahmen */}
             {totals.istMAWohnen && (
