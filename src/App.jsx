@@ -9013,7 +9013,7 @@ export default function App() {
           ort: lead.contact?.ort,
           notiz: lead.contact?.notiz,
           modules_snapshot: lead.module,
-          finanzen_snapshot: { ...(lead.finanzen || {}), project_name: lead.pfad?.project?.name || null, project_location: lead.pfad?.project?.location || null },
+          finanzen_snapshot: { ...(lead.finanzen || {}), land: activeLand || 'DE', project_name: lead.pfad?.project?.name || null, project_location: lead.pfad?.project?.location || null },
           gewerb_config_snapshot: lead.pfad?.gewerbConfig,
           angewandter_rabatt_pct: lead.finanzen?.rabattPct,
           angewandte_provision_pct: (project && project.provisionPct != null) ? project.provisionPct : PROV,
