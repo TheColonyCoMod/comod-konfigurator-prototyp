@@ -2010,14 +2010,18 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
                 <h3 className="font-display text-2xl mb-1">{p.name}</h3>
                 <p className="font-body text-sm text-[#6B6961]">{p.location}</p>
               </div>
-              <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-3">{(LANG === 'en' && p.description_en) ? p.description_en : p.description}</p>
-              {((LANG === 'en' && p.description2_en) ? p.description2_en : p.description2) && <p className="font-body text-xs text-[#7B2D8E] leading-relaxed mb-4 italic">{(LANG === 'en' && p.description2_en) ? p.description2_en : p.description2}</p>}
+              {/* Beschreibung mit Mindesthöhe — so sitzen Zielgröße + Kennzahlen auf allen Karten auf gleicher Höhe;
+                  den restlichen Höhenunterschied absorbiert der GM-Block unten (Feedback Max 20.08.) */}
+              <div className="min-h-[124px]">
+                <p className="font-body text-sm text-[#1C1C1A]/70 leading-relaxed mb-3">{(LANG === 'en' && p.description_en) ? p.description_en : p.description}</p>
+                {((LANG === 'en' && p.description2_en) ? p.description2_en : p.description2) && <p className="font-body text-xs text-[#7B2D8E] leading-relaxed mb-4 italic">{(LANG === 'en' && p.description2_en) ? p.description2_en : p.description2}</p>}
+              </div>
               <div className="flex gap-4 mb-4 font-body text-xs text-[#6B6961]">
                 <span><span className="num text-[#1C1C1A]">{p.zielModulAnzahl}</span> {t('Module Zielgröße', 'modules target')}</span>
                 <span className="opacity-50">·</span>
                 <span>{t('max.', 'max.')} <span className="num text-[#1C1C1A]">{p.maxModulAnzahl}</span> {t('möglich', 'possible')}</span>
               </div>
-              <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#1C1C1A]/10 mt-auto">
+              <div className="grid grid-cols-3 gap-3 pt-4 border-t border-[#1C1C1A]/10 min-h-[90px]">
                 <div>
                   <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-1">{t('Projektkosten', 'Project costs')}</p>
                   <p className="font-display text-base num">{fmtEUR(p.umlageProModulEinmalig > 0 ? p.umlageProModulEinmalig : calcProjektUmlageProModul(p))}</p>
@@ -2038,13 +2042,19 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
                 ) : <p className="font-display text-base num">—</p>}
               </div>
             </div>
-            {/* Gemeinschaftsmodule des Projekts: welche, wie viele, Einzel-/Gesamtkosten, Umlage, Vorteil */}
+            {/* Gemeinschaftsmodule des Projekts: welche, wie viele, Einzel-/Gesamtkosten, Umlage, Vorteil.
+                Der Abschnitt steht auf JEDER Karte an derselben Stelle — ohne GM mit kurzem Hinweis statt Lücke (Feedback Max 20.08.) */}
             {(() => {
               const gmP = calcGemeinschaftsmodule(p);
-              if (gmP.gmCount <= 0) return null;
+              if (gmP.gmCount <= 0) return (
+                <div className="mt-4 pt-4 border-t border-[#1C1C1A]/10 flex-1">
+                  <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-2">{t('Gemeinschaftsmodule','Community modules')}</p>
+                  <p className="font-body text-xs text-[#6B6961]">{t('Keine — dadurch keine zusätzliche Umlage und keine Gemeinschafts-Einnahmen.', 'None — so no additional share and no community income.')}</p>
+                </div>
+              );
               const umlageProModul = (p.umlageProModulEinmalig > 0 ? p.umlageProModulEinmalig : calcProjektUmlageProModul(p)) + gmP.kostenProModulBrutto;
               return (
-                <div className="mt-4 pt-4 border-t border-[#1C1C1A]/10">
+                <div className="mt-4 pt-4 border-t border-[#1C1C1A]/10 flex-1">
                   <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-2">{t('Gemeinschaftsmodule','Community modules')} ({gmP.gmCount})</p>
                   <div className="space-y-1 font-body text-xs text-[#6B6961]">
                     {gmP.items.map((it, i) => (
