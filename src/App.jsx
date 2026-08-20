@@ -2021,16 +2021,11 @@ function ProjectPickerStep({ selectedProject, onSelect, onBack }) {
                 <span className="opacity-50">·</span>
                 <span>{t('max.', 'max.')} <span className="num text-[#1C1C1A]">{p.maxModulAnzahl}</span> {t('möglich', 'possible')}</span>
               </div>
-              {/* Gemeinschaftsmodule: über den Kennzahlen, auf jeder Karte an derselben Stelle —
-                  ohne GM mit kurzem Hinweis statt Lücke */}
+              {/* Gemeinschaftsmodule: über den Kennzahlen. Projekte ohne GM lassen den Bereich LEER
+                  (Max, 20.08.) — durch die unten angedockten Kennzahlen entsteht der Leerraum von selbst. */}
               {(() => {
                 const gmP = calcGemeinschaftsmodule(p);
-                if (gmP.gmCount <= 0) return (
-                  <div className="pt-4 pb-4 border-t border-[#1C1C1A]/10">
-                    <p className="font-body text-[10px] uppercase tracking-wider text-[#6B6961] mb-2">{t('Gemeinschaftsmodule','Community modules')}</p>
-                    <p className="font-body text-xs text-[#6B6961]">{t('Keine — dadurch keine zusätzliche Umlage und keine Gemeinschafts-Einnahmen.', 'None — so no additional share and no community income.')}</p>
-                  </div>
-                );
+                if (gmP.gmCount <= 0) return null;
                 const umlageProModul = (p.umlageProModulEinmalig > 0 ? p.umlageProModulEinmalig : calcProjektUmlageProModul(p)) + gmP.kostenProModulBrutto;
                 return (
                   <div className="pt-4 pb-4 border-t border-[#1C1C1A]/10">
