@@ -2638,7 +2638,19 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
    STEP 1 — Modules mit Family-Cards + Variant-Picker + Add-Toggle
    ============================================================================ */
 
-function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
+// Unsichtbarer Platzhalter für einen Auswahl-Abschnitt: hält Höhe/Abstand, wenn eine
+// Nachbar-Kachel derselben Kategorie den Abschnitt hat — Trennlinien bleiben auf gleicher
+// Höhe, das Layout wirkt ruhig (Feedback Max 20.08.).
+function GhostSection({ label }) {
+  return (
+    <div className="invisible" aria-hidden="true">
+      <p className="font-body text-[10px] tracking-[0.15em] uppercase mb-1.5">{label}</p>
+      <div className="flex gap-1.5"><span className="inline-block px-3 py-1.5 font-body text-xs border">&nbsp;&nbsp;&nbsp;</span></div>
+    </div>
+  );
+}
+
+function VariantPicker({ products, selectedVariant, setSelectedVariant, reserve }) {
   const hasKueche = products.some(p => p.kueche);
   const moebliertVals = new Set(products.filter(p => typeof p.moebliert === 'boolean').map(p => p.moebliert));
   const hasMoebliert = moebliertVals.size > 1; // nur zeigen, wenn echte Wahl: möbliert UND unmöbliert vorhanden
@@ -2648,10 +2660,16 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
   const groessen = Array.from(new Set(products.filter(p => p.groesse).map(p => p.groesse))).sort((a,b)=>a-b);
   const showGroesse = hasGroesse && groessen.length > 1; // nur bei echter Wahl (analog Möblierung)
   const showKueche  = hasKueche && kuechen.length > 1;
-  if (!showGroesse && !showKueche && !hasMoebliert) return null; // sonst leerer Trenner ohne wählbare Optionen
+  // Platzhalter-Slots: Abschnitt existiert auf einer Nachbar-Kachel der Kategorie → Raum freihalten
+  const res = reserve || {};
+  const wantGroesse = showGroesse || !!res.groesse;
+  const wantKueche = showKueche || !!res.kueche;
+  const wantMoebliert = hasMoebliert || !!res.moebliert;
+  if (!wantGroesse && !wantKueche && !wantMoebliert) return null; // sonst leerer Trenner ohne wählbare Optionen
 
   return (
     <div className="mt-4 pt-4 border-t border-[#1C1C1A]/8 space-y-3">
+      {!showGroesse && wantGroesse && <GhostSection label={t('Größe', 'Size')} />}
       {showGroesse && (
         <div>
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Größe', 'Size')}</p>
@@ -2665,6 +2683,7 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
           </div>
         </div>
       )}
+      {!showKueche && wantKueche && <GhostSection label={t('Küche', 'Kitchen')} />}
       {showKueche && (
         <div>
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Küche', 'Kitchen')}</p>
@@ -2678,6 +2697,7 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant }) {
           </div>
         </div>
       )}
+      {!hasMoebliert && wantMoebliert && <GhostSection label={t('Möblierung', 'Furnishing')} />}
       {hasMoebliert && (
         <div>
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Möblierung', 'Furnishing')}</p>
@@ -2860,11 +2880,11 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
           </div>
         </div>
 
-        <div className="flex items-end justify-between gap-4 pt-4 mt-4 border-t border-[#1C1C1A]/8">
-          <div className="space-y-1 text-xs font-body">
+        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 pt-4 mt-4 border-t border-[#1C1C1A]/8">
+          <div className="space-y-1 text-xs font-body min-w-0">
             <p className="text-[11px] text-[#6B6961]">{t('Aktuelle Auswahl:', 'Current selection:')}</p>
             <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
-            <div className="flex gap-4 pt-0.5">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
               <div className="leading-tight">
                 <div className="num text-xs text-[#1C1C1A]">{flaechenFuerFassade(product, facadeM ?? 0.24).nuf} m²</div>
                 <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">NUF</div>
@@ -2889,7 +2909,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
             <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
             <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">{t('Modulpreis', 'Module price')}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             {count > 0 ? (
               <>
                 <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] flex items-center justify-center transition-colors">
@@ -2931,7 +2951,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 }
 
 // FamilyCard – Standard für alle anderen Familien
-function FamilyCard({ familyId, products: propProducts, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb, priceCtx, facadeM, usageToggle }) {
+function FamilyCard({ familyId, products: propProducts, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb, priceCtx, facadeM, usageToggle, sectionPresence }) {
   // Zwillings-Umschaltung: privat-Familie ↔ gewerblicher Zwilling (z. B. live ↔ liveb).
   // Nur aktiv, wenn der Aufrufer es erlaubt (im „beides"-Pfad). Schaltet die angezeigten Produkte um.
   const twinFamId = TWIN_FAMILY[familyId];
@@ -3051,8 +3071,21 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
           </div>
         )}
 
-        {/* Größe + Möblierung */}
-        <VariantPicker products={products} selectedVariant={variant} setSelectedVariant={setVar} />
+        {/* Platzhalter: eine Nachbar-Kachel der Kategorie hat den Nutzungs-Toggle → Raum freihalten,
+            damit Größe/Küche auf allen Kacheln auf gleicher Höhe beginnen (Feedback Max 20.08.) */}
+        {!canToggle && sectionPresence?.usage && (
+          <div className="mb-3 pb-3 invisible" aria-hidden="true">
+            <p className="font-body text-[10px] tracking-[0.15em] uppercase mb-2">{t('Nutzung & Finanzierung', 'Use & financing')}</p>
+            <div className="flex gap-1">
+              <span className="flex-1 py-2 px-2 font-body text-xs tracking-wide border text-center">&nbsp;</span>
+              <span className="flex-1 py-2 px-2 font-body text-xs tracking-wide border text-center">&nbsp;</span>
+            </div>
+            <p className="font-body text-[11px] mt-1.5 leading-snug">{t('Eigennutzung zum Wohnen. Brutto-Preis, KfW/GLS-Finanzierung.', 'Owner-occupied living. Gross price, KfW/GLS financing.')}</p>
+          </div>
+        )}
+
+        {/* Größe + Küche + Möblierung — fehlende Abschnitte halten den Raum der Nachbar-Kacheln frei */}
+        <VariantPicker products={products} selectedVariant={variant} setSelectedVariant={setVar} reserve={sectionPresence} />
 
         {familyTotal > count && (
           <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
@@ -3084,12 +3117,13 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
             </div>
           )}
 
-          {/* Preis + Hinzufügen — immer bündig ganz unten */}
-          <div className="flex items-end justify-between gap-4 pt-4 mt-3 border-t border-[#1C1C1A]/10">
-            <div className="space-y-1 text-xs font-body">
+          {/* Preis + Hinzufügen — immer bündig ganz unten; bei Platzmangel bricht der Button
+              in eine eigene Zeile um, statt rechts abgeschnitten zu werden (Bugfix 20.08.) */}
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 pt-4 mt-3 border-t border-[#1C1C1A]/10">
+            <div className="space-y-1 text-xs font-body min-w-0">
               <p className="text-[11px] text-[#6B6961]">{t('Aktuelle Auswahl:', 'Current selection:')}</p>
               <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
-              <div className="flex gap-4 pt-0.5">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
                 <div className="leading-tight">
                   <div className="num text-xs text-[#1C1C1A]">{flaechenFuerFassade(product, facadeM ?? 0.24).nuf} m²</div>
                   <div className="text-[10px] uppercase tracking-wider text-[#6B6961]">NUF</div>
@@ -3114,7 +3148,7 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
               <p className="font-display text-xl num text-[#1C1C1A]">{fmtEUR(effectivePrice)}</p>
               <p className="text-[10px] text-[#6B6961] tracking-wider uppercase opacity-60">{t('Modulpreis', 'Module price')}</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               {count > 0 ? (
                 <>
                   <button onClick={() => adjust(-1)} className="w-9 h-9 rounded-full border border-[#1C1C1A]/15 hover:border-[var(--brand-accent,#D2563E)] hover:bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_5%,transparent)] flex items-center justify-center transition-colors">
@@ -3215,6 +3249,29 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
   }, [filteredFamilyIds, productsByFamily]);
 
   const showAddInCat = showAddCombined && (catFilter === 'alle' || catFilter === 'ergaenzung');
+
+  // Nutzungs-Toggle einer Familie (identisch zur usageToggle-Prop unten) — für die Slot-Reservierung.
+  const usageToggleFor = (fid) => modulart === 'beides' && !!TWIN_FAMILY[fid] && TWIN_FAMILY[fid] !== fid
+    && !FAMILIES_PRIVAT.includes(TWIN_FAMILY[fid]) && PRODUCTS.gewerblich.some(p => p.family === TWIN_FAMILY[fid]);
+
+  // Je Kategorie: welche Auswahl-Abschnitte kommen auf MINDESTENS einer Kachel vor?
+  // Kacheln ohne den Abschnitt halten den Raum mit unsichtbaren Platzhaltern frei —
+  // Trennlinien und Typo-Ebenen liegen dann auf gleicher Höhe (Feedback Max 20.08.).
+  const presenceByCat = useMemo(() => {
+    const result = {};
+    for (const [cat, fids] of Object.entries(familiesByCat)) {
+      const pres = { usage: false, groesse: false, kueche: false, moebliert: false };
+      for (const fid of fids) {
+        if (usageToggleFor(fid)) pres.usage = true;
+        const ps = productsByFamily[fid] || [];
+        if (new Set(ps.filter(p => p.groesse).map(p => p.groesse)).size > 1) pres.groesse = true;
+        if (new Set(ps.filter(p => p.kueche).map(p => p.kueche)).size > 1) pres.kueche = true;
+        if (new Set(ps.filter(p => typeof p.moebliert === 'boolean').map(p => p.moebliert)).size > 1) pres.moebliert = true;
+      }
+      result[cat] = pres;
+    }
+    return result;
+  }, [familiesByCat, productsByFamily, modulart]);
 
   const hasProjectOrConfig = !!(project || gewerbConfig);
   // Fassadenstärke des Projekts (sonst Default 24 cm) — für fassadenabhängige BGF/Footprint auf den Karten
@@ -3326,7 +3383,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
                       variantState={variantState} setVariantState={setVariantState}
                       isPureGewerb={isPureGewerb} priceCtx={priceCtx} facadeM={projectFacadeM}
-                      usageToggle={modulart === 'beides' && !!TWIN_FAMILY[fid] && TWIN_FAMILY[fid] !== fid && !FAMILIES_PRIVAT.includes(TWIN_FAMILY[fid]) && PRODUCTS.gewerblich.some(p => p.family === TWIN_FAMILY[fid])} />
+                      usageToggle={usageToggleFor(fid)} sectionPresence={presenceByCat[catId]} />
                   ))}
                   {catId === 'ergaenzung' && showAddInCat && (
                     <AddFamilyCard selections={selections} setSelections={setSelections}
