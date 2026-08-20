@@ -4605,8 +4605,9 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
             )}
 
             {/* Projekt-Gemeinschaft (P4) — Privat verschlankt (Projekt-Gesamtwerte auf der Projektkarte); B2B unverändert */}
+            {/* Aufklapper starten global GESCHLOSSEN — Kunde klappt selbst auf (Max, 20.08.) */}
             {totals.gmCount > 0 && (totals.hatPrivatAnteil && !totals.hatGewerbModule ? (
-              <details className="pb-4 mb-4 border-b border-[#F8F5F0]/15 group" open>
+              <details className="pb-4 mb-4 border-b border-[#F8F5F0]/15 group">
                 <summary className="flex items-center justify-between cursor-pointer list-none mb-2">
                   <p className="font-body text-sm uppercase tracking-wider opacity-90 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" strokeWidth={2} /> {t('Umlagen & Vorteile','Charges & benefits')}</p>
                   <ChevronRight className="w-4 h-4 opacity-65 transition-transform group-open:rotate-90" strokeWidth={2} />
@@ -4647,7 +4648,7 @@ function FinancingStep({ totals, project, land, setLand, gewerbConfig, financing
                 <p className="font-body text-[10px] opacity-55 mt-2 italic">{t('Projekt-Gesamtkosten und -Einnahmen findest Du unter „Projekt-Beteiligung".','Total project costs and income are shown under “Project participation”.')}</p>
               </details>
             ) : (
-              <details className="pb-4 mb-4 border-b border-[#F8F5F0]/15 group" open>
+              <details className="pb-4 mb-4 border-b border-[#F8F5F0]/15 group">
                 <summary className="flex items-center justify-between cursor-pointer list-none mb-2">
                   <p className="font-body text-sm uppercase tracking-wider opacity-90 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" strokeWidth={2} /> {t('Gemeinschaftsmodule im Projekt','Community modules in the project')}</p>
                   <ChevronRight className="w-4 h-4 opacity-65 transition-transform group-open:rotate-90" strokeWidth={2} />
