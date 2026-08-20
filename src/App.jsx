@@ -2638,38 +2638,46 @@ function GewerbeConfigStep({ config, setConfig, onContinue, onBack }) {
    STEP 1 — Modules mit Family-Cards + Variant-Picker + Add-Toggle
    ============================================================================ */
 
-// Unsichtbarer Platzhalter für einen Auswahl-Abschnitt: hält Höhe/Abstand, wenn eine
-// Nachbar-Kachel derselben Kategorie den Abschnitt hat — Trennlinien bleiben auf gleicher
-// Höhe, das Layout wirkt ruhig (Feedback Max 20.08.).
-function GhostSection({ label }) {
+// Feste Einzel-Option: gleiche Optik wie ein gewählter Button, aber ohne Klick — es gibt nur diese Wahl.
+// Sorgt dafür, dass Größe/Küche/Möblierung auf allen Wohn-/Hotel-Kacheln als Block sichtbar sind
+// (Feedback Max 20.08.: einheitliche Struktur, vorausgewählt statt weggelassen).
+function SingleOption({ children, num }) {
   return (
-    <div className="invisible" aria-hidden="true">
-      <p className="font-body text-[10px] tracking-[0.15em] uppercase mb-1.5">{label}</p>
-      <div className="flex gap-1.5"><span className="inline-block px-3 py-1.5 font-body text-xs border">&nbsp;&nbsp;&nbsp;</span></div>
-    </div>
+    <span className={`inline-block px-3 py-1.5 font-body text-xs border border-[var(--brand-accent,#D2563E)] bg-[color-mix(in_srgb,var(--brand-accent,#D2563E)_10%,transparent)] text-[var(--brand-accent,#D2563E)] font-medium ${num ? 'num' : ''}`}>{children}</span>
   );
 }
 
-function VariantPicker({ products, selectedVariant, setSelectedVariant, reserve }) {
-  const hasKueche = products.some(p => p.kueche);
+function VariantPicker({ products, selectedVariant, setSelectedVariant, mandatory }) {
   const moebliertVals = new Set(products.filter(p => typeof p.moebliert === 'boolean').map(p => p.moebliert));
-  const hasMoebliert = moebliertVals.size > 1; // nur zeigen, wenn echte Wahl: möbliert UND unmöbliert vorhanden
-  const hasGroesse = products.some(p => p.groesse);
+  const hasMoebliert = moebliertVals.size > 1; // echte Wahl: möbliert UND unmöbliert vorhanden
 
   const kuechen = Array.from(new Set(products.filter(p => p.kueche).map(p => p.kueche)));
   const groessen = Array.from(new Set(products.filter(p => p.groesse).map(p => p.groesse))).sort((a,b)=>a-b);
-  const showGroesse = hasGroesse && groessen.length > 1; // nur bei echter Wahl (analog Möblierung)
-  const showKueche  = hasKueche && kuechen.length > 1;
-  // Platzhalter-Slots: Abschnitt existiert auf einer Nachbar-Kachel der Kategorie → Raum freihalten
-  const res = reserve || {};
-  const wantGroesse = showGroesse || !!res.groesse;
-  const wantKueche = showKueche || !!res.kueche;
-  const wantMoebliert = hasMoebliert || !!res.moebliert;
-  if (!wantGroesse && !wantKueche && !wantMoebliert) return null; // sonst leerer Trenner ohne wählbare Optionen
+  const showGroesse = groessen.length > 1; // echte Wahl
+  const showKueche  = kuechen.length > 1;
+  // mandatory (Wohn-/Hotel-Kacheln): Block Größe→Küche→Möblierung immer zeigen — ohne echte Wahl
+  // als feste, vorausgewählte Einzel-Option (Feedback Max 20.08.). Sonst nur echte Wahlen.
+  if (!mandatory && !showGroesse && !showKueche && !hasMoebliert) return null; // leerer Trenner ohne Optionen
+
+  // Feste Einzel-Werte: bevorzugt aus den Datenfeldern, sonst aus der Kürzel-Konvention
+  // (UK/LK/PK = U-/L-/Pantry-Küche, ",M)" = möbliert — z. B. "CoMod Studio (PK,D,M)").
+  const tokenSrc = products.map(p => p.kuerzel || '').join(' ');
+  const singleGroesse = groessen[0] ?? (products[0]?.nuf != null ? Math.round(products[0].nuf) : null);
+  const kuecheAusKuerzel = /\bUK\b/.test(tokenSrc) ? 'U-Küche' : /\bLK\b/.test(tokenSrc) ? 'L-Küche' : /\bPK\b/.test(tokenSrc) ? 'Pantry' : null;
+  const singleKueche = kuechen[0] || kuecheAusKuerzel || t('Ohne Küche', 'No kitchen');
+  const moebliertHint = /[(,]M[,)]/.test(tokenSrc) || /möbliert/i.test(products.map(p => p.beschr || '').join(' '));
+  const singleMoebliert = (moebliertVals.size === 1)
+    ? ([...moebliertVals][0] ? t('Möbliert', 'Furnished') : t('Ohne Möbel', 'Unfurnished'))
+    : (moebliertHint ? t('Möbliert', 'Furnished') : t('Ohne Möbel', 'Unfurnished'));
 
   return (
     <div className="mt-4 pt-4 border-t border-[#1C1C1A]/8 space-y-3">
-      {!showGroesse && wantGroesse && <GhostSection label={t('Größe', 'Size')} />}
+      {!showGroesse && mandatory && singleGroesse != null && (
+        <div>
+          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Größe', 'Size')}</p>
+          <SingleOption num>{singleGroesse} m²</SingleOption>
+        </div>
+      )}
       {showGroesse && (
         <div>
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Größe', 'Size')}</p>
@@ -2683,7 +2691,12 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant, reserve 
           </div>
         </div>
       )}
-      {!showKueche && wantKueche && <GhostSection label={t('Küche', 'Kitchen')} />}
+      {!showKueche && mandatory && (
+        <div>
+          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Küche', 'Kitchen')}</p>
+          <SingleOption>{singleKueche}</SingleOption>
+        </div>
+      )}
       {showKueche && (
         <div>
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Küche', 'Kitchen')}</p>
@@ -2697,7 +2710,12 @@ function VariantPicker({ products, selectedVariant, setSelectedVariant, reserve 
           </div>
         </div>
       )}
-      {!hasMoebliert && wantMoebliert && <GhostSection label={t('Möblierung', 'Furnishing')} />}
+      {!hasMoebliert && mandatory && (
+        <div>
+          <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Möblierung', 'Furnishing')}</p>
+          <SingleOption>{singleMoebliert}</SingleOption>
+        </div>
+      )}
       {hasMoebliert && (
         <div>
           <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-1.5">{t('Möblierung', 'Furnishing')}</p>
@@ -2882,8 +2900,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 
         <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 pt-4 mt-4 border-t border-[#1C1C1A]/8">
           <div className="space-y-1 text-xs font-body min-w-0">
-            <p className="text-[11px] text-[#6B6961]">{t('Aktuelle Auswahl:', 'Current selection:')}</p>
-            <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
+            {/* "Aktuelle Auswahl" + Modulname bewusst entfernt — Auswahl ist an den Optionen ablesbar */}
             <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
               <div className="leading-tight">
                 <div className="num text-xs text-[#1C1C1A]">{flaechenFuerFassade(product, facadeM ?? 0.24).nuf} m²</div>
@@ -2951,7 +2968,7 @@ function AddFamilyCard({ selections, setSelections, einmaligProModul, hasProject
 }
 
 // FamilyCard – Standard für alle anderen Familien
-function FamilyCard({ familyId, products: propProducts, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb, priceCtx, facadeM, usageToggle, sectionPresence }) {
+function FamilyCard({ familyId, products: propProducts, selections, setSelections, modes, setModes, einmaligProModul, hasProjectOrConfig, variantState, setVariantState, isPureGewerb, priceCtx, facadeM, usageToggle }) {
   // Zwillings-Umschaltung: privat-Familie ↔ gewerblicher Zwilling (z. B. live ↔ liveb).
   // Nur aktiv, wenn der Aufrufer es erlaubt (im „beides"-Pfad). Schaltet die angezeigten Produkte um.
   const twinFamId = TWIN_FAMILY[familyId];
@@ -3052,40 +3069,9 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
         <h4 className="font-display text-xl leading-tight mb-1">{fam.label}</h4>
         <p className="font-body text-xs text-[#6B6961] leading-snug mb-3 truncate">{familyDescEN(familyId, fam.desc) || product.beschr || fam.label}</p>
 
-        {canToggle && (
-          <div className="mb-3 pb-3 border-b border-[#1C1C1A]/8">
-            <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">{t('Nutzung & Finanzierung', 'Use & financing')}</p>
-            <div className="flex gap-1">
-              <button onClick={() => switchTwinUsage('p')}
-                className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${effUsage === 'p' ? 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-                <Home className="w-3 h-3" strokeWidth={2} /> {t('Privat genutzt', 'Private use')}
-              </button>
-              <button onClick={() => switchTwinUsage('g')}
-                className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${effUsage === 'g' ? 'bg-[#7B2D8E] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
-                <Briefcase className="w-3 h-3" strokeWidth={2} /> {t('Gewerblich genutzt', 'Commercial use')}
-              </button>
-            </div>
-            <p className="font-body text-[11px] text-[#6B6961] mt-1.5 leading-snug">
-              {effUsage === 'p' ? t('Eigennutzung zum Wohnen. Brutto-Preis, KfW/GLS-Finanzierung.', 'Owner-occupied living. Gross price, KfW/GLS financing.') : t('Z. B. Büro/Praxis für die Selbstständigkeit. Netto-Preis, Gewerbe-Finanzierung mit Steuervorteilen.', 'E.g. office/practice for self-employment. Net price, commercial financing with tax benefits.')}
-            </p>
-          </div>
-        )}
-
-        {/* Platzhalter: eine Nachbar-Kachel der Kategorie hat den Nutzungs-Toggle → Raum freihalten,
-            damit Größe/Küche auf allen Kacheln auf gleicher Höhe beginnen (Feedback Max 20.08.) */}
-        {!canToggle && sectionPresence?.usage && (
-          <div className="mb-3 pb-3 invisible" aria-hidden="true">
-            <p className="font-body text-[10px] tracking-[0.15em] uppercase mb-2">{t('Nutzung & Finanzierung', 'Use & financing')}</p>
-            <div className="flex gap-1">
-              <span className="flex-1 py-2 px-2 font-body text-xs tracking-wide border text-center">&nbsp;</span>
-              <span className="flex-1 py-2 px-2 font-body text-xs tracking-wide border text-center">&nbsp;</span>
-            </div>
-            <p className="font-body text-[11px] mt-1.5 leading-snug">{t('Eigennutzung zum Wohnen. Brutto-Preis, KfW/GLS-Finanzierung.', 'Owner-occupied living. Gross price, KfW/GLS financing.')}</p>
-          </div>
-        )}
-
-        {/* Größe + Küche + Möblierung — fehlende Abschnitte halten den Raum der Nachbar-Kacheln frei */}
-        <VariantPicker products={products} selectedVariant={variant} setSelectedVariant={setVar} reserve={sectionPresence} />
+        {/* Größe → Küche → Möblierung: bei Wohn-/Hotel-Kacheln obligatorisch (Einzel-Optionen fest
+            vorausgewählt), bei Freizeit & Gesundheit nur echte Wahlen (Feedback Max 20.08.) */}
+        <VariantPicker products={products} selectedVariant={variant} setSelectedVariant={setVar} mandatory={products[0]?.cat !== 'erlebnis'} />
 
         {familyTotal > count && (
           <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
@@ -3102,9 +3088,28 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
           </div>
         )}
 
-        {/* Unten angedockt: Nutzung + Mietindikation + Preis — Blöcke immer an gleicher Stelle */}
+        {/* Unten angedockt: Nutzungs-Toggles + Mietindikation + Preis — einheitlich über dem
+            Preis-Abschnitt platziert (Feedback Max 20.08., Punkt 1) */}
         <div className="mt-auto">
-          {/* Nutzung (gewerblich / privat) */}
+          {canToggle && (
+            <div className="mt-3 pt-3 border-t border-[#1C1C1A]/8">
+              <p className="font-body text-[10px] tracking-[0.15em] uppercase text-[#6B6961] mb-2">{t('Nutzung & Finanzierung', 'Use & financing')}</p>
+              <div className="flex gap-1">
+                <button onClick={() => switchTwinUsage('p')}
+                  className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${effUsage === 'p' ? 'bg-[var(--brand-accent,#D2563E)] text-[#F8F5F0]' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                  <Home className="w-3 h-3" strokeWidth={2} /> {t('Privat genutzt', 'Private use')}
+                </button>
+                <button onClick={() => switchTwinUsage('g')}
+                  className={`flex-1 py-2 px-2 font-body text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${effUsage === 'g' ? 'bg-[#7B2D8E] text-white' : 'border border-[#1C1C1A]/15 text-[#6B6961] hover:text-[#1C1C1A]'}`}>
+                  <Briefcase className="w-3 h-3" strokeWidth={2} /> {t('Gewerblich genutzt', 'Commercial use')}
+                </button>
+              </div>
+              <p className="font-body text-[11px] text-[#6B6961] mt-1.5 leading-snug">
+                {effUsage === 'p' ? t('Eigennutzung zum Wohnen. Brutto-Preis, KfW/GLS-Finanzierung.', 'Owner-occupied living. Gross price, KfW/GLS financing.') : t('Z. B. Büro/Praxis für die Selbstständigkeit. Netto-Preis, Gewerbe-Finanzierung mit Steuervorteilen.', 'E.g. office/practice for self-employment. Net price, commercial financing with tax benefits.')}
+              </p>
+            </div>
+          )}
+          {/* Nutzung (Eigennutzung / Vermietung) */}
           <AvailabilityToggle product={product} mode={mode} onChange={setMode} />
 
           {showsIncome && (
@@ -3121,8 +3126,8 @@ function FamilyCard({ familyId, products: propProducts, selections, setSelection
               in eine eigene Zeile um, statt rechts abgeschnitten zu werden (Bugfix 20.08.) */}
           <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 pt-4 mt-3 border-t border-[#1C1C1A]/10">
             <div className="space-y-1 text-xs font-body min-w-0">
-              <p className="text-[11px] text-[#6B6961]">{t('Aktuelle Auswahl:', 'Current selection:')}</p>
-              <p className="text-sm text-[#1C1C1A]">{getDisplayName(product)}</p>
+              {/* "Aktuelle Auswahl" + Modulname bewusst entfernt — die Auswahl ist an den markierten
+                  Optionen ablesbar (Feedback Max 20.08., Punkt 2) */}
               <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
                 <div className="leading-tight">
                   <div className="num text-xs text-[#1C1C1A]">{flaechenFuerFassade(product, facadeM ?? 0.24).nuf} m²</div>
@@ -3250,28 +3255,9 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
 
   const showAddInCat = showAddCombined && (catFilter === 'alle' || catFilter === 'ergaenzung');
 
-  // Nutzungs-Toggle einer Familie (identisch zur usageToggle-Prop unten) — für die Slot-Reservierung.
+  // Nutzungs-Toggle einer Familie (Privat/Gewerblich-Zwilling) — sitzt seit 20.08. unten auf der Kachel.
   const usageToggleFor = (fid) => modulart === 'beides' && !!TWIN_FAMILY[fid] && TWIN_FAMILY[fid] !== fid
     && !FAMILIES_PRIVAT.includes(TWIN_FAMILY[fid]) && PRODUCTS.gewerblich.some(p => p.family === TWIN_FAMILY[fid]);
-
-  // Je Kategorie: welche Auswahl-Abschnitte kommen auf MINDESTENS einer Kachel vor?
-  // Kacheln ohne den Abschnitt halten den Raum mit unsichtbaren Platzhaltern frei —
-  // Trennlinien und Typo-Ebenen liegen dann auf gleicher Höhe (Feedback Max 20.08.).
-  const presenceByCat = useMemo(() => {
-    const result = {};
-    for (const [cat, fids] of Object.entries(familiesByCat)) {
-      const pres = { usage: false, groesse: false, kueche: false, moebliert: false };
-      for (const fid of fids) {
-        if (usageToggleFor(fid)) pres.usage = true;
-        const ps = productsByFamily[fid] || [];
-        if (new Set(ps.filter(p => p.groesse).map(p => p.groesse)).size > 1) pres.groesse = true;
-        if (new Set(ps.filter(p => p.kueche).map(p => p.kueche)).size > 1) pres.kueche = true;
-        if (new Set(ps.filter(p => typeof p.moebliert === 'boolean').map(p => p.moebliert)).size > 1) pres.moebliert = true;
-      }
-      result[cat] = pres;
-    }
-    return result;
-  }, [familiesByCat, productsByFamily, modulart]);
 
   const hasProjectOrConfig = !!(project || gewerbConfig);
   // Fassadenstärke des Projekts (sonst Default 24 cm) — für fassadenabhängige BGF/Footprint auf den Karten
@@ -3383,7 +3369,7 @@ function ModulesStep({ customerType, modulart, project, gewerbConfig, selections
                       einmaligProModul={totals.einmaligProModul} hasProjectOrConfig={hasProjectOrConfig}
                       variantState={variantState} setVariantState={setVariantState}
                       isPureGewerb={isPureGewerb} priceCtx={priceCtx} facadeM={projectFacadeM}
-                      usageToggle={usageToggleFor(fid)} sectionPresence={presenceByCat[catId]} />
+                      usageToggle={usageToggleFor(fid)} />
                   ))}
                   {catId === 'ergaenzung' && showAddInCat && (
                     <AddFamilyCard selections={selections} setSelections={setSelections}
